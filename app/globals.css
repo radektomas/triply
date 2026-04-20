@@ -124,3 +124,45 @@ input[type="range"]::-moz-range-thumb {
     animation: none;
   }
 }
+
+/* Luggage tag swing */
+@keyframes swing {
+  0%, 100% { transform: rotate(-5deg); }
+  50%       { transform: rotate(5deg);  }
+}
+.animate-swing {
+  animation: swing 4.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+.group:hover .animate-swing {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-swing {
+    animation: none;
+    transform: rotate(-3deg);
+  }
+}
+
+/* Loading overlay */
+@keyframes fade-in-overlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in-overlay { animation: fade-in-overlay 300ms ease forwards; }
+
+/* Wizard step transitions */
+@keyframes slide-in-from-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slide-in-from-left {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in-right { animation: slide-in-from-right 200ms ease-out forwards; }
+.animate-slide-in-left { animation: slide-in-from-left 200ms ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-right, .animate-slide-in-left { animation: none; }
+}

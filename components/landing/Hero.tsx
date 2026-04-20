@@ -1,4 +1,6 @@
 import { GradientMesh } from "./GradientMesh";
+import { Wordmark } from "@/components/ui/Wordmark";
+import { TicketButton } from "@/components/ui/TicketButton";
 
 const TRUST_BADGES = [
   "✈️ Skyscanner",
@@ -13,9 +15,9 @@ export function Hero() {
       <GradientMesh />
 
       <div className="relative z-10 max-w-3xl mx-auto px-6 text-center">
-        {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-white/80 border border-border rounded-full px-4 py-1.5 text-xs font-semibold text-muted uppercase tracking-widest mb-8 backdrop-blur-sm">
-          ✨ AI-powered trip planning
+        {/* Wordmark */}
+        <div className="mt-8 mb-14 w-fit mx-auto">
+          <Wordmark size="md" />
         </div>
 
         {/* Headline */}
@@ -31,12 +33,9 @@ export function Hero() {
         </p>
 
         {/* CTA */}
-        <a
-          href="#planner"
-          className="inline-flex items-center gap-2 bg-accent text-white font-bold text-lg px-8 py-4 rounded-2xl hover:bg-accent-deep hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 shadow-lg shadow-accent/20"
-        >
+        <TicketButton href="#planner" size="lg" serial="BOARDING · 001">
           Start planning →
-        </a>
+        </TicketButton>
 
         {/* Trust badges */}
         <div className="mt-10 flex flex-wrap justify-center gap-4 md:gap-8 opacity-70 hover:opacity-100 transition-opacity duration-300">
