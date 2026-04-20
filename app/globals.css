@@ -2,7 +2,10 @@
 
 @theme {
   --color-accent: #FF6B47;
+  --color-accent-deep: #E8533A;
   --color-accent-light: #FFF0ED;
+  --color-peach: #FFB088;
+  --color-cream: #FFE4CC;
   --color-bg: #F8F7F5;
   --color-card: #FFFFFF;
   --color-muted: #6B7280;
@@ -13,6 +16,13 @@
 :root {
   --background: #F8F7F5;
   --foreground: #1A1A1A;
+  --accent-deep: #E8533A;
+  --peach: #FFB088;
+  --cream: #FFE4CC;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -55,6 +65,7 @@ input[type="range"]::-moz-range-thumb {
   border: none;
 }
 
+/* Loading animation */
 @keyframes pulse-slow {
   0%, 100% { transform: scale(1); opacity: 0.8; }
   50% { transform: scale(1.08); opacity: 1; }
@@ -73,3 +84,43 @@ input[type="range"]::-moz-range-thumb {
 .animate-bounce-1 { animation: bounce-stagger 1.2s ease-in-out infinite; animation-delay: 0s; }
 .animate-bounce-2 { animation: bounce-stagger 1.2s ease-in-out infinite; animation-delay: 0.15s; }
 .animate-bounce-3 { animation: bounce-stagger 1.2s ease-in-out infinite; animation-delay: 0.3s; }
+
+/* Month picker grid — explicit CSS to guarantee responsive columns */
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .month-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 768px) {
+  .month-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Gradient mesh animations */
+@keyframes mesh-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(10%, 8%) scale(1.1); }
+  66% { transform: translate(-5%, 12%) scale(0.95); }
+}
+@keyframes mesh-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-8%, 10%) scale(1.05); }
+  66% { transform: translate(12%, -6%) scale(1.1); }
+}
+@keyframes mesh-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(6%, -10%) scale(0.9); }
+  66% { transform: translate(-10%, 8%) scale(1.05); }
+}
+
+.animate-mesh-1 { animation: mesh-1 18s ease-in-out infinite; }
+.animate-mesh-2 { animation: mesh-2 22s ease-in-out infinite; }
+.animate-mesh-3 { animation: mesh-3 25s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-mesh-1, .animate-mesh-2, .animate-mesh-3 {
+    animation: none;
+  }
+}

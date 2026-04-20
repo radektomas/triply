@@ -23,6 +23,11 @@ const ORIGIN_CITIES = [
   "Prague", "Vienna", "Berlin", "Warsaw", "Budapest", "London", "Amsterdam",
 ];
 
+const pillBase =
+  "w-full py-3 px-4 rounded-xl text-base font-medium transition-all duration-150 cursor-pointer text-center";
+const pillSelected = "bg-accent text-white shadow-md scale-[1.03]";
+const pillIdle = "bg-gray-100 text-[#374151] hover:bg-gray-200";
+
 export function TripForm() {
   const router = useRouter();
   const [budget, setBudget] = useState(500);
@@ -40,37 +45,49 @@ export function TripForm() {
   }
 
   return (
-    <div className="bg-card rounded-2xl shadow-sm border border-border p-6 sm:p-8 w-full max-w-2xl mx-auto">
+    <div
+      className="bg-card rounded-3xl border border-accent/10 p-8 sm:p-10 md:p-14 w-full"
+      style={{
+        boxShadow:
+          "0 25px 60px rgba(255, 107, 71, 0.08), 0 4px 20px rgba(0, 0, 0, 0.06)",
+      }}
+    >
       {/* Budget Slider */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-3">
-          <label className="text-xs font-semibold uppercase tracking-widest text-muted">
-            Total Budget
-          </label>
+      <div className="mb-10">
+        <div className="flex justify-between items-start mb-1">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-widest text-muted">
+              Total Budget
+            </label>
+            <p className="text-xs text-muted/70 mt-0.5">All-in, per person</p>
+          </div>
           <span className="text-2xl font-bold text-accent">€{budget}</span>
         </div>
-        <input
-          type="range"
-          min={100}
-          max={1000}
-          step={50}
-          value={budget}
-          onChange={(e) => setBudget(Number(e.target.value))}
-          className="w-full"
-          aria-label="Budget in euros"
-        />
-        <div className="flex justify-between text-xs text-muted mt-2">
-          <span>€100</span>
-          <span>€1,000</span>
+        <div className="mt-3">
+          <input
+            type="range"
+            min={100}
+            max={1000}
+            step={50}
+            value={budget}
+            onChange={(e) => setBudget(Number(e.target.value))}
+            className="w-full"
+            aria-label="Budget in euros"
+          />
+          <div className="flex justify-between text-xs text-muted mt-2">
+            <span>€100</span>
+            <span>€1,000</span>
+          </div>
         </div>
       </div>
 
       {/* Month Picker */}
-      <div className="mb-8">
-        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+      <div className="mb-10">
+        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
           Travel Month
         </label>
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+        <p className="text-xs text-muted/70 mb-4">When do you want to go?</p>
+        <div className="month-grid">
           {MONTHS.map((m) => {
             const value = m.toLowerCase();
             const selected = month === value;
@@ -79,13 +96,9 @@ export function TripForm() {
                 key={m}
                 type="button"
                 onClick={() => setMonth(value)}
-                className={`py-2 px-1 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
-                  selected
-                    ? "bg-accent text-white shadow-sm scale-[1.03]"
-                    : "bg-[#F3F4F6] text-[#374151] hover:bg-accent-light hover:text-accent"
-                }`}
+                className={`${pillBase} ${selected ? pillSelected : pillIdle}`}
               >
-                {m.slice(0, 3)}
+                {m}
               </button>
             );
           })}
@@ -93,17 +106,18 @@ export function TripForm() {
       </div>
 
       {/* Nights Stepper */}
-      <div className="mb-8">
-        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+      <div className="mb-10">
+        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
           Number of Nights
         </label>
+        <p className="text-xs text-muted/70 mb-4">How long&apos;s the escape?</p>
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => setNights((n) => Math.max(1, n - 1))}
             disabled={nights === 1}
             aria-label="Decrease nights"
-            className="w-11 h-11 rounded-xl bg-[#F3F4F6] text-[#374151] text-xl font-bold hover:bg-accent-light hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            className="w-11 h-11 rounded-xl bg-gray-100 text-[#374151] text-xl font-bold hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             −
           </button>
@@ -115,7 +129,7 @@ export function TripForm() {
             onClick={() => setNights((n) => Math.min(7, n + 1))}
             disabled={nights === 7}
             aria-label="Increase nights"
-            className="w-11 h-11 rounded-xl bg-[#F3F4F6] text-[#374151] text-xl font-bold hover:bg-accent-light hover:text-accent disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            className="w-11 h-11 rounded-xl bg-gray-100 text-[#374151] text-xl font-bold hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             +
           </button>
@@ -126,10 +140,11 @@ export function TripForm() {
       </div>
 
       {/* Vibe Selector */}
-      <div className="mb-8">
-        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+      <div className="mb-10">
+        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
           Trip Vibe
         </label>
+        <p className="text-xs text-muted/70 mb-4">What are you into?</p>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
           {VIBES.map((v) => {
             const selected = vibe === v.value;
@@ -138,11 +153,7 @@ export function TripForm() {
                 key={v.value}
                 type="button"
                 onClick={() => setVibe(v.value)}
-                className={`py-2 px-1 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
-                  selected
-                    ? "bg-accent text-white shadow-sm scale-[1.03]"
-                    : "bg-[#F3F4F6] text-[#374151] hover:bg-accent-light hover:text-accent"
-                }`}
+                className={`${pillBase} ${selected ? pillSelected : pillIdle}`}
               >
                 {v.label}
               </button>
@@ -152,10 +163,11 @@ export function TripForm() {
       </div>
 
       {/* Origin City Selector */}
-      <div className="mb-8">
-        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+      <div className="mb-10">
+        <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
           Flying From
         </label>
+        <p className="text-xs text-muted/70 mb-4">Pick your home airport</p>
         <div className="grid grid-cols-4 gap-2">
           {ORIGIN_CITIES.map((city) => {
             const selected = originCity === city;
@@ -164,11 +176,7 @@ export function TripForm() {
                 key={city}
                 type="button"
                 onClick={() => setOriginCity(city)}
-                className={`py-2 px-1 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
-                  selected
-                    ? "bg-accent text-white shadow-sm scale-[1.03]"
-                    : "bg-[#F3F4F6] text-[#374151] hover:bg-accent-light hover:text-accent"
-                }`}
+                className={`${pillBase} ${selected ? pillSelected : pillIdle}`}
               >
                 {city}
               </button>
@@ -177,7 +185,11 @@ export function TripForm() {
         </div>
       </div>
 
-      <Button onClick={handleSubmit} disabled={loading} className="w-full text-lg py-4">
+      <Button
+        onClick={handleSubmit}
+        disabled={loading}
+        className="w-full sm:w-auto sm:min-w-[220px] sm:mx-auto sm:flex text-xl py-5"
+      >
         {loading ? "Finding your trip…" : "Find my trip →"}
       </Button>
     </div>

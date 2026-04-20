@@ -12,23 +12,28 @@ const PEXELS_API = "https://api.pexels.com/v1/search";
 
 /**
  * Fetches 5 photos for a city with Supabase caching (30-day TTL).
- * Falls back to empty array if API fails — component handles gracefully.
+ * Falls back to empty array if API fails or photo_cache table doesn't exist yet.
  */
 export async function getCityPhotos(name: string, country: string): Promise<CityPhoto[]> {
   const cacheKey = `${name}-${country}`.toLowerCase().replace(/\s+/g, "-");
 
-  const { data: cached } = await supabase
-    .from("photo_cache")
-    .select("photos, cached_at")
-    .eq("cache_key", cacheKey)
-    .single();
+  // Supabase cache check — silently skipped if table doesn't exist yet
+  try {
+    const { data: cached } = await supabase
+      .from("photo_cache")
+      .select("photos, cached_at")
+      .eq("cache_key", cacheKey)
+      .single();
 
-  if (cached) {
-    const age = Date.now() - new Date(cached.cached_at as string).getTime();
-    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    if (age < THIRTY_DAYS) {
-      return cached.photos as CityPhoto[];
+    if (cached) {
+      const age = Date.now() - new Date(cached.cached_at as string).getTime();
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      if (age < THIRTY_DAYS) {
+        return cached.photos as CityPhoto[];
+      }
     }
+  } catch {
+    // photo_cache table may not exist yet — fall through to Pexels fetch
   }
 
   const apiKey = process.env.PEXELS_API_KEY;
@@ -70,6 +75,7 @@ export async function getCityPhotos(name: string, country: string): Promise<City
     }));
 
     if (photos.length > 0) {
+      // Fire-and-forget cache write — ignore if table doesn't exist yet
       supabase
         .from("photo_cache")
         .upsert({

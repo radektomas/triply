@@ -1,16 +1,19 @@
-import { HeroSection } from "@/components/landing/HeroSection";
-import { TripForm } from "@/components/landing/TripForm";
+import { Suspense } from "react";
+import { Hero } from "@/components/landing/Hero";
+import { PlannerSection } from "@/components/landing/PlannerSection";
+import { ExampleDestinations } from "@/components/landing/ExampleDestinations";
+import { ExampleDestinationsSkeleton } from "@/components/landing/ExampleDestinationsSkeleton";
+import { Footer } from "@/components/landing/Footer";
 
 export default function HomePage() {
   return (
-    <main className="flex-1">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-20">
-        <HeroSection />
-        <TripForm />
-        <p className="text-center text-xs text-muted mt-8">
-          6 curated destinations · Real prices · Matched to your budget
-        </p>
-      </div>
-    </main>
+    <>
+      <Hero />
+      <PlannerSection />
+      <Suspense fallback={<ExampleDestinationsSkeleton />}>
+        <ExampleDestinations />
+      </Suspense>
+      <Footer />
+    </>
   );
 }
