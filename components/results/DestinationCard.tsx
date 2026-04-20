@@ -2,7 +2,7 @@ import Link from "next/link";
 import { VibeTag } from "@/components/ui/VibeTag";
 import { WeatherBadge } from "@/components/ui/WeatherBadge";
 import { getGradient } from "@/lib/utils/gradient";
-import { getCityPhoto } from "@/lib/utils/photo";
+import { getCityPhoto } from "@/lib/photos";
 import type { APIDestination } from "@/lib/types";
 
 interface Props {
@@ -26,10 +26,10 @@ const budgetFitLabel = {
   over: "Over budget",
 } as const;
 
-export function DestinationCard({ destination, month, nights, budget, vibe, originCity }: Props) {
+export async function DestinationCard({ destination, month, nights, budget, vibe, originCity }: Props) {
   const { estimates } = destination;
   const gradient = getGradient(destination.id);
-  const photoUrl = getCityPhoto(destination.name, destination.country);
+  const photoUrl = await getCityPhoto(destination.name, destination.country);
   const href = `/trip/${destination.id}?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
 
   return (
@@ -38,9 +38,9 @@ export function DestinationCard({ destination, month, nights, budget, vibe, orig
       <div
         className="h-44 relative flex items-end p-4 shrink-0"
         style={{
-          backgroundImage: `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%), url('${photoUrl}'), ${gradient}`,
-          backgroundSize: "100% 100%, cover, 100% 100%",
-          backgroundPosition: "center, center, center",
+          background: photoUrl
+            ? `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%), url('${photoUrl}') center/cover, ${gradient}`
+            : gradient,
         }}
       >
         <span
@@ -71,19 +71,16 @@ export function DestinationCard({ destination, month, nights, budget, vibe, orig
           {destination.tagline}
         </p>
 
-        {/* Vibe tags */}
         <div className="flex flex-wrap gap-1.5 mb-4">
           {destination.vibes.map((v) => (
             <VibeTag key={v} label={v} />
           ))}
         </div>
 
-        {/* Weather */}
         <div className="mb-4 pb-4 border-b border-border">
           <WeatherBadge weather={destination.weather} month={month} />
         </div>
 
-        {/* Quick estimates */}
         <div className="mb-4 flex-1 text-xs text-muted space-y-1">
           <p>
             <span className="font-medium text-[#374151]">Flights</span>{" "}
@@ -102,7 +99,6 @@ export function DestinationCard({ destination, month, nights, budget, vibe, orig
           </p>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
           <div>
             <p className="text-xs text-muted mb-0.5">Typical total</p>

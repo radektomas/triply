@@ -42,10 +42,27 @@ function buildCacheKey(input: TripInput): string {
 
 export async function getCachedTripByInput(input: TripInput): Promise<APITripResponse | null> {
   const cacheKey = buildCacheKey(input);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("trip_cache")
     .select("result")
     .eq("cache_key", cacheKey)
     .single();
-  return (data?.result as APITripResponse) ?? null;
+
+  if (error || !data?.result) return null;
+
+  // JSONB columns return a parsed object, but if inserted as a string they come back as-is
+  const raw: unknown = data.result;
+  try {
+    const parsed: APITripResponse =
+      typeof raw === "string" ? (JSON.parse(raw) as APITripResponse) : (raw as APITripResponse);
+
+    if (!Array.isArray(parsed?.destinations)) {
+      console.error("[getCachedTripByInput] Unexpected shape — missing destinations array:", parsed);
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.error("[getCachedTripByInput] Failed to parse result from Supabase:", err);
+    return null;
+  }
 }

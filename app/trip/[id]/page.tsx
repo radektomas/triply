@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cacheLife } from "next/cache";
 import { fetchTripSuggestions, getCachedTripByInput } from "@/lib/n8n";
-import { getGradient } from "@/lib/utils/gradient";
 import type { TripInput } from "@/lib/types";
 import { TripHero } from "@/components/trip/TripHero";
 import { EstimatesBreakdown } from "@/components/results/EstimatesBreakdown";
@@ -84,7 +83,6 @@ export default async function TripPage({
   );
   if (!destination) notFound();
 
-  const gradient = getGradient(id);
   const returnUrl = `/results?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
 
   return (
@@ -92,7 +90,6 @@ export default async function TripPage({
       <FadeIn>
         <TripHero
           destination={destination}
-          gradient={gradient}
           month={month}
           nights={nights}
           returnUrl={returnUrl}
