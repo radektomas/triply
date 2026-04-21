@@ -9,7 +9,7 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
     budget: Number(raw.budget),
     checkIn: String(raw.checkIn ?? "").trim(),
     checkOut: String(raw.checkOut ?? "").trim(),
-    travelers: Number(raw.travelers),
+    travelers: Math.max(1, Number(raw.travelers) || 1),
     vibe: String(raw.vibe).toLowerCase().trim(),
     originCity: String(raw.originCity).trim(),
   };

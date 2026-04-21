@@ -30,6 +30,49 @@ const ORIGIN_CITIES = [
   "Prague", "Vienna", "Berlin", "Warsaw", "Budapest", "London", "Amsterdam",
 ];
 
+const TRAVELER_PRESETS = [
+  {
+    label: "Solo",
+    count: 1,
+    emoji: "🧳",
+    flavor: "flexible, any vibe",
+    activeBg: "#0D7377",
+    activeText: "#ffffff",
+    hoverTint: "rgba(13, 115, 119, 0.08)",
+    accent: "#0D7377",
+  },
+  {
+    label: "Couple",
+    count: 2,
+    emoji: "💕",
+    flavor: "romantic spots",
+    activeBg: "#FF6B47",
+    activeText: "#ffffff",
+    hoverTint: "rgba(255, 107, 71, 0.08)",
+    accent: "#FF6B47",
+  },
+  {
+    label: "Family",
+    count: 4,
+    emoji: "👨‍👩‍👧",
+    flavor: "kid-friendly",
+    activeBg: "#F4A261",
+    activeText: "#ffffff",
+    hoverTint: "rgba(244, 162, 97, 0.1)",
+    accent: "#F4A261",
+  },
+  {
+    label: "Group",
+    count: 5,
+    emoji: "🎉",
+    flavor: "social, lively",
+    activeBg: "#8E7CC3",
+    activeText: "#ffffff",
+    hoverTint: "rgba(142, 124, 195, 0.1)",
+    accent: "#8E7CC3",
+  },
+];
+
 const STEP_LABELS = ["Budget", "When", "Vibe"];
 
 const pillBase =
@@ -317,32 +360,57 @@ export function TripForm() {
           {/* Step 1 — Budget */}
           {currentStep === 1 && (
             <div>
+              <div className="mb-8 text-center">
+                <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
+                  What&apos;s your budget?
+                </h2>
+                <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-[#FF6B47]/10 border border-[#FF6B47]/20">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#FF6B47]" />
+                  <span className="text-xs font-semibold text-[#FF6B47] uppercase tracking-wider">
+                    Per person
+                  </span>
+                </div>
+              </div>
+
               <div className="mb-10">
-                <div className="flex justify-between items-start mb-1">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-widest text-muted">
-                      Total Budget
-                    </label>
-                    <p className="text-xs text-muted/70 mt-0.5">All-in, per person</p>
-                  </div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-muted">
+                    All-in estimate
+                  </span>
                   <span className="text-2xl font-bold text-accent">€{budget}</span>
                 </div>
-                <div className="mt-3">
-                  <input
-                    type="range"
-                    min={100}
-                    max={1000}
-                    step={50}
-                    value={budget}
-                    onChange={(e) => setBudget(Number(e.target.value))}
-                    className="w-full"
-                    aria-label="Budget in euros"
-                  />
-                  <div className="flex justify-between text-xs text-muted mt-2">
-                    <span>€100</span>
-                    <span>€1,000</span>
-                  </div>
+                <input
+                  type="range"
+                  min={100}
+                  max={1000}
+                  step={50}
+                  value={budget}
+                  onChange={(e) => setBudget(Number(e.target.value))}
+                  className="w-full"
+                  aria-label="Budget in euros"
+                />
+                <div className="flex justify-between text-xs text-muted mt-2">
+                  <span>€100</span>
+                  <span>€1,000</span>
                 </div>
+
+                {budget > 0 && travelers > 1 && (
+                  <div className="mt-4 rounded-xl bg-[#1a1a1a]/5 p-3 flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wider text-[#1a1a1a]/60 font-semibold">
+                      Total for {travelers} travelers
+                    </span>
+                    <span className="text-lg font-bold text-[#1a1a1a]">
+                      €{budget * travelers}
+                    </span>
+                  </div>
+                )}
+                {budget > 0 && travelers === 1 && (
+                  <div className="mt-4 text-center">
+                    <span className="text-xs text-[#1a1a1a]/60">
+                      Solo traveler — total trip budget: €{budget}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end">
@@ -429,27 +497,65 @@ export function TripForm() {
               </div>
 
               <div className="mb-10">
-                <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
-                  Travelers
-                </label>
-                <p className="text-xs text-muted/70 mb-4">Who&apos;s going?</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {([
-                    { value: 1, label: "Solo" },
-                    { value: 2, label: "Couple" },
-                    { value: 4, label: "Family" },
-                    { value: 6, label: "Group" },
-                  ] as const).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setTravelers(opt.value)}
-                      className={`${pillBase} ${travelers === opt.value ? pillSelected : pillIdle}`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted">
+                    Travelers
+                  </p>
+                  <p className="text-xs text-muted/70">Affects recommendations</p>
                 </div>
+                <p className="text-xs text-muted/70 mb-4">Who&apos;s going?</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {TRAVELER_PRESETS.map((preset) => {
+                    const isActive = travelers === preset.count;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setTravelers(preset.count)}
+                        className={`
+                          relative overflow-hidden rounded-2xl py-4 px-4
+                          flex flex-col items-center justify-center gap-1
+                          transition-all duration-200 cursor-pointer
+                          ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
+                        `}
+                        style={{
+                          backgroundColor: isActive ? preset.activeBg : "#F5F5F5",
+                          color: isActive ? preset.activeText : "#1a1a1a",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) e.currentTarget.style.backgroundColor = preset.hoverTint;
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) e.currentTarget.style.backgroundColor = "#F5F5F5";
+                        }}
+                      >
+                        <span className="text-2xl leading-none">{preset.emoji}</span>
+                        <span className="text-base font-semibold">{preset.label}</span>
+                        <span className={`text-xs ${isActive ? "opacity-90" : "opacity-50"}`}>
+                          {preset.count === 1 ? "1 person" : `${preset.count}${preset.count === 5 ? "+" : ""} people`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {(() => {
+                  const active = TRAVELER_PRESETS.find((p) => p.count === travelers);
+                  if (!active) return null;
+                  return (
+                    <div className="mt-4 flex items-center gap-2">
+                      <span
+                        className="inline-block w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: active.accent }}
+                      />
+                      <span className="text-sm text-[#1a1a1a]/70">
+                        AI will suggest{" "}
+                        <span className="font-semibold" style={{ color: active.accent }}>
+                          {active.flavor}
+                        </span>
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="flex justify-between">

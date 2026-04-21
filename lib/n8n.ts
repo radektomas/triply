@@ -5,6 +5,7 @@
 
 import type { TripInput, APITripResponse } from "@/lib/types";
 import { computeNights, monthName, isoWeekKey } from "@/lib/dates";
+import { travelersLabel, travelersFlavor } from "@/lib/travelers";
 import { supabase } from "./supabase";
 
 export async function fetchTripSuggestions(input: TripInput): Promise<APITripResponse> {
@@ -20,8 +21,12 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...input,
+        budgetPerPerson: input.budget,
+        budgetTotal: input.budget * input.travelers,
         month: monthName(input.checkIn),
         nights: computeNights(input.checkIn, input.checkOut),
+        travelersLabel: travelersLabel(input.travelers),
+        travelersFlavor: travelersFlavor(input.travelers),
       }),
       signal: AbortSignal.timeout(60_000),
     });
