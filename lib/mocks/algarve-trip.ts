@@ -72,6 +72,64 @@ export const algarveMockTrip: TripDetail = {
     ],
   },
 
+  mustDo: [
+    {
+      rank: 1,
+      title: "Praia da Marinha",
+      category: "beach",
+      description:
+        "The Algarve's most iconic beach — dramatic double-arch cliffs frame crystalline water you can actually swim through. One of Europe's most photographed coastlines.",
+      location: { name: "Praia da Marinha, Lagoa", lat: 37.0839, lng: -8.4156 },
+      estimatedCost: "Free",
+      estimatedTime: "Half day",
+      tip: "Arrive before 9 am — by 10 the access path is queued and the cliff-side parking lot is full.",
+    },
+    {
+      rank: 2,
+      title: "Ponta da Piedade Sea Caves",
+      category: "activity",
+      description:
+        "A labyrinth of golden limestone arches, grottos, and hidden sea caves best explored from a small boat. The light in the caves at midday is something else.",
+      location: { name: "Ponta da Piedade, Lagos", lat: 37.0797, lng: -8.6686 },
+      estimatedCost: "€20–25",
+      estimatedTime: "1.5h",
+      tip: "Book directly with operators at the port — half the price of online platforms, same boats.",
+    },
+    {
+      rank: 3,
+      title: "Lagos Old Town",
+      category: "landmark",
+      description:
+        "Whitewashed walls, Moorish gates, and the best lunch strip in the Algarve. Mercado da Ribeira does grilled sardines that justify the whole trip.",
+      location: { name: "Lagos Old Town", lat: 37.1023, lng: -8.6745 },
+      estimatedCost: "Free + €12–18 lunch",
+      estimatedTime: "2–3h",
+      tip: "Avoid Rua das Portas de Portugal restaurants — walk two streets inland for half the price.",
+    },
+    {
+      rank: 4,
+      title: "Cabo de São Vicente",
+      category: "viewpoint",
+      description:
+        "The southwestern tip of continental Europe. 70-metre cliffs, relentless Atlantic wind, and the last lighthouse before open ocean. Unexpectedly moving.",
+      location: { name: "Cabo de São Vicente, Sagres", lat: 37.0222, lng: -8.9956 },
+      estimatedCost: "Free",
+      estimatedTime: "1–2h",
+      tip: "Combine with Sagres Fortress (€3) next door — bring a windbreaker even in July.",
+    },
+    {
+      rank: 5,
+      title: "Cataplana Dinner",
+      category: "restaurant",
+      description:
+        "The Algarve's signature copper-pot stew — clams, prawns, chorizo, fish, all cooked together at the table. Always ordered for two, always worth it.",
+      location: { name: "Faro Old Town", lat: 37.0194, lng: -7.9304 },
+      estimatedCost: "€18–28/person",
+      estimatedTime: "1.5–2h",
+      tip: "The vessel only comes in a size-for-two — if you're solo, order arroz de tamboril instead.",
+    },
+  ],
+
   itinerary: [
     {
       day: 1,

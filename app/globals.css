@@ -11,7 +11,6 @@
   --color-muted: #6B7280;
   --color-border: #E5E7EB;
   --font-sans: var(--font-inter), system-ui, sans-serif;
-  --font-serif: var(--font-playfair), Georgia, serif;
 }
 
 :root {
@@ -123,6 +122,105 @@ input[type="range"]::-moz-range-thumb {
     animation: none;
     transform: rotate(-3deg);
   }
+}
+
+/* ── Must-Do map markers ──────────────────────────────────────────────────── */
+.must-do-marker {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 2px solid #ff6b4a;
+  border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  box-shadow: 0 4px 12px rgba(13, 115, 119, 0.2);
+  cursor: pointer;
+  transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+}
+.must-do-marker:hover {
+  transform: rotate(-45deg) scale(1.08);
+  box-shadow: 0 6px 16px rgba(13, 115, 119, 0.3);
+}
+.must-do-marker.active {
+  background: #ff6b4a;
+  transform: rotate(-45deg) scale(1.12);
+  box-shadow: 0 6px 16px rgba(255, 107, 74, 0.4);
+}
+.must-do-marker-rank {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  background: #ff6b4a;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(45deg);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  line-height: 1;
+}
+.must-do-marker.active .must-do-marker-rank {
+  background: #fff;
+  color: #ff6b4a;
+}
+.must-do-marker-emoji {
+  font-size: 20px;
+  transform: rotate(45deg);
+  line-height: 1;
+  user-select: none;
+}
+
+/* ── Leaflet popup overrides ─────────────────────────────────────────────── */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(13, 115, 119, 0.15) !important;
+  padding: 0 !important;
+}
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+}
+.leaflet-popup-tip-container {
+  margin-top: -1px;
+}
+.leaflet-popup-tip {
+  background: #ffffff !important;
+  box-shadow: none !important;
+}
+.leaflet-popup-close-button {
+  display: none !important;
+}
+
+/* ── Leaflet zoom control ────────────────────────────────────────────────── */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(13, 115, 119, 0.12) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+}
+.leaflet-control-zoom a {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(8px);
+  color: #0d7377 !important;
+  border: none !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  transition: background 150ms;
+}
+.leaflet-control-zoom a:hover {
+  background: #ffffff !important;
+}
+.leaflet-control-zoom-in {
+  border-bottom: 1px solid rgba(13, 115, 119, 0.08) !important;
 }
 
 /* Loading overlay */

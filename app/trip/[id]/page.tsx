@@ -6,7 +6,7 @@ import type { TripInput } from "@/lib/types";
 import { getTripDetail } from "@/lib/data/getTripDetail";
 import { TripHero } from "@/components/trip/TripHero";
 import { BudgetBreakdown } from "@/components/trip/BudgetBreakdown";
-import { YourDays } from "@/components/trip/YourDays";
+import { MustDo } from "@/components/trip/MustDo";
 import { TipsList } from "@/components/trip/TipsList";
 import { TrustedSources } from "@/components/trip/TrustedSources";
 import { FadeIn } from "@/components/ui/FadeIn";
@@ -117,14 +117,9 @@ export default async function TripPage({
         </section>
       </FadeIn>
 
-      {/* Itinerary — wider column so 3 day cards fit side by side on desktop */}
+      {/* Must-Do — wider column for map + list side by side */}
       <FadeIn delay={0.26} className="max-w-4xl mx-auto px-4 sm:px-6 pt-12">
-        <YourDays
-          days={trip.itinerary}
-          nights={trip.nights}
-          destination={trip.destination}
-          month={trip.weather.month}
-        />
+        <MustDo items={trip.mustDo} destination={trip.destination} />
       </FadeIn>
 
       {/* Tips and sources — narrow column, only when Supabase data available */}

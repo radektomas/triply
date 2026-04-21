@@ -1,6 +1,6 @@
 import { cacheLife } from "next/cache";
 import { fetchTripSuggestions, getCachedTripByInput } from "@/lib/n8n";
-import { getPhotoByQuery } from "@/lib/photos";
+import { getCityCoords, spreadAroundCenter } from "@/lib/data/cityCoords";
 import type { APIDestination, TripInput } from "@/lib/types";
 import type {
   TripDetail,
@@ -8,6 +8,8 @@ import type {
   ItineraryDay,
   ItineraryActivity,
   BookingLink,
+  MustDoItem,
+  MustDoCategory,
 } from "@/lib/types/trip";
 
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_TRIP === "true";
@@ -24,8 +26,7 @@ export async function getTripDetail(
   if (USE_MOCK_DATA) {
     console.log("[getTripDetail] strategy: mock");
     const { algarveMockTrip } = await import("@/lib/mocks/algarve-trip");
-    const itinerary = await enrichWithPhotos(algarveMockTrip.itinerary, algarveMockTrip.destination);
-    return { ...algarveMockTrip, itinerary };
+    return algarveMockTrip;
   }
 
   // Prefer Supabase cache (same entry populated by results page)
@@ -34,8 +35,7 @@ export async function getTripDetail(
     const dest = cached.destinations.find((d) => d.id === id);
     if (dest) {
       console.log("[getTripDetail] strategy: supabase-hit");
-      const trip = adaptAPIDestination(dest, input);
-      return { ...trip, itinerary: await enrichWithPhotos(trip.itinerary, trip.destination) };
+      return adaptAPIDestination(dest, input);
     }
   }
 
@@ -46,72 +46,88 @@ export async function getTripDetail(
     console.log("[getTripDetail] strategy: n8n-no-match");
     return null;
   }
-  const trip = adaptAPIDestination(dest, input);
-  return { ...trip, itinerary: await enrichWithPhotos(trip.itinerary, trip.destination) };
-}
-
-// ─── Photo enrichment ────────────────────────────────────────────────────────
-
-function buildDayPhotoQuery(day: ItineraryDay, destination: string): string {
-  const locationName = day.activities[0]?.location?.name;
-  return locationName ? `${locationName} ${destination}` : `${destination} travel`;
-}
-
-async function enrichWithPhotos(
-  days: ItineraryDay[],
-  destination: string
-): Promise<ItineraryDay[]> {
-  return Promise.all(
-    days.map(async (day) => ({
-      ...day,
-      photo: await getPhotoByQuery(buildDayPhotoQuery(day, destination)),
-    }))
-  );
+  return adaptAPIDestination(dest, input);
 }
 
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
-function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
-  const e = dest.estimates;
-  const nights = input.nights;
+function buildBudget(e: APIDestination["estimates"], nights: number): TripDetail["budget"] {
+  const flightCost = e.flightRange?.typical ?? 0;
+  const hotelNightly = e.hotelPerNightRange?.typical ?? 0;
+  const hotelCost = hotelNightly * nights;
+  const foodDaily = e.foodPerDay?.budget ?? e.foodPerDay?.midRange ?? 0;
+  const foodCost = foodDaily * nights;
+  const activitiesDaily = e.activitiesPerDay?.budget ?? e.activitiesPerDay?.midRange ?? 0;
+  const activitiesCost = activitiesDaily * nights;
+  const transportDaily = e.localTransportPerDay ?? 0;
+  const transportCost = transportDaily * nights;
 
-  const breakdown: BudgetCategory[] = [
-    {
-      label: "Flights",
-      icon: "✈️",
-      amount: e.flightRange.typical,
-      perUnit: `€${e.flightRange.min}–€${e.flightRange.max} range`,
-      color: "#4A90E2",
+  const total =
+    e.totalEstimate?.typical ??
+    flightCost + hotelCost + foodCost + activitiesCost + transportCost;
+
+  return {
+    total,
+    range: {
+      min: e.totalEstimate?.min ?? total,
+      max: e.totalEstimate?.max ?? total,
     },
-    {
-      label: "Hotel",
-      icon: "🏨",
-      amount: e.hotelPerNightRange.typical * nights,
-      perUnit: `€${e.hotelPerNightRange.typical}/night × ${nights}`,
-      color: "#FF6B47",
-    },
-    {
-      label: "Food",
-      icon: "🍽️",
-      amount: e.foodPerDay.midRange * nights,
-      perUnit: `€${e.foodPerDay.midRange}/day`,
-      color: "#0D7377",
-    },
-    {
-      label: "Activities",
-      icon: "🎭",
-      amount: e.activitiesPerDay.midRange * nights,
-      perUnit: `€${e.activitiesPerDay.midRange}/day`,
-      color: "#F4A261",
-    },
-    {
-      label: "Transport",
-      icon: "🚌",
-      amount: e.localTransportPerDay * nights,
-      perUnit: `€${e.localTransportPerDay}/day`,
-      color: "#8E7CC3",
-    },
-  ];
+    perPerson: true,
+    travelers: 1,
+    breakdown: [
+      {
+        label: "Flights",
+        icon: "✈️",
+        amount: flightCost,
+        perUnit: e.flightRange
+          ? `€${e.flightRange.min}–€${e.flightRange.max} range`
+          : undefined,
+        color: "#4A90E2",
+        tips: ["Book 6–8 weeks ahead", "Tue/Wed departures save ~15%"],
+        typical: "Budget airline round-trip",
+      },
+      {
+        label: "Hotel",
+        icon: "🏨",
+        amount: hotelCost,
+        perUnit: `€${hotelNightly}/night × ${nights}`,
+        color: "#FF6B47",
+        tips: ["Compare Booking.com with direct rates", "15 min walk from center = 30% cheaper"],
+        typical: "3★ guesthouse or Airbnb",
+      },
+      {
+        label: "Food",
+        icon: "🍽️",
+        amount: foodCost,
+        perUnit: `€${foodDaily}/day × ${nights}`,
+        color: "#0D7377",
+        tips: ["Lunch menu of the day is €8–12", "Breakfast at local cafés, not hotels"],
+        typical: "Mix of local restaurants and one nice dinner",
+      },
+      {
+        label: "Activities",
+        icon: "🎭",
+        amount: activitiesCost,
+        perUnit: `€${activitiesDaily}/day × ${nights}`,
+        color: "#F4A261",
+        tips: ["Book tours a week ahead for best prices", "Free walking tours in most cities"],
+        typical: "2–3 paid activities, rest free",
+      },
+      {
+        label: "Transport",
+        icon: "🚌",
+        amount: transportCost,
+        perUnit: `€${transportDaily}/day × ${nights}`,
+        color: "#8E7CC3",
+        tips: ["Day pass if taking 3+ rides", "Walk when possible — you see more"],
+        typical: "Public transit + occasional taxi",
+      },
+    ],
+  };
+}
+
+function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
+  const nights = input.nights;
 
   const itinerary: ItineraryDay[] = dest.itinerary.map((day) => ({
     day: day.day,
@@ -147,13 +163,8 @@ function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail
       month: capitalizeFirst(input.month),
     },
     nights,
-    budget: {
-      total: e.totalEstimate.typical,
-      range: { min: e.totalEstimate.min, max: e.totalEstimate.max },
-      perPerson: true,
-      travelers: 1,
-      breakdown,
-    },
+    budget: buildBudget(dest.estimates, nights),
+    mustDo: deriveMustDo(dest, nights),
     itinerary,
     localWisdom: [],          // populated by n8n when ready
     goodToKnow: defaultGoodToKnow(dest.country),
@@ -166,6 +177,72 @@ function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail
     },
     photos: [],
   };
+}
+
+// ─── MustDo fallback derivation ──────────────────────────────────────────────
+
+const CATEGORY_KEYWORDS: Partial<Record<MustDoCategory, string[]>> = {
+  landmark: ["castle", "palace", "cathedral", "church", "tower", "bridge", "square", "basilica", "fort", "old town", "ruins"],
+  museum: ["museum", "gallery", "memorial", "exhibition"],
+  park: ["park", "garden", "forest", "nature", "botanical"],
+  restaurant: ["restaurant", "dinner", "lunch", "eat", "bistro", "taverna", "dining", "cataplana", "food"],
+  cafe: ["cafe", "coffee", "breakfast", "café"],
+  shopping: ["market", "shop", "boutique", "mall", "bazaar", "souk"],
+  nightlife: ["pub", "bar", "club", "nightlife", "ruin bar", "cocktail"],
+  beach: ["beach", "praia", "shore", "coast", "cove", "bay"],
+  viewpoint: ["viewpoint", "lookout", "vista", "panorama", "hill", "cape", "summit", "peak"],
+  activity: ["hiking", "tour", "boat", "bike", "zip", "kayak", "snorkel", "swim", "bath", "spa"],
+};
+
+function inferMustDoCategory(title: string): MustDoCategory {
+  const lower = title.toLowerCase();
+  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS) as [MustDoCategory, string[]][]) {
+    if (keywords.some((kw) => lower.includes(kw))) return cat;
+  }
+  return "activity";
+}
+
+function deriveMustDo(dest: APIDestination, nights: number): MustDoItem[] {
+  const activities: string[] = [];
+  for (const day of dest.itinerary) {
+    for (const act of day.activities) {
+      const clean = stripTimePrefix(act);
+      if (clean) activities.push(clean);
+    }
+  }
+
+  const unique = [...new Map(activities.map((a) => [a.toLowerCase(), a])).values()];
+  const picks = unique.slice(0, 5);
+
+  const FALLBACKS = [
+    "Explore the old town",
+    "Try local cuisine",
+    "Visit a local market",
+    "Walk the waterfront",
+    "Take a day trip nearby",
+  ];
+  while (picks.length < 5) {
+    picks.push(FALLBACKS[picks.length]);
+  }
+
+  const items: MustDoItem[] = picks.map((title, idx) => ({
+    rank: idx + 1,
+    title,
+    category: inferMustDoCategory(title),
+    description: `A top highlight of ${dest.name} — not to be missed on a ${nights}-night stay.`,
+  }));
+
+  // Spread around city center for items that have no real coords
+  const cityCenter = getCityCoords(dest.name);
+  if (cityCenter) {
+    const needCoords = items.filter((i) => !i.location);
+    const spread = spreadAroundCenter(cityCenter, needCoords.length);
+    needCoords.forEach((item, idx) => {
+      item.location = { name: dest.name, lat: spread[idx].lat, lng: spread[idx].lng };
+    });
+  }
+
+  return items;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

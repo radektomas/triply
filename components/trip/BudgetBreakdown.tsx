@@ -58,7 +58,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
     return () => document.removeEventListener("keydown", onKey);
   }, [active]);
 
-  const sum = breakdown.reduce((acc, c) => acc + c.amount, 0);
+  const sum = Math.max(breakdown.reduce((acc, c) => acc + (c.amount || 0), 0), 1);
 
   const ariaLabel = `Budget breakdown: ${breakdown
     .map((c) => `${c.label} €${c.amount}`)

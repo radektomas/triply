@@ -1,3 +1,30 @@
+export type MustDoCategory =
+  | "landmark"
+  | "restaurant"
+  | "museum"
+  | "park"
+  | "shopping"
+  | "nightlife"
+  | "beach"
+  | "cafe"
+  | "viewpoint"
+  | "activity";
+
+export type MustDoItem = {
+  rank: number;
+  title: string;
+  category: MustDoCategory;
+  description: string;
+  location?: {
+    name: string;
+    lat: number;
+    lng: number;
+  };
+  estimatedCost?: string;
+  estimatedTime?: string;
+  tip?: string;
+};
+
 export type TripDetail = {
   id: string;
   destination: string;       // "Algarve"
@@ -23,6 +50,7 @@ export type TripDetail = {
     breakdown: BudgetCategory[];
   };
 
+  mustDo: MustDoItem[];
   itinerary: ItineraryDay[];
   localWisdom: LocalTip[];
 
@@ -58,20 +86,11 @@ export type BudgetCategory = {
   typical?: string;          // "Budget airline round-trip"
 };
 
-export type DayPhoto = {
-  url: string;
-  urlLarge: string;
-  alt: string;
-  photographer: string;
-  photographerUrl: string;
-};
-
 export type ItineraryDay = {
   day: number;
   title: string;
   estimatedCost: number;
   activities: ItineraryActivity[];
-  photo?: DayPhoto | null;
 };
 
 export type ItineraryActivity = {
