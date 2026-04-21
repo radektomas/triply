@@ -34,8 +34,8 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
   return response.json() as Promise<APITripResponse>;
 }
 
-function buildCacheKey(input: TripInput): string {
-  return `${input.originCity}_${input.budget}_${input.month}_${input.nights}_${input.vibe}`
+export function buildCacheKey(input: TripInput): string {
+  return `${input.originCity}_${input.budget}_${input.month}_${input.nights}_${input.travelers}_${input.vibe}`
     .toLowerCase()
     .replace(/\s+/g, "_");
 }

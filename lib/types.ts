@@ -67,6 +67,7 @@ export interface TripInput {
   budget: number;
   month: string;
   nights: number;
+  travelers: number;
   vibe: string;
   originCity: string;
 }

@@ -89,6 +89,7 @@ export function TripForm() {
   const [budget, setBudget] = useState(500);
   const [month, setMonth] = useState("june");
   const [nights, setNights] = useState(4);
+  const [travelers, setTravelers] = useState(2);
 
   useEffect(() => {
     setMonth(MONTHS[(new Date().getMonth() + 2) % 12].toLowerCase());
@@ -97,9 +98,9 @@ export function TripForm() {
   const [originCity, setOriginCity] = useState("Prague");
   const [loading, setLoading] = useState(false);
 
-  const stateRef = useRef({ currentStep, budget, month, nights, vibe, originCity, loading });
+  const stateRef = useRef({ currentStep, budget, month, nights, travelers, vibe, originCity, loading });
   useEffect(() => {
-    stateRef.current = { currentStep, budget, month, nights, vibe, originCity, loading };
+    stateRef.current = { currentStep, budget, month, nights, travelers, vibe, originCity, loading };
   });
 
   // Reset loading when Activity hides this page (prevents overlay re-appearing on browser back)
@@ -117,18 +118,31 @@ export function TripForm() {
         setDirection("forward");
         setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
       } else {
-        submitTrip(s.budget, s.month, s.nights, s.vibe, s.originCity);
+        submitTrip(s.budget, s.month, s.nights, s.travelers, s.vibe, s.originCity);
       }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  function submitTrip(b: number, m: string, n: number, v: string, o: string) {
+  async function submitTrip(b: number, m: string, n: number, t: number, v: string, o: string) {
     setLoading(true);
-    router.push(
-      `/results?budget=${b}&month=${m}&nights=${n}&vibe=${v}&originCity=${encodeURIComponent(o)}`
-    );
+    try {
+      const res = await fetch("/api/trips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budget: b, month: m, nights: n, travelers: t, vibe: v, originCity: o }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? "Failed to create trip");
+      }
+      const { tripId } = await res.json() as { tripId: string };
+      router.push(`/trip/${tripId}`);
+    } catch (err) {
+      console.error("[TripForm] submit error:", err);
+      setLoading(false);
+    }
   }
 
   function handleNext() {
@@ -259,6 +273,30 @@ export function TripForm() {
               </div>
             </div>
 
+            <div className="mb-10">
+              <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
+                Travelers
+              </label>
+              <p className="text-xs text-muted/70 mb-4">Who&apos;s going?</p>
+              <div className="grid grid-cols-4 gap-2">
+                {([
+                  { value: 1, label: "Solo" },
+                  { value: 2, label: "Couple" },
+                  { value: 4, label: "Family" },
+                  { value: 6, label: "Group" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTravelers(opt.value)}
+                    className={`${pillBase} ${travelers === opt.value ? pillSelected : pillIdle}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex justify-between">
               <button
                 type="button"
@@ -332,14 +370,14 @@ export function TripForm() {
               <div className="flex flex-col sm:flex-row gap-2 items-center">
                 <button
                   type="button"
-                  onClick={() => submitTrip(budget, month, nights, "beach", "Prague")}
+                  onClick={() => submitTrip(budget, month, nights, 2, "beach", "Prague")}
                   disabled={loading}
                   className="text-sm text-muted hover:text-[#374151] transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Skip & find my trip →
                 </button>
                 <TagButton
-                  onClick={() => submitTrip(budget, month, nights, vibe, originCity)}
+                  onClick={() => submitTrip(budget, month, nights, travelers, vibe, originCity)}
                   disabled={loading}
                   size="md"
                 >

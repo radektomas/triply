@@ -12,6 +12,7 @@ interface Props {
   budget: number;
   vibe: string;
   originCity: string;
+  href?: string;
 }
 
 const budgetFitStyle = {
@@ -26,11 +27,11 @@ const budgetFitLabel = {
   over: "Over budget",
 } as const;
 
-export async function DestinationCard({ destination, month, nights, budget, vibe, originCity }: Props) {
+export async function DestinationCard({ destination, month, nights, budget, vibe, originCity, href: hrefOverride }: Props) {
   const { estimates } = destination;
   const gradient = getGradient(destination.id);
   const photoUrl = await getCityPhoto(destination.name, destination.country);
-  const href = `/trip/${destination.id}?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
+  const href = hrefOverride ?? `/trip/${destination.id}?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
 
   return (
     <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all duration-200 flex flex-col">
@@ -111,6 +112,7 @@ export async function DestinationCard({ destination, month, nights, budget, vibe
           </div>
           <Link
             href={href}
+            prefetch
             className="bg-accent text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:brightness-110 active:scale-95 transition-all"
           >
             See full plan →

@@ -1,5 +1,3 @@
-import { cacheLife } from "next/cache";
-import { fetchTripSuggestions, getCachedTripByInput } from "@/lib/n8n";
 import { getCityCoords, spreadAroundCenter } from "@/lib/data/cityCoords";
 import type { APIDestination, TripInput } from "@/lib/types";
 import type {
@@ -12,46 +10,9 @@ import type {
   MustDoCategory,
 } from "@/lib/types/trip";
 
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_TRIP === "true";
-
-export async function getTripDetail(
-  id: string,
-  input: TripInput
-): Promise<TripDetail | null> {
-  "use cache";
-  cacheLife("hours");
-
-  // DEBUG: console.log("[getTripDetail] called — id:", id, "USE_MOCK_DATA:", USE_MOCK_DATA);
-
-  if (USE_MOCK_DATA) {
-    console.log("[getTripDetail] strategy: mock");
-    const { algarveMockTrip } = await import("@/lib/mocks/algarve-trip");
-    return algarveMockTrip;
-  }
-
-  // Prefer Supabase cache (same entry populated by results page)
-  const cached = await getCachedTripByInput(input);
-  if (cached) {
-    const dest = cached.destinations.find((d) => d.id === id);
-    if (dest) {
-      console.log("[getTripDetail] strategy: supabase-hit");
-      return adaptAPIDestination(dest, input);
-    }
-  }
-
-  console.log("[getTripDetail] strategy: supabase-miss→n8n");
-  const fresh = await fetchTripSuggestions(input);
-  const dest = fresh.destinations.find((d) => d.id === id);
-  if (!dest) {
-    console.log("[getTripDetail] strategy: n8n-no-match");
-    return null;
-  }
-  return adaptAPIDestination(dest, input);
-}
-
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
-function buildBudget(e: APIDestination["estimates"], nights: number): TripDetail["budget"] {
+function buildBudget(e: APIDestination["estimates"], nights: number, travelers: number): TripDetail["budget"] {
   const flightCost = e.flightRange?.typical ?? 0;
   const hotelNightly = e.hotelPerNightRange?.typical ?? 0;
   const hotelCost = hotelNightly * nights;
@@ -73,7 +34,7 @@ function buildBudget(e: APIDestination["estimates"], nights: number): TripDetail
       max: e.totalEstimate?.max ?? total,
     },
     perPerson: true,
-    travelers: 1,
+    travelers,
     breakdown: [
       {
         label: "Flights",
@@ -126,7 +87,7 @@ function buildBudget(e: APIDestination["estimates"], nights: number): TripDetail
   };
 }
 
-function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
+export function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
   const nights = input.nights;
 
   const itinerary: ItineraryDay[] = dest.itinerary.map((day) => ({
@@ -163,7 +124,7 @@ function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail
       month: capitalizeFirst(input.month),
     },
     nights,
-    budget: buildBudget(dest.estimates, nights),
+    budget: buildBudget(dest.estimates, nights, input.travelers),
     mustDo: deriveMustDo(dest, nights),
     itinerary,
     localWisdom: [],          // populated by n8n when ready
