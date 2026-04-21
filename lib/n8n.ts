@@ -18,7 +18,7 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(60_000),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Network error";
