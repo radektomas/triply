@@ -4,6 +4,7 @@ import { BudgetBreakdown } from "./BudgetBreakdown";
 import { MustDo } from "./MustDo";
 import { TipsList } from "./TipsList";
 import { TrustedSources } from "./TrustedSources";
+import { GradientMesh } from "@/components/landing/GradientMesh";
 import type { TripDetail } from "@/lib/types/trip";
 import type { APIDestination } from "@/lib/types";
 
@@ -17,6 +18,8 @@ export function TripDetailView({ detail, dest, tripId }: Props) {
   const returnUrl = `/trip/${tripId}`;
 
   return (
+    <>
+    <GradientMesh variant="fixed" />
     <main className="flex-1 pb-16">
       <FadeIn>
         <TripHero trip={detail} returnUrl={returnUrl} />
@@ -55,5 +58,6 @@ export function TripDetailView({ detail, dest, tripId }: Props) {
         )}
       </FadeIn>
     </main>
+    </>
   );
 }

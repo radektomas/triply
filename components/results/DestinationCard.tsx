@@ -175,29 +175,25 @@ export async function DestinationCard({
           </p>
         </div>
 
-        {/* Fix 3 — total as hero element */}
         <div className="pt-4 border-t border-slate-200 mt-4">
           <p className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase mb-1">
             Per-person total
           </p>
-          {/* Fix 4 — deep coral CTA, stacks full-width on mobile */}
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-            <div>
-              <p className="text-4xl font-bold text-slate-900 leading-none">
-                €{estimates.totalEstimate.typical}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                €{estimates.totalEstimate.min}–€{estimates.totalEstimate.max}
-              </p>
-            </div>
-            <Link
-              href={href}
-              prefetch
-              className="bg-orange-700 hover:bg-orange-800 text-white font-semibold px-5 py-2.5 rounded-full text-sm shadow-sm hover:shadow-md transition-all text-center whitespace-nowrap"
-            >
-              See full plan →
-            </Link>
+          <div>
+            <p className="text-4xl font-bold text-slate-900 leading-none">
+              €{estimates.totalEstimate.typical}
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              €{estimates.totalEstimate.min}–€{estimates.totalEstimate.max}
+            </p>
           </div>
+          <Link
+            href={href}
+            prefetch
+            className="mt-4 block w-full bg-orange-700 hover:bg-orange-800 text-white font-semibold px-5 py-3 rounded-full text-sm shadow-sm hover:shadow-md transition-all text-center"
+          >
+            See full plan →
+          </Link>
         </div>
       </div>
     </div>

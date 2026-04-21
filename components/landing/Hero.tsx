@@ -28,8 +28,7 @@ export function Hero() {
 
         {/* Subheadline */}
         <p className="text-lg text-muted max-w-2xl mx-auto leading-relaxed mb-10">
-          Tell me your budget and when you want to travel. I&apos;ll find 3 destinations
-          that match — with real flight prices, hotel estimates, and day-by-day plans.
+          Give me a budget. I&apos;ll find 3 trips that actually fit. Flights, hotels, vibes.
         </p>
 
         {/* CTA */}
@@ -38,13 +37,15 @@ export function Hero() {
         </TicketButton>
 
         {/* Trust badges */}
-        <div className="mt-10 flex flex-wrap justify-center gap-4 md:gap-8 opacity-70 hover:opacity-100 transition-opacity duration-300">
-          <p className="w-full text-xs text-muted mb-1">Powered by</p>
-          {TRUST_BADGES.map((badge) => (
-            <span key={badge} className="text-sm text-muted font-medium">
-              {badge}
-            </span>
-          ))}
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <p className="text-xs uppercase tracking-widest text-muted font-medium">Book with the names you know</p>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            {TRUST_BADGES.map((badge) => (
+              <span key={badge} className="text-sm text-slate-700 font-medium">
+                {badge}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </section>

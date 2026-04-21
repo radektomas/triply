@@ -1,8 +1,18 @@
 "use client";
 
-export function GradientMesh() {
+type Variant = "contained" | "fixed" | "absolute-tall";
+
+const wrapperClass: Record<Variant, string> = {
+  contained: "absolute inset-0 overflow-hidden -z-10",
+  fixed: "fixed inset-0 overflow-hidden -z-10 pointer-events-none",
+  "absolute-tall": "absolute inset-0 overflow-hidden -z-10",
+};
+
+export function GradientMesh({ variant = "contained" }: { variant?: Variant }) {
+  const isTall = variant === "absolute-tall";
+
   return (
-    <div className="absolute inset-0 overflow-hidden -z-10">
+    <div className={wrapperClass[variant]}>
       <div className="absolute inset-0 bg-cream" />
 
       <div
@@ -14,9 +24,19 @@ export function GradientMesh() {
         style={{ background: "radial-gradient(circle, #FFB088 0%, transparent 70%)" }}
       />
       <div
-        className="absolute bottom-[-10%] left-[30%] w-[50%] h-[50%] rounded-full opacity-50 blur-3xl animate-mesh-3"
+        className={`absolute rounded-full blur-3xl animate-mesh-3 ${
+          isTall
+            ? "bottom-[20%] left-[20%] w-[55%] h-[55%] opacity-40"
+            : "bottom-[-10%] left-[30%] w-[50%] h-[50%] opacity-50"
+        }`}
         style={{ background: "radial-gradient(circle, #FF8E5E 0%, transparent 70%)" }}
       />
+      {isTall && (
+        <div
+          className="absolute bottom-[-5%] right-[10%] w-[45%] h-[45%] rounded-full opacity-40 blur-3xl animate-mesh-2"
+          style={{ background: "radial-gradient(circle, #FFB088 0%, transparent 70%)" }}
+        />
+      )}
 
       <div
         className="absolute inset-0 opacity-[0.015] mix-blend-multiply"
