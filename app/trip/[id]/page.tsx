@@ -6,7 +6,7 @@ import type { TripInput } from "@/lib/types";
 import { getTripDetail } from "@/lib/data/getTripDetail";
 import { TripHero } from "@/components/trip/TripHero";
 import { BudgetBreakdown } from "@/components/trip/BudgetBreakdown";
-import { ItinerarySection } from "@/components/trip/ItinerarySection";
+import { YourDays } from "@/components/trip/YourDays";
 import { TipsList } from "@/components/trip/TipsList";
 import { TrustedSources } from "@/components/trip/TrustedSources";
 import { FadeIn } from "@/components/ui/FadeIn";
@@ -98,19 +98,15 @@ export default async function TripPage({
   const returnUrl = `/results?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
 
   return (
-    <main className="flex-1">
+    <main className="flex-1 pb-16">
       <FadeIn>
-        <TripHero
-          trip={trip}
-          returnUrl={returnUrl}
-        />
+        <TripHero trip={trip} returnUrl={returnUrl} />
       </FadeIn>
 
-      <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+      {/* Budget — narrow column */}
+      <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 pt-10">
         <section>
-          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">
-            Budget Breakdown
-          </h2>
+          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Budget Breakdown</h2>
           <div className="bg-white rounded-2xl border border-border p-6 sm:p-10 shadow-sm">
             <BudgetBreakdown
               total={trip.budget.total}
@@ -119,26 +115,36 @@ export default async function TripPage({
             />
           </div>
         </section>
-
-        {destination && (
-          <>
-            <ItinerarySection days={destination.itinerary} nights={nights} />
-            <TipsList tips={destination.tips} />
-            <TrustedSources sources={destination.trustedSources} />
-
-            {(destination.confidence === "low" || destination.confidence === "medium") && (
-              <div className="text-sm text-muted pt-2 border-t border-border">
-                {destination.confidence === "low" && (
-                  <p className="mb-1 font-medium text-[#374151]">
-                    ⓘ Low confidence — AI had limited data for this destination. Verify details independently.
-                  </p>
-                )}
-                <p className="italic">{destination.disclaimer}</p>
-              </div>
-            )}
-          </>
-        )}
       </FadeIn>
+
+      {/* Itinerary — wider column so 3 day cards fit side by side on desktop */}
+      <FadeIn delay={0.26} className="max-w-4xl mx-auto px-4 sm:px-6 pt-12">
+        <YourDays
+          days={trip.itinerary}
+          nights={trip.nights}
+          destination={trip.destination}
+          month={trip.weather.month}
+        />
+      </FadeIn>
+
+      {/* Tips and sources — narrow column, only when Supabase data available */}
+      {destination && (
+        <FadeIn delay={0.34} className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 space-y-12">
+          <TipsList tips={destination.tips} />
+          <TrustedSources sources={destination.trustedSources} />
+
+          {(destination.confidence === "low" || destination.confidence === "medium") && (
+            <div className="text-sm text-muted pt-2 border-t border-border">
+              {destination.confidence === "low" && (
+                <p className="mb-1 font-medium text-[#374151]">
+                  ⓘ Low confidence — AI had limited data for this destination. Verify details independently.
+                </p>
+              )}
+              <p className="italic">{destination.disclaimer}</p>
+            </div>
+          )}
+        </FadeIn>
+      )}
     </main>
   );
 }
