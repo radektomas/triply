@@ -142,7 +142,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
       </div>
 
       {/* Legend row */}
-      <div className="flex flex-wrap gap-x-5 gap-y-2 pt-1">
+      <div className="flex flex-wrap gap-x-1 gap-y-1 pt-1">
         {breakdown.map((cat) => {
           const pct = Math.round((cat.amount / sum) * 100);
           const isActive = active === cat.label;
@@ -153,10 +153,11 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
               onClick={() => setActive((a) => (a === cat.label ? null : cat.label))}
               aria-expanded={isActive}
               aria-label={`${cat.label} — €${cat.amount}, ${pct}% of total`}
-              className="flex items-center gap-2 min-h-[44px] rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47] focus-visible:ring-offset-1"
+              className="flex items-center gap-2 min-h-[44px] px-2 py-1.5 rounded-lg transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47]/50 focus-visible:ring-offset-1 hover:bg-[rgba(13,115,119,0.04)]"
               style={{
                 opacity: active && !isActive ? 0.5 : 1,
-                transition: "opacity 200ms",
+                transition: "opacity 200ms, background-color 150ms",
+                backgroundColor: isActive ? "rgba(13,115,119,0.04)" : undefined,
               }}
             >
               <span
@@ -171,6 +172,24 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
                   €{cat.amount} · {pct}%
                 </span>
               </span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#0D7377"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="flex-shrink-0 ml-0.5 transition-transform duration-200"
+                style={{
+                  opacity: isActive ? 0.7 : 0.4,
+                  transform: isActive ? "rotate(90deg)" : "rotate(0deg)",
+                }}
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
             </button>
           );
         })}
