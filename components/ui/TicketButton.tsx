@@ -13,8 +13,8 @@ interface Props {
 }
 
 const sizes = {
-  md: "px-10 py-5 text-lg",
-  lg: "px-14 py-7 text-xl md:text-2xl",
+  md: "px-10 py-5 text-lg min-w-[280px]",
+  lg: "px-14 py-7 text-xl md:text-2xl min-w-[320px] md:min-w-[360px]",
 };
 
 const DESTINATIONS = ["LIS", "BCN", "ROM", "AMS", "IST", "ATH"];
@@ -58,9 +58,9 @@ function RotatingDestination() {
   }, [displayed, phase, index]);
 
   return (
-    <span className="inline-flex items-baseline font-mono text-[11px] tracking-[0.15em] text-white/70 not-italic">
+    <span className="inline-flex items-baseline font-mono text-[11px] tracking-[0.15em] text-white/70 not-italic w-[72px] justify-start">
       <span>PRG ✈ </span>
-      <span className="inline-block min-w-[2.4em] text-white">{displayed}</span>
+      <span className="inline-block w-[26px] text-white tabular-nums text-left">{displayed}</span>
       <span className="ml-0.5 inline-block w-[1px] self-stretch bg-white/70 animate-cursor-blink" aria-hidden="true" />
     </span>
   );
