@@ -1,4 +1,5 @@
 import { getCityCoords, spreadAroundCenter } from "@/lib/data/cityCoords";
+import { computeNights, monthName } from "@/lib/dates";
 import type { APIDestination, TripInput } from "@/lib/types";
 import type {
   TripDetail,
@@ -88,7 +89,7 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
 }
 
 export function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
-  const nights = input.nights;
+  const nights = computeNights(input.checkIn, input.checkOut);
 
   const itinerary: ItineraryDay[] = dest.itinerary.map((day) => ({
     day: day.day,
@@ -121,9 +122,11 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
       sunHours: dest.weather.sunshineHours,
       seaTemperature: dest.weather.seaTemp ?? 18,
       precipitation: adaptRain(dest.weather.rain),
-      month: capitalizeFirst(input.month),
+      month: capitalizeFirst(monthName(input.checkIn)),
     },
     nights,
+    checkIn: input.checkIn,
+    checkOut: input.checkOut,
     budget: buildBudget(dest.estimates, nights, input.travelers),
     mustDo: deriveMustDo(dest, nights),
     itinerary,

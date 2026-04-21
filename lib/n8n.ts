@@ -4,6 +4,7 @@
 // Options: admin route to clear by cacheKey, or auto-expire on low confidence.
 
 import type { TripInput, APITripResponse } from "@/lib/types";
+import { computeNights, monthName, isoWeekKey } from "@/lib/dates";
 import { supabase } from "./supabase";
 
 export async function fetchTripSuggestions(input: TripInput): Promise<APITripResponse> {
@@ -17,7 +18,11 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
     response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        ...input,
+        month: monthName(input.checkIn),
+        nights: computeNights(input.checkIn, input.checkOut),
+      }),
       signal: AbortSignal.timeout(60_000),
     });
   } catch (err) {
@@ -35,7 +40,9 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
 }
 
 export function buildCacheKey(input: TripInput): string {
-  return `${input.originCity}_${input.budget}_${input.month}_${input.nights}_${input.travelers}_${input.vibe}`
+  const weekKey = isoWeekKey(input.checkIn);
+  const nights = computeNights(input.checkIn, input.checkOut);
+  return `${input.originCity}_${input.budget}_${weekKey}_${nights}_${input.vibe}_${input.travelers}`
     .toLowerCase()
     .replace(/\s+/g, "_");
 }

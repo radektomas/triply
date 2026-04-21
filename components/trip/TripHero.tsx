@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCityPhotos } from "@/lib/photos";
 import { getGradient } from "@/lib/utils/gradient";
+import { formatRange } from "@/lib/dates";
 import { PhotoCarousel } from "./PhotoCarousel";
 import type { TripDetail } from "@/lib/types/trip";
 
@@ -84,19 +85,20 @@ export async function TripHero({ trip, returnUrl }: Props) {
             </p>
           </div>
 
-          {/* Nights */}
+          {/* Dates */}
           <div
             className="backdrop-blur-md rounded-2xl px-4 py-2.5 border border-white/15"
             style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
           >
             <span
-              className="font-bold text-white"
+              className="font-bold text-white text-sm"
               style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
             >
-              {trip.nights}
+              {formatRange(trip.checkIn, trip.checkOut)}
             </span>
-            <span className="text-white/70 text-sm ml-1.5">
-              {trip.nights === 1 ? "night" : "nights"}
+            <span className="text-white/60 mx-1.5">·</span>
+            <span className="text-white/70 text-sm">
+              {trip.nights} {trip.nights === 1 ? "night" : "nights"}
             </span>
           </div>
 

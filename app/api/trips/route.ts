@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { fetchTripSuggestions, getCachedTripByInput, buildCacheKey } from "@/lib/n8n";
+import { computeNights } from "@/lib/dates";
 import type { TripInput } from "@/lib/types";
 
 function normalizeInput(raw: Record<string, unknown>): TripInput {
   return {
     budget: Number(raw.budget),
-    month: String(raw.month).toLowerCase().trim(),
-    nights: Number(raw.nights),
+    checkIn: String(raw.checkIn ?? "").trim(),
+    checkOut: String(raw.checkOut ?? "").trim(),
     travelers: Number(raw.travelers),
     vibe: String(raw.vibe).toLowerCase().trim(),
     originCity: String(raw.originCity).trim(),
@@ -19,8 +20,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as Record<string, unknown>;
     const input = normalizeInput(body);
 
-    if (!input.budget || !input.month || !input.nights || !input.travelers || !input.vibe || !input.originCity) {
+    if (!input.budget || !input.checkIn || !input.checkOut || !input.travelers || !input.vibe || !input.originCity) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (computeNights(input.checkIn, input.checkOut) < 1) {
+      return NextResponse.json({ error: "Check-out must be after check-in" }, { status: 400 });
     }
 
     const cacheKey = buildCacheKey(input);

@@ -13,7 +13,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const trip = await getTripById(id);
   if (!trip) return { title: "Trip — AI Trip Planner" };
 
-  const { budget, month, nights } = trip.input;
+  const { budget, checkIn, checkOut } = trip.input;
+  const nights = Math.round((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000);
+  const month = new Date(checkIn).toLocaleString("en-US", { month: "long" });
   return {
     title: `Your trips · €${budget} · ${nights} nights in ${month} — AI Trip Planner`,
     description: `3 AI-curated destinations for €${budget}, ${nights} nights in ${month}.`,

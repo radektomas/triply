@@ -4,19 +4,19 @@ import type { APIDestination } from "@/lib/types";
 
 interface Props {
   results: APIDestination[];
-  month: string;
-  nights: number;
+  checkIn: string;
+  checkOut: string;
   budget: number;
   vibe: string;
   originCity: string;
 }
 
-export function ResultsGrid({ results, month, nights, budget, vibe, originCity }: Props) {
+export function ResultsGrid({ results, checkIn, checkOut, budget, vibe, originCity }: Props) {
   if (results.length === 0) {
     return (
       <div className="text-center py-16">
         <p className="text-lg text-muted">
-          No trips found. Try adjusting your budget or number of nights.
+          No trips found. Try adjusting your budget or dates.
         </p>
       </div>
     );
@@ -28,8 +28,8 @@ export function ResultsGrid({ results, month, nights, budget, vibe, originCity }
         <AnimatedCard key={destination.id} index={index}>
           <DestinationCard
             destination={destination}
-            month={month}
-            nights={nights}
+            checkIn={checkIn}
+            checkOut={checkOut}
             budget={budget}
             vibe={vibe}
             originCity={originCity}

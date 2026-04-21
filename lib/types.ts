@@ -65,8 +65,8 @@ export interface APITripResponse {
 
 export interface TripInput {
   budget: number;
-  month: string;
-  nights: number;
+  checkIn: string;   // ISO date: YYYY-MM-DD
+  checkOut: string;  // ISO date: YYYY-MM-DD
   travelers: number;
   vibe: string;
   originCity: string;

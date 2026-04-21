@@ -17,6 +17,8 @@ export const algarveMockTrip: TripDetail = {
     month: "July",
   },
   nights: 3,
+  checkIn: "2026-07-10",
+  checkOut: "2026-07-13",
 
   budget: {
     total: 340,

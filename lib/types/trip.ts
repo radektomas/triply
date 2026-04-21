@@ -41,6 +41,8 @@ export type TripDetail = {
     month: string;           // "July"
   };
   nights: number;            // 3
+  checkIn: string;           // "2026-06-15"
+  checkOut: string;          // "2026-06-18"
 
   budget: {
     total: number;           // 340

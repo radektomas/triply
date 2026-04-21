@@ -6,8 +6,8 @@ import type { APIDestination } from "@/lib/types";
 
 interface Props {
   destination: APIDestination;
-  month: string;
-  nights: number;
+  checkIn: string;
+  checkOut: string;
   budget: number;
   vibe: string;
   originCity: string;
@@ -37,8 +37,8 @@ const rainColor = {
 
 export async function DestinationCard({
   destination,
-  month,
-  nights,
+  checkIn,
+  checkOut,
   budget,
   vibe,
   originCity,
@@ -49,7 +49,7 @@ export async function DestinationCard({
   const photoUrl = await getCityPhoto(destination.name, destination.country);
   const href =
     hrefOverride ??
-    `/trip/${destination.id}?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
+    `/trip/${destination.id}?budget=${budget}&checkIn=${checkIn}&checkOut=${checkOut}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
 
   return (
     // Fix 5 — card hover: lift + warm ring + boosted shadow. `group` enables image zoom.

@@ -246,6 +246,33 @@ input[type="range"]::-moz-range-thumb {
   .animate-slide-in-right, .animate-slide-in-left { animation: none; }
 }
 
+/* Triply DayPicker — minimal CSS variable overrides only; visual states are inline */
+.rdp-root {
+  --rdp-accent-color: #FF6B47;
+  --rdp-today-color: #0D7377;
+}
+
+/* Nav arrows — teal */
+.rdp-chevron {
+  fill: #0D7377 !important;
+}
+
+.rdp-button_previous,
+.rdp-button_next {
+  color: #0D7377 !important;
+}
+
+.rdp-button_previous:hover,
+.rdp-button_next:hover {
+  background-color: rgba(13, 115, 119, 0.1) !important;
+  border-radius: 9999px;
+}
+
+/* Show tooltip span on hover (rendered by TriplyDayButton) */
+.rdp-day:hover .triply-tooltip {
+  opacity: 1 !important;
+}
+
 @keyframes cursor-blink {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
