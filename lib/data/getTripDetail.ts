@@ -18,7 +18,12 @@ export async function getTripDetail(
   "use cache";
   cacheLife("hours");
 
+  // DEBUG: console.log("[getTripDetail] called — id:", id, "USE_MOCK_DATA:", USE_MOCK_DATA);
+
   if (USE_MOCK_DATA) {
+    console.log("[getTripDetail] strategy: mock");
+    // DEBUG: const { algarveMockTrip } = await import("@/lib/mocks/algarve-trip");
+    // DEBUG: console.log("[getTripDetail] mock loaded, id:", algarveMockTrip.id);
     const { algarveMockTrip } = await import("@/lib/mocks/algarve-trip");
     return algarveMockTrip;
   }
@@ -27,12 +32,19 @@ export async function getTripDetail(
   const cached = await getCachedTripByInput(input);
   if (cached) {
     const dest = cached.destinations.find((d) => d.id === id);
-    if (dest) return adaptAPIDestination(dest, input);
+    if (dest) {
+      console.log("[getTripDetail] strategy: supabase-hit");
+      return adaptAPIDestination(dest, input);
+    }
   }
 
+  console.log("[getTripDetail] strategy: supabase-miss→n8n");
   const fresh = await fetchTripSuggestions(input);
   const dest = fresh.destinations.find((d) => d.id === id);
-  if (!dest) return null;
+  if (!dest) {
+    console.log("[getTripDetail] strategy: n8n-no-match");
+    return null;
+  }
   return adaptAPIDestination(dest, input);
 }
 

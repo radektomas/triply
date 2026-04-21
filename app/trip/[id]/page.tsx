@@ -80,11 +80,20 @@ export default async function TripPage({
 
   const input: TripInput = { budget, month, nights, vibe, originCity };
 
+  // DEBUG: console.log("[TripPage] id:", id, "input:", JSON.stringify(input));
+
   const [destination, trip] = await Promise.all([
     getDetailDestination(input, id),
     getTripDetail(id, input),
   ]);
-  if (!destination || !trip) notFound();
+
+  // DEBUG: console.log("[TripPage] destination:", destination ? "OK" : "NULL");
+  // DEBUG: console.log("[TripPage] trip:", trip ? "OK" : "NULL");
+  // DEBUG: console.log("[TripPage] trip.id:", trip?.id);
+  // DEBUG: console.log("[TripPage] trip.destination:", trip?.destination);
+  // DEBUG: console.log("[TripPage] USE_MOCK_TRIP env:", process.env.NEXT_PUBLIC_USE_MOCK_TRIP);
+
+  if (!trip) notFound();
 
   const returnUrl = `/results?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
 
@@ -97,31 +106,33 @@ export default async function TripPage({
         />
       </FadeIn>
 
-      <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-12">
-        <section>
-          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">
-            Budget Breakdown
-          </h2>
-          <div className="bg-card rounded-2xl border border-border p-6">
-            <EstimatesBreakdown estimates={destination.estimates} nights={nights} />
-          </div>
-        </section>
+      {destination && (
+        <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+          <section>
+            <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">
+              Budget Breakdown
+            </h2>
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <EstimatesBreakdown estimates={destination.estimates} nights={nights} />
+            </div>
+          </section>
 
-        <ItinerarySection days={destination.itinerary} nights={nights} />
-        <TipsList tips={destination.tips} />
-        <TrustedSources sources={destination.trustedSources} />
+          <ItinerarySection days={destination.itinerary} nights={nights} />
+          <TipsList tips={destination.tips} />
+          <TrustedSources sources={destination.trustedSources} />
 
-        {(destination.confidence === "low" || destination.confidence === "medium") && (
-          <div className="text-sm text-muted pt-2 border-t border-border">
-            {destination.confidence === "low" && (
-              <p className="mb-1 font-medium text-[#374151]">
-                ⓘ Low confidence — AI had limited data for this destination. Verify details independently.
-              </p>
-            )}
-            <p className="italic">{destination.disclaimer}</p>
-          </div>
-        )}
-      </FadeIn>
+          {(destination.confidence === "low" || destination.confidence === "medium") && (
+            <div className="text-sm text-muted pt-2 border-t border-border">
+              {destination.confidence === "low" && (
+                <p className="mb-1 font-medium text-[#374151]">
+                  ⓘ Low confidence — AI had limited data for this destination. Verify details independently.
+                </p>
+              )}
+              <p className="italic">{destination.disclaimer}</p>
+            </div>
+          )}
+        </FadeIn>
+      )}
     </main>
   );
 }
