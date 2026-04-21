@@ -1,0 +1,495 @@
+import { cacheLife } from "next/cache";
+import { fetchTripSuggestions, getCachedTripByInput } from "@/lib/n8n";
+import type { APIDestination, TripInput } from "@/lib/types";
+import type {
+  TripDetail,
+  BudgetCategory,
+  ItineraryDay,
+  ItineraryActivity,
+  BookingLink,
+} from "@/lib/types/trip";
+
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_TRIP === "true";
+
+export async function getTripDetail(
+  id: string,
+  input: TripInput
+): Promise<TripDetail | null> {
+  "use cache";
+  cacheLife("hours");
+
+  if (USE_MOCK_DATA) {
+    const { algarveMockTrip } = await import("@/lib/mocks/algarve-trip");
+    return algarveMockTrip;
+  }
+
+  // Prefer Supabase cache (same entry populated by results page)
+  const cached = await getCachedTripByInput(input);
+  if (cached) {
+    const dest = cached.destinations.find((d) => d.id === id);
+    if (dest) return adaptAPIDestination(dest, input);
+  }
+
+  const fresh = await fetchTripSuggestions(input);
+  const dest = fresh.destinations.find((d) => d.id === id);
+  if (!dest) return null;
+  return adaptAPIDestination(dest, input);
+}
+
+// ─── Adapter ─────────────────────────────────────────────────────────────────
+
+function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
+  const e = dest.estimates;
+  const nights = input.nights;
+
+  const breakdown: BudgetCategory[] = [
+    {
+      label: "Flights",
+      icon: "✈️",
+      amount: e.flightRange.typical,
+      perUnit: `€${e.flightRange.min}–€${e.flightRange.max} range`,
+      color: "#FF6B47",
+    },
+    {
+      label: "Hotel",
+      icon: "🏨",
+      amount: e.hotelPerNightRange.typical * nights,
+      perUnit: `€${e.hotelPerNightRange.typical}/night × ${nights}`,
+      color: "#0D7377",
+    },
+    {
+      label: "Food",
+      icon: "🍽️",
+      amount: e.foodPerDay.midRange * nights,
+      perUnit: `€${e.foodPerDay.midRange}/day`,
+      color: "#FFB088",
+    },
+    {
+      label: "Activities",
+      icon: "🎭",
+      amount: e.activitiesPerDay.midRange * nights,
+      perUnit: `€${e.activitiesPerDay.midRange}/day`,
+      color: "#6366F1",
+    },
+    {
+      label: "Transport",
+      icon: "🚌",
+      amount: e.localTransportPerDay * nights,
+      perUnit: `€${e.localTransportPerDay}/day`,
+      color: "#9CA3AF",
+    },
+  ];
+
+  const itinerary: ItineraryDay[] = dest.itinerary.map((day) => ({
+    day: day.day,
+    title: day.title,
+    estimatedCost: day.estimatedCost,
+    activities: day.activities.map(
+      (act, i): ItineraryActivity => ({
+        timeOfDay: inferTimeOfDay(act, i),
+        title: stripTimePrefix(act),
+      })
+    ),
+  }));
+
+  const sources = dest.trustedSources;
+  const toLink = (s: { name: string; url: string; trustScore: number }): BookingLink => ({
+    provider: s.name,
+    url: s.url,
+    primary: s.trustScore >= 4.5,
+  });
+
+  return {
+    id: dest.id,
+    destination: dest.name,
+    country: dest.country,
+    countryCode: dest.countryCode,
+    description: dest.description,
+    vibes: dest.vibes,
+    weather: {
+      temperature: dest.weather.tempC,
+      sunHours: dest.weather.sunshineHours,
+      seaTemperature: dest.weather.seaTemp ?? 18,
+      precipitation: adaptRain(dest.weather.rain),
+      month: capitalizeFirst(input.month),
+    },
+    nights,
+    budget: {
+      total: e.totalEstimate.typical,
+      range: { min: e.totalEstimate.min, max: e.totalEstimate.max },
+      perPerson: true,
+      travelers: 1,
+      breakdown,
+    },
+    itinerary,
+    localWisdom: [],          // populated by n8n when ready
+    goodToKnow: defaultGoodToKnow(dest.country),
+    whatToPack: [],            // populated by n8n when ready
+    booking: {
+      flights: sources.flights.map(toLink),
+      hotels: sources.hotels.map(toLink),
+      activities: sources.activities.map(toLink),
+      reviews: sources.reviews.map(toLink),
+    },
+    photos: [],
+  };
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function adaptRain(rain: "low" | "medium" | "high"): "dry" | "mixed" | "wet" {
+  if (rain === "low") return "dry";
+  if (rain === "high") return "wet";
+  return "mixed";
+}
+
+function capitalizeFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function inferTimeOfDay(
+  activity: string,
+  index: number
+): "morning" | "afternoon" | "evening" {
+  const lower = activity.toLowerCase();
+  if (lower.startsWith("morning")) return "morning";
+  if (lower.startsWith("afternoon")) return "afternoon";
+  if (lower.startsWith("evening") || lower.startsWith("night")) return "evening";
+  return index === 0 ? "morning" : index === 1 ? "afternoon" : "evening";
+}
+
+function stripTimePrefix(str: string): string {
+  return str.replace(/^(morning|afternoon|evening|night)\s*:?\s*/i, "").trim();
+}
+
+// ─── Good to Know defaults ────────────────────────────────────────────────────
+
+type GoodToKnow = TripDetail["goodToKnow"];
+
+const COUNTRY_INFO: Record<string, GoodToKnow> = {
+  portugal: {
+    currency: "EUR (€)",
+    language: "Portuguese (English widely spoken in tourist areas)",
+    plugType: "Type F (European standard — same plug as Czech Republic)",
+    timezone: "WEST (UTC+1 in summer — same as Prague, no adjustment needed)",
+    emergencyNumber: "112",
+    bestSimCard: "NOS or Vodafone PT",
+    tippingCustom: "Round up or 10% in sit-down restaurants",
+  },
+  spain: {
+    currency: "EUR (€)",
+    language: "Spanish (English spoken in tourist areas)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Movistar or Vodafone ES",
+    tippingCustom: "Round up or 10% in restaurants, not expected at bars",
+  },
+  france: {
+    currency: "EUR (€)",
+    language: "French (English variable — better in Paris, less so in rural areas)",
+    plugType: "Type E/F (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Orange or SFR",
+    tippingCustom: "Service included by law — extra tip optional but appreciated",
+  },
+  italy: {
+    currency: "EUR (€)",
+    language: "Italian (English common in tourist spots, less so in south)",
+    plugType: "Type F/L (Type L Italian plug — most Type F devices work fine)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "TIM or Vodafone IT",
+    tippingCustom: "€1–2/person in restaurants; coperto (cover charge) is normal",
+  },
+  greece: {
+    currency: "EUR (€)",
+    language: "Greek (English widely spoken in tourist areas and islands)",
+    plugType: "Type F/C (European standard)",
+    timezone: "EET (UTC+3 in summer — 2h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Cosmote",
+    tippingCustom: "5–10% in restaurants; round up for taxis",
+  },
+  croatia: {
+    currency: "EUR (€)",
+    language: "Croatian (English widely spoken, especially on coast)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "HT or A1 Croatia",
+    tippingCustom: "10% in restaurants; round up for taxis",
+  },
+  "czech republic": {
+    currency: "CZK (Kč) — cards widely accepted",
+    language: "Czech (English common in Prague, less so outside)",
+    plugType: "Type E/F (European standard)",
+    timezone: "CET (UTC+2 in summer — same as Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "T-Mobile or O2 CZ",
+    tippingCustom: "Round up or 10% in Prague restaurants",
+  },
+  austria: {
+    currency: "EUR (€)",
+    language: "German (English widely spoken in Vienna and tourist areas)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "A1 or T-Mobile AT",
+    tippingCustom: "5–10% in restaurants; round up for taxis",
+  },
+  germany: {
+    currency: "EUR (€) — cash still widely preferred",
+    language: "German (English spoken in cities, less so in rural areas)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Telekom or Vodafone DE",
+    tippingCustom: "10% in restaurants; round up for taxis",
+  },
+  netherlands: {
+    currency: "EUR (€)",
+    language: "Dutch (English spoken almost everywhere)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "KPN or T-Mobile NL",
+    tippingCustom: "Round up or 10%; not obligatory",
+  },
+  belgium: {
+    currency: "EUR (€)",
+    language: "Dutch/French/German (English widely spoken in Brussels)",
+    plugType: "Type E/F (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Proximus or Orange BE",
+  },
+  switzerland: {
+    currency: "CHF (Fr) — cards accepted almost everywhere",
+    language: "German/French/Italian (English widely spoken)",
+    plugType: "Type J (Swiss-specific — bring a Type J adapter)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Swisscom",
+    tippingCustom: "Not expected — service included by custom",
+  },
+  turkey: {
+    currency: "TRY (₺) — carry some cash for bazaars and small restaurants",
+    language: "Turkish (English in tourist areas, limited elsewhere)",
+    plugType: "Type F/C (European standard)",
+    timezone: "TRT (UTC+3 year-round — 2h ahead of Prague in summer)",
+    emergencyNumber: "112",
+    bestSimCard: "Turkcell (best coverage across Turkey)",
+    tippingCustom: "10% in restaurants; small tip for tour guides",
+  },
+  hungary: {
+    currency: "HUF (Ft) — cards widely accepted in Budapest",
+    language: "Hungarian (English common in Budapest, rare outside)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Telekom HU or Telenor HU",
+    tippingCustom: "10% in restaurants — expected, not optional",
+  },
+  poland: {
+    currency: "PLN (zł) — cards widely accepted",
+    language: "Polish (English in Warsaw/Kraków, less so elsewhere)",
+    plugType: "Type F/E (European standard)",
+    timezone: "CET (UTC+2 in summer — same as Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Orange PL or Play",
+    tippingCustom: "10–15% in restaurants",
+  },
+  romania: {
+    currency: "RON (lei) — cards in cities; cash for rural areas",
+    language: "Romanian (English in Bucharest and tourist towns)",
+    plugType: "Type F/C (European standard)",
+    timezone: "EET (UTC+3 in summer — 2h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Orange RO or Vodafone RO",
+    tippingCustom: "10% in restaurants",
+  },
+  bulgaria: {
+    currency: "BGN (lv) — not EUR, but widely accepted cards",
+    language: "Bulgarian (English in Sofia and Black Sea resorts)",
+    plugType: "Type F/C (European standard)",
+    timezone: "EET (UTC+3 in summer — 2h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "A1 BG or Telenor BG",
+    tippingCustom: "10% in restaurants",
+  },
+  slovenia: {
+    currency: "EUR (€)",
+    language: "Slovenian (English widely spoken)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "A1 SI",
+    tippingCustom: "Round up or 10% — not mandatory",
+  },
+  slovakia: {
+    currency: "EUR (€)",
+    language: "Slovak (English in Bratislava, less elsewhere)",
+    plugType: "Type F/E (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "O2 SK or Orange SK",
+    tippingCustom: "10% in restaurants",
+  },
+  serbia: {
+    currency: "RSD (din) — cards in cities; cash elsewhere",
+    language: "Serbian (English in Belgrade and tourist spots)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "mts or A1 Serbia",
+    tippingCustom: "10% in restaurants",
+  },
+  montenegro: {
+    currency: "EUR (€) — though not an EU member",
+    language: "Montenegrin (English in tourist coastal towns)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Crnogorski Telekom",
+    tippingCustom: "Round up or 10%",
+  },
+  albania: {
+    currency: "ALL (lek) — bring cash, cards limited outside Tirana",
+    language: "Albanian (English in Tirana and Riviera, limited elsewhere)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Vodafone AL or Telekom AL",
+    tippingCustom: "Not widely expected; round up is appreciated",
+  },
+  "north macedonia": {
+    currency: "MKD (ден) — cards in cities; cash elsewhere",
+    language: "Macedonian (English in Skopje and Ohrid)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "T-Mobile MK",
+  },
+  "bosnia and herzegovina": {
+    currency: "BAM (KM) — cards in cities; cash useful",
+    language: "Bosnian/Croatian/Serbian (English in Sarajevo/Mostar)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "m:tel or BH Telecom",
+    tippingCustom: "10% in restaurants",
+  },
+  latvia: {
+    currency: "EUR (€)",
+    language: "Latvian (English widely spoken, especially in Riga)",
+    plugType: "Type F/C (European standard)",
+    timezone: "EET (UTC+3 in summer — 2h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "LMT or Tele2 LV",
+    tippingCustom: "10% in restaurants",
+  },
+  lithuania: {
+    currency: "EUR (€)",
+    language: "Lithuanian (English common in Vilnius and Kaunas)",
+    plugType: "Type F/C (European standard)",
+    timezone: "EET (UTC+3 in summer — 2h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Telia LT or Tele2 LT",
+    tippingCustom: "10–15% in restaurants",
+  },
+  sweden: {
+    currency: "SEK (kr) — almost entirely cashless",
+    language: "Swedish (English spoken near-universally)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Telia SE or Tre",
+    tippingCustom: "Not expected — service included",
+  },
+  norway: {
+    currency: "NOK (kr) — cashless society",
+    language: "Norwegian (English spoken near-universally)",
+    plugType: "Type F/C (European standard)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Telenor NO or Telia NO",
+    tippingCustom: "Not expected",
+  },
+  denmark: {
+    currency: "DKK (kr) — very cashless",
+    language: "Danish (English spoken near-universally)",
+    plugType: "Type F/K (Danish plug — Type K adapter needed)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "TDC or Telenor DK",
+    tippingCustom: "Not expected",
+  },
+  iceland: {
+    currency: "ISK (kr) — cashless; cards accepted everywhere",
+    language: "Icelandic (English spoken near-universally)",
+    plugType: "Type F/C (European standard)",
+    timezone: "GMT (UTC+0 year-round — 1h behind Prague in summer)",
+    emergencyNumber: "112",
+    bestSimCard: "Síminn or Nova",
+  },
+  ireland: {
+    currency: "EUR (€)",
+    language: "English",
+    plugType: "Type G (UK/Irish plug — bring a Type G adapter)",
+    timezone: "IST (UTC+1 in summer — same as Prague)",
+    emergencyNumber: "112 or 999",
+    bestSimCard: "Three IE or Vodafone IE",
+    tippingCustom: "10–15% in restaurants",
+  },
+  "united kingdom": {
+    currency: "GBP (£)",
+    language: "English",
+    plugType: "Type G (UK plug — bring a Type G adapter)",
+    timezone: "BST (UTC+1 in summer — same as Prague)",
+    emergencyNumber: "999 or 112",
+    bestSimCard: "EE or Vodafone UK",
+    tippingCustom: "10–15% in restaurants; included in some",
+  },
+  malta: {
+    currency: "EUR (€)",
+    language: "Maltese & English (officially bilingual)",
+    plugType: "Type G (UK-style plug — bring a Type G adapter)",
+    timezone: "CET (UTC+2 in summer — 1h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Melita or GO",
+    tippingCustom: "10% in restaurants",
+  },
+  cyprus: {
+    currency: "EUR (€)",
+    language: "Greek & English (widely bilingual in tourist areas)",
+    plugType: "Type G (UK-style plug — bring a Type G adapter)",
+    timezone: "EET (UTC+3 in summer — 2h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "CYTA",
+    tippingCustom: "10% in restaurants",
+  },
+  finland: {
+    currency: "EUR (€)",
+    language: "Finnish/Swedish (English spoken near-universally)",
+    plugType: "Type F/C (European standard)",
+    timezone: "EET (UTC+3 in summer — 2h ahead of Prague)",
+    emergencyNumber: "112",
+    bestSimCard: "Elisa or Telia FI",
+    tippingCustom: "Not expected",
+  },
+};
+
+const DEFAULT_GOOD_TO_KNOW: GoodToKnow = {
+  currency: "Check locally",
+  language: "Check locally",
+  plugType: "Type F (European standard — most common)",
+  timezone: "Check locally",
+  emergencyNumber: "112",
+};
+
+export function defaultGoodToKnow(country: string): GoodToKnow {
+  const key = country.toLowerCase().trim();
+  return COUNTRY_INFO[key] ?? DEFAULT_GOOD_TO_KNOW;
+}

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cacheLife } from "next/cache";
 import { fetchTripSuggestions, getCachedTripByInput } from "@/lib/n8n";
 import type { TripInput } from "@/lib/types";
+import { getTripDetail } from "@/lib/data/getTripDetail";
 import { TripHero } from "@/components/trip/TripHero";
 import { EstimatesBreakdown } from "@/components/results/EstimatesBreakdown";
 import { ItinerarySection } from "@/components/trip/ItinerarySection";
@@ -77,11 +78,13 @@ export default async function TripPage({
   const vibe = sp.vibe || "beach";
   const originCity = sp.originCity || "Prague";
 
-  const destination = await getDetailDestination(
-    { budget, month, nights, vibe, originCity },
-    id
-  );
-  if (!destination) notFound();
+  const input: TripInput = { budget, month, nights, vibe, originCity };
+
+  const [destination, trip] = await Promise.all([
+    getDetailDestination(input, id),
+    getTripDetail(id, input),
+  ]);
+  if (!destination || !trip) notFound();
 
   const returnUrl = `/results?budget=${budget}&month=${month}&nights=${nights}&vibe=${vibe}&originCity=${encodeURIComponent(originCity)}`;
 
@@ -89,9 +92,7 @@ export default async function TripPage({
     <main className="flex-1">
       <FadeIn>
         <TripHero
-          destination={destination}
-          month={month}
-          nights={nights}
+          trip={trip}
           returnUrl={returnUrl}
         />
       </FadeIn>
