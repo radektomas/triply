@@ -5,7 +5,7 @@ import { fetchTripSuggestions, getCachedTripByInput } from "@/lib/n8n";
 import type { TripInput } from "@/lib/types";
 import { getTripDetail } from "@/lib/data/getTripDetail";
 import { TripHero } from "@/components/trip/TripHero";
-import { EstimatesBreakdown } from "@/components/results/EstimatesBreakdown";
+import { BudgetBreakdown } from "@/components/trip/BudgetBreakdown";
 import { ItinerarySection } from "@/components/trip/ItinerarySection";
 import { TipsList } from "@/components/trip/TipsList";
 import { TrustedSources } from "@/components/trip/TrustedSources";
@@ -106,33 +106,39 @@ export default async function TripPage({
         />
       </FadeIn>
 
-      {destination && (
-        <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-12">
-          <section>
-            <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">
-              Budget Breakdown
-            </h2>
-            <div className="bg-card rounded-2xl border border-border p-6">
-              <EstimatesBreakdown estimates={destination.estimates} nights={nights} />
-            </div>
-          </section>
+      <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 py-10 space-y-12">
+        <section>
+          <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">
+            Budget Breakdown
+          </h2>
+          <div className="bg-white rounded-2xl border border-border p-6 sm:p-10 shadow-sm">
+            <BudgetBreakdown
+              total={trip.budget.total}
+              range={trip.budget.range}
+              breakdown={trip.budget.breakdown}
+            />
+          </div>
+        </section>
 
-          <ItinerarySection days={destination.itinerary} nights={nights} />
-          <TipsList tips={destination.tips} />
-          <TrustedSources sources={destination.trustedSources} />
+        {destination && (
+          <>
+            <ItinerarySection days={destination.itinerary} nights={nights} />
+            <TipsList tips={destination.tips} />
+            <TrustedSources sources={destination.trustedSources} />
 
-          {(destination.confidence === "low" || destination.confidence === "medium") && (
-            <div className="text-sm text-muted pt-2 border-t border-border">
-              {destination.confidence === "low" && (
-                <p className="mb-1 font-medium text-[#374151]">
-                  ⓘ Low confidence — AI had limited data for this destination. Verify details independently.
-                </p>
-              )}
-              <p className="italic">{destination.disclaimer}</p>
-            </div>
-          )}
-        </FadeIn>
-      )}
+            {(destination.confidence === "low" || destination.confidence === "medium") && (
+              <div className="text-sm text-muted pt-2 border-t border-border">
+                {destination.confidence === "low" && (
+                  <p className="mb-1 font-medium text-[#374151]">
+                    ⓘ Low confidence — AI had limited data for this destination. Verify details independently.
+                  </p>
+                )}
+                <p className="italic">{destination.disclaimer}</p>
+              </div>
+            )}
+          </>
+        )}
+      </FadeIn>
     </main>
   );
 }
