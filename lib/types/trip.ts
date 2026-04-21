@@ -58,11 +58,20 @@ export type BudgetCategory = {
   typical?: string;          // "Budget airline round-trip"
 };
 
+export type DayPhoto = {
+  url: string;
+  urlLarge: string;
+  alt: string;
+  photographer: string;
+  photographerUrl: string;
+};
+
 export type ItineraryDay = {
   day: number;
   title: string;
   estimatedCost: number;
   activities: ItineraryActivity[];
+  photo?: DayPhoto | null;
 };
 
 export type ItineraryActivity = {

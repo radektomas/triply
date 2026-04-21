@@ -1,5 +1,6 @@
 import { cacheLife } from "next/cache";
 import { fetchTripSuggestions, getCachedTripByInput } from "@/lib/n8n";
+import { getPhotoByQuery } from "@/lib/photos";
 import type { APIDestination, TripInput } from "@/lib/types";
 import type {
   TripDetail,
@@ -22,10 +23,9 @@ export async function getTripDetail(
 
   if (USE_MOCK_DATA) {
     console.log("[getTripDetail] strategy: mock");
-    // DEBUG: const { algarveMockTrip } = await import("@/lib/mocks/algarve-trip");
-    // DEBUG: console.log("[getTripDetail] mock loaded, id:", algarveMockTrip.id);
     const { algarveMockTrip } = await import("@/lib/mocks/algarve-trip");
-    return algarveMockTrip;
+    const itinerary = await enrichWithPhotos(algarveMockTrip.itinerary, algarveMockTrip.destination);
+    return { ...algarveMockTrip, itinerary };
   }
 
   // Prefer Supabase cache (same entry populated by results page)
@@ -34,7 +34,8 @@ export async function getTripDetail(
     const dest = cached.destinations.find((d) => d.id === id);
     if (dest) {
       console.log("[getTripDetail] strategy: supabase-hit");
-      return adaptAPIDestination(dest, input);
+      const trip = adaptAPIDestination(dest, input);
+      return { ...trip, itinerary: await enrichWithPhotos(trip.itinerary, trip.destination) };
     }
   }
 
@@ -45,7 +46,27 @@ export async function getTripDetail(
     console.log("[getTripDetail] strategy: n8n-no-match");
     return null;
   }
-  return adaptAPIDestination(dest, input);
+  const trip = adaptAPIDestination(dest, input);
+  return { ...trip, itinerary: await enrichWithPhotos(trip.itinerary, trip.destination) };
+}
+
+// ─── Photo enrichment ────────────────────────────────────────────────────────
+
+function buildDayPhotoQuery(day: ItineraryDay, destination: string): string {
+  const locationName = day.activities[0]?.location?.name;
+  return locationName ? `${locationName} ${destination}` : `${destination} travel`;
+}
+
+async function enrichWithPhotos(
+  days: ItineraryDay[],
+  destination: string
+): Promise<ItineraryDay[]> {
+  return Promise.all(
+    days.map(async (day) => ({
+      ...day,
+      photo: await getPhotoByQuery(buildDayPhotoQuery(day, destination)),
+    }))
+  );
 }
 
 // ─── Adapter ─────────────────────────────────────────────────────────────────

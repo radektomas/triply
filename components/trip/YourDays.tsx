@@ -78,6 +78,12 @@ export function YourDays({ days, nights, destination, month }: Props) {
       {/* Section header */}
       <div className="flex items-end justify-between mb-4">
         <div>
+          {/* Editorial pre-heading */}
+          <p className="text-[11px] font-medium tracking-[0.18em] uppercase text-[#0D7377] mb-1.5">
+            Itinerary · {days.length} {days.length === 1 ? "Day" : "Days"}
+          </p>
+          {/* Coral rule */}
+          <div className="h-0.5 w-10 bg-[#FF6B47] mb-2" />
           <h2 className="text-xl font-bold text-[#1A1A1A]">Your Days</h2>
           <p className="text-sm font-medium text-[#0D7377]/55 tracking-wide mt-0.5">
             {nights} night{nights !== 1 ? "s" : ""} in {destination} · {month}
@@ -112,13 +118,13 @@ export function YourDays({ days, nights, destination, month }: Props) {
           style={{
             scrollSnapType: shouldReduce ? "none" : "x mandatory",
             scrollPaddingLeft: "20px",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
           }}
         >
           {days.map((day, idx) => (
             <div
               key={day.day}
-              className="flex-shrink-0 w-[292px] md:w-auto"
+              className="flex-shrink-0 w-[300px] md:w-auto"
               style={{ scrollSnapAlign: shouldReduce ? undefined : "start" }}
             >
               <DayCard day={day} dayIndex={idx} />

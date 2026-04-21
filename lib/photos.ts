@@ -99,3 +99,74 @@ export async function getCityPhoto(name: string, country: string): Promise<strin
   const photos = await getCityPhotos(name, country);
   return photos[0]?.url ?? "";
 }
+
+export async function getPhotoByQuery(query: string): Promise<CityPhoto | null> {
+  const cacheKey = query.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 80);
+
+  try {
+    const { data: cached } = await supabase
+      .from("photo_cache")
+      .select("photos, cached_at")
+      .eq("cache_key", cacheKey)
+      .single();
+
+    if (cached) {
+      const age = Date.now() - new Date(cached.cached_at as string).getTime();
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      if (age < THIRTY_DAYS) {
+        return ((cached.photos as CityPhoto[])[0]) ?? null;
+      }
+    }
+  } catch {
+    // photo_cache table may not exist yet
+  }
+
+  const apiKey = process.env.PEXELS_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch(
+      `${PEXELS_API}?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape`,
+      {
+        headers: { Authorization: apiKey },
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as {
+      photos?: Array<{
+        src: { large: string; large2x: string };
+        photographer: string;
+        photographer_url: string;
+        alt: string;
+      }>;
+    };
+
+    const photos: CityPhoto[] = (data.photos ?? []).map((p) => ({
+      url: p.src.large,
+      urlLarge: p.src.large2x,
+      photographer: p.photographer,
+      photographerUrl: p.photographer_url,
+      alt: p.alt || query,
+    }));
+
+    if (photos.length > 0) {
+      supabase
+        .from("photo_cache")
+        .upsert({
+          cache_key: cacheKey,
+          photos,
+          cached_at: new Date().toISOString(),
+        })
+        .then(({ error }) => {
+          if (error) console.warn("Failed to cache day photo:", error.message);
+        });
+    }
+
+    return photos[0] ?? null;
+  } catch {
+    return null;
+  }
+}

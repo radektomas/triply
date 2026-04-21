@@ -28,7 +28,7 @@ export function ActivityRow({ activity }: { activity: ItineraryActivity }) {
   return (
     <li
       onClick={hasMaps ? handleClick : undefined}
-      className={`flex gap-3 py-2.5 px-2 rounded-xl transition-colors duration-150 ${
+      className={`py-1.5 px-1 rounded-lg transition-colors duration-150 ${
         hasMaps ? "cursor-pointer" : ""
       }`}
       style={{
@@ -36,37 +36,47 @@ export function ActivityRow({ activity }: { activity: ItineraryActivity }) {
         transition: "background-color 150ms",
       }}
     >
-      <span className="text-xl flex-shrink-0 mt-0.5 w-6 text-center leading-none" aria-hidden="true">
-        {activity.emoji ?? "📍"}
-      </span>
-      <div className="min-w-0">
-        <p
-          className={`text-[15px] font-medium text-[#1A1A1A] leading-snug ${
-            hasMaps ? "hover:underline decoration-[#0D7377]/40" : ""
-          }`}
-        >
-          {activity.title}
-        </p>
-        {(activity.duration || costLabel) && (
-          <div className="flex items-center gap-1 mt-0.5">
-            {activity.duration && (
-              <span className="text-xs text-[#0D7377]">{activity.duration}</span>
-            )}
-            {activity.duration && costLabel && (
-              <span className="text-xs text-[#0D7377]/40">·</span>
-            )}
-            {costLabel && (
-              <span
-                className={`text-xs font-medium ${
-                  costLabel === "Free" ? "text-[#0D7377]" : "text-[#FF6B47]"
-                }`}
-              >
-                {costLabel}
-              </span>
-            )}
-          </div>
+      {/* Activity title — Playfair regular, no emoji */}
+      <p
+        className={`font-serif text-[15px] sm:text-[16px] text-[#2A2A2A] leading-snug line-clamp-2 ${
+          hasMaps
+            ? "md:hover:underline decoration-[#FF6B47]/40 decoration-2 underline-offset-4"
+            : ""
+        }`}
+      >
+        {activity.title}
+        {/* ↗ visible only on mobile for tappable activities */}
+        {hasMaps && (
+          <span
+            className="inline md:hidden text-[11px] ml-1 align-baseline"
+            style={{ color: "rgba(13,115,119,0.5)" }}
+            aria-hidden="true"
+          >
+            ↗
+          </span>
         )}
-      </div>
+      </p>
+
+      {/* Duration + cost */}
+      {(activity.duration || costLabel) && (
+        <div className="flex items-center gap-1 mt-0.5">
+          {activity.duration && (
+            <span className="text-xs text-[#0D7377]">{activity.duration}</span>
+          )}
+          {activity.duration && costLabel && (
+            <span className="text-xs text-[#0D7377]/40">·</span>
+          )}
+          {costLabel && (
+            <span
+              className={`text-xs font-medium ${
+                costLabel === "Free" ? "text-[#0D7377]" : "text-[#FF6B47]"
+              }`}
+            >
+              {costLabel}
+            </span>
+          )}
+        </div>
+      )}
     </li>
   );
 }
