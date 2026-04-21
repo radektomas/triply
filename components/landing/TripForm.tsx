@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { TagButton } from "@/components/ui/TagButton";
@@ -101,6 +101,11 @@ export function TripForm() {
   useEffect(() => {
     stateRef.current = { currentStep, budget, month, nights, vibe, originCity, loading };
   });
+
+  // Reset loading when Activity hides this page (prevents overlay re-appearing on browser back)
+  useLayoutEffect(() => {
+    return () => setLoading(false);
+  }, []);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

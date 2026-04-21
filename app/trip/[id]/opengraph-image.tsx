@@ -89,7 +89,7 @@ export default async function OGImage({
             Plan your trip →
           </span>
           <span style={{ fontSize: 20, color: "rgba(255,255,255,0.45)", display: "flex" }}>
-            AI Trip Planner
+            triply · flytriply.eu
           </span>
         </div>
       </div>

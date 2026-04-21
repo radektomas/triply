@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 const QUOTES = [
   { text: "The world is a book, and those who do not travel read only one page.", author: "Saint Augustine" },
@@ -62,9 +63,9 @@ export function LoadingOverlay() {
 
       {/* Content */}
       <div className="relative z-10 max-w-2xl w-full mx-auto px-8 text-center">
-        <p className="text-white/30 text-xs font-semibold uppercase tracking-[0.3em] mb-16">
-          Triply
-        </p>
+        <div className="flex justify-center mb-12">
+          <Wordmark size="sm" />
+        </div>
 
         <div
           style={{
