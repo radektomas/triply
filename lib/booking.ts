@@ -1,26 +1,39 @@
-import type { TripInput } from "@/lib/types";
+import { wrapBookingUrl } from "./affiliate";
 
-const BOOKING_AFFILIATE_ID = process.env.NEXT_PUBLIC_BOOKING_AFFILIATE_ID;
-
-export function bookingHotelUrl(city: string, country: string, input: TripInput): string {
-  const params = new URLSearchParams({
-    ss: `${city}, ${country}`,
-    checkin: input.checkIn,
-    checkout: input.checkOut,
-    group_adults: String(input.travelers),
-    no_rooms: "1",
-    group_children: "0",
-  });
-  if (BOOKING_AFFILIATE_ID) params.set("aid", BOOKING_AFFILIATE_ID);
-  return `https://www.booking.com/searchresults.html?${params.toString()}`;
+interface BookingHotelParams {
+  city: string;
+  country: string;
+  checkIn?: string;
+  checkOut?: string;
+  travelers?: number;
 }
 
-export function skyscannerFlightUrl(fromCity: string, toCity: string, input: TripInput): string {
-  const depart = input.checkIn.replace(/-/g, "");
-  const ret = input.checkOut.replace(/-/g, "");
-  return `https://www.skyscanner.com/flights?adults=${input.travelers}&origin=${encodeURIComponent(fromCity)}&destination=${encodeURIComponent(toCity)}&depart=${depart}&return=${ret}`;
+export function bookingHotelUrl(params: BookingHotelParams): string {
+  const qs = new URLSearchParams({ ss: `${params.city}, ${params.country}` });
+  if (params.checkIn) qs.set("checkin", params.checkIn);
+  if (params.checkOut) qs.set("checkout", params.checkOut);
+  if (params.travelers && params.travelers > 0) {
+    qs.set("group_adults", String(params.travelers));
+    qs.set("no_rooms", params.travelers >= 4 ? "2" : "1");
+    qs.set("group_children", "0");
+  }
+  return wrapBookingUrl(`https://www.booking.com/searchresults.html?${qs.toString()}`);
 }
 
-export function getYourGuideCityUrl(city: string): string {
+export function skyscannerFlightUrl(
+  fromCity: string,
+  toCity: string,
+  checkIn?: string,
+  checkOut?: string,
+  travelers?: number
+): string {
+  const qs = new URLSearchParams({ adults: String(travelers || 1) });
+  let url = `https://www.skyscanner.com/flights?${qs.toString()}&from=${encodeURIComponent(fromCity)}&to=${encodeURIComponent(toCity)}`;
+  if (checkIn) url += `&depart=${checkIn}`;
+  if (checkOut) url += `&return=${checkOut}`;
+  return url;
+}
+
+export function getYourGuideUrl(city: string): string {
   return `https://www.getyourguide.com/s/?q=${encodeURIComponent(city)}`;
 }

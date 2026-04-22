@@ -1,6 +1,7 @@
 import { getCityCoords, spreadAroundCenter } from "@/lib/data/cityCoords";
 import { computeNights, monthName } from "@/lib/dates";
-import type { APIDestination, TripInput } from "@/lib/types";
+import { bookingHotelUrl, skyscannerFlightUrl, getYourGuideUrl } from "@/lib/booking";
+import type { APIDestination, TripInput, TrustedSource } from "@/lib/types";
 import type {
   TripDetail,
   BudgetCategory,
@@ -104,9 +105,33 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
   }));
 
   const sources = dest.trustedSources;
-  const toLink = (s: { name: string; url: string; trustScore: number }): BookingLink => ({
+
+  const buildFlightUrl = (s: TrustedSource): string => {
+    const name = s.name.toLowerCase();
+    if (name.includes("skyscanner") || name.includes("kiwi") || name.includes("google flights")) {
+      return skyscannerFlightUrl(input.originCity, dest.name, input.checkIn, input.checkOut, input.travelers);
+    }
+    return s.url;
+  };
+
+  const buildHotelUrl = (s: TrustedSource): string => {
+    if (s.name.toLowerCase().includes("booking")) {
+      return bookingHotelUrl({ city: dest.name, country: dest.country, checkIn: input.checkIn, checkOut: input.checkOut, travelers: input.travelers });
+    }
+    return s.url;
+  };
+
+  const buildActivityUrl = (s: TrustedSource): string => {
+    const name = s.name.toLowerCase();
+    if (name.includes("getyourguide") || name.includes("viator")) {
+      return getYourGuideUrl(dest.name);
+    }
+    return s.url;
+  };
+
+  const toLink = (url: string) => (s: TrustedSource): BookingLink => ({
     provider: s.name,
-    url: s.url,
+    url,
     primary: s.trustScore >= 4.5,
   });
 
@@ -130,14 +155,14 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     budget: buildBudget(dest.estimates, nights, input.travelers),
     mustDo: deriveMustDo(dest, nights),
     itinerary,
-    localWisdom: [],          // populated by n8n when ready
+    localWisdom: [],
     goodToKnow: defaultGoodToKnow(dest.country),
-    whatToPack: [],            // populated by n8n when ready
+    whatToPack: [],
     booking: {
-      flights: sources.flights.map(toLink),
-      hotels: sources.hotels.map(toLink),
-      activities: sources.activities.map(toLink),
-      reviews: sources.reviews.map(toLink),
+      flights:    sources.flights.map((s) => toLink(buildFlightUrl(s))(s)),
+      hotels:     sources.hotels.map((s) => toLink(buildHotelUrl(s))(s)),
+      activities: sources.activities.map((s) => toLink(buildActivityUrl(s))(s)),
+      reviews:    sources.reviews.map((s) => toLink(s.url)(s)),
     },
     photos: [],
   };
