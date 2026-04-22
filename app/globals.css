@@ -280,3 +280,66 @@ input[type="range"]::-moz-range-thumb {
 .animate-cursor-blink {
   animation: cursor-blink 1s step-end infinite;
 }
+
+/* Triply budget slider — coral thumb, track fill via inline style */
+.triply-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.triply-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #FF6B47;
+  cursor: grab;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(255, 107, 71, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.triply-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 107, 71, 0.4);
+}
+
+.triply-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
+
+.triply-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #FF6B47;
+  cursor: grab;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(255, 107, 71, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.triply-slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 107, 71, 0.4);
+}
+
+.triply-slider::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
+
+.triply-slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(255, 107, 71, 0.2), 0 2px 8px rgba(255, 107, 71, 0.3);
+}
+
+.triply-slider:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(255, 107, 71, 0.2), 0 2px 8px rgba(255, 107, 71, 0.3);
+}

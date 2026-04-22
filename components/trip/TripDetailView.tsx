@@ -3,7 +3,7 @@ import { TripHero } from "./TripHero";
 import { BudgetBreakdown } from "./BudgetBreakdown";
 import { MustDo } from "./MustDo";
 import { TipsList } from "./TipsList";
-import { TrustedSources } from "./TrustedSources";
+import { BookingHub } from "./BookingHub";
 import { GradientMesh } from "@/components/landing/GradientMesh";
 import type { TripDetail } from "@/lib/types/trip";
 import type { APIDestination } from "@/lib/types";
@@ -44,7 +44,6 @@ export function TripDetailView({ detail, dest, tripId }: Props) {
 
       <FadeIn delay={0.34} className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 space-y-12">
         <TipsList tips={dest.tips} />
-        <TrustedSources sources={dest.trustedSources} />
 
         {(dest.confidence === "low" || dest.confidence === "medium") && (
           <div className="text-sm text-muted pt-2 border-t border-border">
@@ -56,6 +55,10 @@ export function TripDetailView({ detail, dest, tripId }: Props) {
             <p className="italic">{dest.disclaimer}</p>
           </div>
         )}
+      </FadeIn>
+
+      <FadeIn delay={0.42}>
+        <BookingHub detail={detail} />
       </FadeIn>
     </main>
     </>

@@ -10,6 +10,15 @@ import { Button } from "@/components/ui/Button";
 import { TagButton } from "@/components/ui/TagButton";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
 import { formatShort } from "@/lib/dates";
+import { SoloBubble, CoupleBubble, FamilyBubble, GroupBubble } from "@/components/landing/TravelerBubbles";
+import {
+  BeachIcon,
+  CityIcon,
+  MountainsIcon,
+  PartyIcon,
+  CultureIcon,
+  AdventureIcon,
+} from "@/components/landing/VibeIcons";
 
 const MAX_NIGHTS = 14;
 
@@ -17,24 +26,30 @@ function computeNights(from: Date, to: Date): number {
   return Math.max(0, differenceInDays(to, from));
 }
 
-const VIBES = [
-  { value: "beach", label: "🏖️ Beach" },
-  { value: "city", label: "🏙️ City" },
-  { value: "mountains", label: "⛰️ Mountains" },
-  { value: "party", label: "🎉 Party" },
-  { value: "culture", label: "🎨 Culture" },
-  { value: "adventure", label: "🧗 Adventure" },
+const VIBE_PRESETS = [
+  { value: "beach",     label: "Beach",     Icon: BeachIcon,     activeBg: "#F4A261", accent: "#F4A261" },
+  { value: "city",      label: "City",      Icon: CityIcon,      activeBg: "#0D7377", accent: "#0D7377" },
+  { value: "mountains", label: "Mountains", Icon: MountainsIcon, activeBg: "#8E7CC3", accent: "#8E7CC3" },
+  { value: "party",     label: "Party",     Icon: PartyIcon,     activeBg: "#FF6B47", accent: "#FF6B47" },
+  { value: "culture",   label: "Culture",   Icon: CultureIcon,   activeBg: "#D4574E", accent: "#D4574E" },
+  { value: "adventure", label: "Adventure", Icon: AdventureIcon, activeBg: "#2A9D8F", accent: "#2A9D8F" },
 ];
 
 const ORIGIN_CITIES = [
-  "Prague", "Vienna", "Berlin", "Warsaw", "Budapest", "London", "Amsterdam",
+  { value: "Prague",    label: "Prague" },
+  { value: "Vienna",    label: "Vienna" },
+  { value: "Berlin",    label: "Berlin" },
+  { value: "Warsaw",    label: "Warsaw" },
+  { value: "Budapest",  label: "Budapest" },
+  { value: "London",    label: "London" },
+  { value: "Amsterdam", label: "Amsterdam" },
 ];
 
 const TRAVELER_PRESETS = [
   {
     label: "Solo",
     count: 1,
-    emoji: "🧳",
+    bubble: "solo" as const,
     flavor: "flexible, any vibe",
     activeBg: "#0D7377",
     activeText: "#ffffff",
@@ -44,7 +59,7 @@ const TRAVELER_PRESETS = [
   {
     label: "Couple",
     count: 2,
-    emoji: "💕",
+    bubble: "couple" as const,
     flavor: "romantic spots",
     activeBg: "#FF6B47",
     activeText: "#ffffff",
@@ -54,7 +69,7 @@ const TRAVELER_PRESETS = [
   {
     label: "Family",
     count: 4,
-    emoji: "👨‍👩‍👧",
+    bubble: "family" as const,
     flavor: "kid-friendly",
     activeBg: "#F4A261",
     activeText: "#ffffff",
@@ -64,7 +79,7 @@ const TRAVELER_PRESETS = [
   {
     label: "Group",
     count: 5,
-    emoji: "🎉",
+    bubble: "group" as const,
     flavor: "social, lively",
     activeBg: "#8E7CC3",
     activeText: "#ffffff",
@@ -73,12 +88,19 @@ const TRAVELER_PRESETS = [
   },
 ];
 
+function renderBubble(variant: "solo" | "couple" | "family" | "group", isActive: boolean, accent: string) {
+  const color = isActive ? "#ffffff" : accent;
+  const props = { color, active: isActive };
+  switch (variant) {
+    case "solo":   return <SoloBubble   {...props} />;
+    case "couple": return <CoupleBubble {...props} />;
+    case "family": return <FamilyBubble {...props} />;
+    case "group":  return <GroupBubble  {...props} />;
+  }
+}
+
 const STEP_LABELS = ["Budget", "When", "Vibe"];
 
-const pillBase =
-  "w-full py-3 px-4 rounded-xl text-base font-medium transition-all duration-150 cursor-pointer text-center";
-const pillSelected = "bg-accent text-white shadow-md scale-[1.03]";
-const pillIdle = "bg-gray-100 text-[#374151] hover:bg-gray-200";
 
 function toIso(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -359,26 +381,27 @@ export function TripForm() {
         <div key={currentStep} className={animClass}>
           {/* Step 1 — Budget */}
           {currentStep === 1 && (
-            <div>
-              <div className="mb-8 text-center">
+            <div className="space-y-8">
+              {/* Heading */}
+              <div className="text-center">
+                <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60 mb-2">
+                  Step 1 of 3 — Budget
+                </p>
                 <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
                   What&apos;s your budget?
                 </h2>
-                <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-[#FF6B47]/10 border border-[#FF6B47]/20">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#FF6B47]" />
-                  <span className="text-xs font-semibold text-[#FF6B47] uppercase tracking-wider">
-                    Per person
-                  </span>
-                </div>
               </div>
 
-              <div className="mb-10">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-muted">
-                    All-in estimate
-                  </span>
-                  <span className="text-2xl font-bold text-accent">€{budget}</span>
-                </div>
+              {/* Hero: big €N + "per person" subtitle */}
+              <div className="text-center py-4">
+                <span className="text-7xl md:text-8xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight">
+                  €{budget}
+                </span>
+                <p className="text-sm text-[#1a1a1a]/50 mt-2 font-medium">per person</p>
+              </div>
+
+              {/* Slider */}
+              <div className="px-2">
                 <input
                   type="range"
                   min={100}
@@ -386,32 +409,33 @@ export function TripForm() {
                   step={50}
                   value={budget}
                   onChange={(e) => setBudget(Number(e.target.value))}
-                  className="w-full"
+                  className="triply-slider w-full"
                   aria-label="Budget in euros"
+                  style={{
+                    background: `linear-gradient(to right, #FF6B47 0%, #FF6B47 ${((budget - 100) / 900) * 100}%, rgba(26,26,26,0.1) ${((budget - 100) / 900) * 100}%, rgba(26,26,26,0.1) 100%)`,
+                  }}
                 />
-                <div className="flex justify-between text-xs text-muted mt-2">
+                <div className="flex justify-between mt-3 text-xs text-[#1a1a1a]/40 font-medium">
                   <span>€100</span>
                   <span>€1,000</span>
                 </div>
-
-                {budget > 0 && travelers > 1 && (
-                  <div className="mt-4 rounded-xl bg-[#1a1a1a]/5 p-3 flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-wider text-[#1a1a1a]/60 font-semibold">
-                      Total for {travelers} travelers
-                    </span>
-                    <span className="text-lg font-bold text-[#1a1a1a]">
-                      €{budget * travelers}
-                    </span>
-                  </div>
-                )}
-                {budget > 0 && travelers === 1 && (
-                  <div className="mt-4 text-center">
-                    <span className="text-xs text-[#1a1a1a]/60">
-                      Solo traveler — total trip budget: €{budget}
-                    </span>
-                  </div>
-                )}
               </div>
+
+              {budget > 0 && (
+                <div className="text-center">
+                  <p className="text-sm text-[#1a1a1a]/55 font-medium">
+                    <span className="text-[#1a1a1a]/30 mr-1.5">·</span>
+                    {travelers === 1 ? (
+                      <>€{budget} solo trip budget</>
+                    ) : (
+                      <>
+                        <span className="tabular-nums">€{budget * travelers}</span>
+                        {" "}total for {travelers} travelers
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <Button onClick={handleNext} className="sm:min-w-[160px] text-lg py-4">
@@ -513,7 +537,7 @@ export function TripForm() {
                         type="button"
                         onClick={() => setTravelers(preset.count)}
                         className={`
-                          relative overflow-hidden rounded-2xl py-4 px-4
+                          group relative overflow-hidden rounded-2xl py-4 px-4
                           flex flex-col items-center justify-center gap-1
                           transition-all duration-200 cursor-pointer
                           ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
@@ -529,7 +553,9 @@ export function TripForm() {
                           if (!isActive) e.currentTarget.style.backgroundColor = "#F5F5F5";
                         }}
                       >
-                        <span className="text-2xl leading-none">{preset.emoji}</span>
+                        <div className="mb-2 h-6 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          {renderBubble(preset.bubble, isActive, preset.accent)}
+                        </div>
                         <span className="text-base font-semibold">{preset.label}</span>
                         <span className={`text-xs ${isActive ? "opacity-90" : "opacity-50"}`}>
                           {preset.count === 1 ? "1 person" : `${preset.count}${preset.count === 5 ? "+" : ""} people`}
@@ -579,45 +605,82 @@ export function TripForm() {
 
           {/* Step 3 — Vibe + Origin */}
           {currentStep === 3 && (
-            <div>
-              <div className="mb-10">
-                <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
-                  Trip Vibe
-                </label>
-                <p className="text-xs text-muted/70 mb-4">What are you into?</p>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                  {VIBES.map((v) => {
-                    const selected = vibe === v.value;
+            <div className="space-y-8 px-1 sm:px-0">
+              <div>
+                <div className="flex items-baseline gap-2 mb-3">
+                  <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
+                    Trip Vibe
+                  </p>
+                </div>
+                <p className="text-sm text-[#1a1a1a]/70 mb-4">What are you into?</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {VIBE_PRESETS.map((preset) => {
+                    const isActive = vibe === preset.value;
+                    const iconColor = isActive ? "#ffffff" : preset.accent;
                     return (
                       <button
-                        key={v.value}
+                        key={preset.value}
                         type="button"
-                        onClick={() => setVibe(v.value)}
-                        className={`${pillBase} ${selected ? pillSelected : pillIdle}`}
+                        onClick={() => setVibe(preset.value)}
+                        className={`
+                          relative rounded-2xl py-4 px-3
+                          flex flex-col items-center justify-center gap-2
+                          transition-all duration-200
+                          ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
+                        `}
+                        style={{
+                          backgroundColor: isActive ? preset.activeBg : "#F5F5F5",
+                          color: isActive ? "#ffffff" : "#1a1a1a",
+                          minHeight: "92px",
+                        }}
                       >
-                        {v.label}
+                        <preset.Icon color={iconColor} size={32} />
+                        <span className="text-sm font-semibold">{preset.label}</span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="mb-10">
-                <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
-                  Flying From
-                </label>
-                <p className="text-xs text-muted/70 mb-4">Pick your home airport</p>
-                <div className="grid grid-cols-4 gap-2">
+              <div>
+                <div className="flex items-baseline gap-2 mb-3">
+                  <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
+                    Flying From
+                  </p>
+                </div>
+                <p className="text-sm text-[#1a1a1a]/70 mb-4">Pick your home airport</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {ORIGIN_CITIES.map((city) => {
-                    const selected = originCity === city;
+                    const isActive = originCity === city.value;
                     return (
                       <button
-                        key={city}
+                        key={city.value}
                         type="button"
-                        onClick={() => setOriginCity(city)}
-                        className={`${pillBase} ${selected ? pillSelected : pillIdle}`}
+                        onClick={() => setOriginCity(city.value)}
+                        className={`
+                          rounded-2xl py-3 px-3
+                          flex items-center justify-center gap-2
+                          transition-all duration-200
+                          ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
+                        `}
+                        style={{
+                          backgroundColor: isActive ? "#FF6B47" : "#F5F5F5",
+                          color: isActive ? "#ffffff" : "#1a1a1a",
+                          minHeight: "48px",
+                        }}
                       >
-                        {city}
+                        {isActive && (
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path
+                              d="M7 1C4.5 1 2.5 3 2.5 5.5C2.5 8.5 7 13 7 13C7 13 11.5 8.5 11.5 5.5C11.5 3 9.5 1 7 1Z"
+                              fill="white"
+                              stroke="white"
+                              strokeWidth="1"
+                            />
+                            <circle cx="7" cy="5.5" r="1.5" fill="#FF6B47" />
+                          </svg>
+                        )}
+                        <span className="text-sm font-semibold">{city.label}</span>
                       </button>
                     );
                   })}
