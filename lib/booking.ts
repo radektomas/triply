@@ -6,6 +6,7 @@ interface BookingHotelParams {
   checkIn?: string;
   checkOut?: string;
   travelers?: number;
+  maxNightlyPrice?: number;
 }
 
 export function bookingHotelUrl(params: BookingHotelParams): string {
@@ -16,6 +17,13 @@ export function bookingHotelUrl(params: BookingHotelParams): string {
     qs.set("group_adults", String(params.travelers));
     qs.set("no_rooms", params.travelers >= 4 ? "2" : "1");
     qs.set("group_children", "0");
+  }
+  if (
+    typeof params.maxNightlyPrice === "number" &&
+    Number.isFinite(params.maxNightlyPrice) &&
+    params.maxNightlyPrice > 0
+  ) {
+    qs.set("nflt", `price=EUR-min-${Math.round(params.maxNightlyPrice)}-1`);
   }
   return wrapBookingUrl(`https://www.booking.com/searchresults.html?${qs.toString()}`);
 }

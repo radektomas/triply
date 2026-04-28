@@ -116,7 +116,14 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
 
   const buildHotelUrl = (s: TrustedSource): string => {
     if (s.name.toLowerCase().includes("booking")) {
-      return bookingHotelUrl({ city: dest.name, country: dest.country, checkIn: input.checkIn, checkOut: input.checkOut, travelers: input.travelers });
+      return bookingHotelUrl({
+        city: dest.name,
+        country: dest.country,
+        checkIn: input.checkIn,
+        checkOut: input.checkOut,
+        travelers: input.travelers,
+        maxNightlyPrice: dest.estimates?.hotelPerNightRange?.max,
+      });
     }
     return s.url;
   };
