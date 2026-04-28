@@ -4,23 +4,57 @@ import { fetchTripSuggestions, getCachedTripByInput, buildCacheKey } from "@/lib
 import { computeNights } from "@/lib/dates";
 import type { TripInput } from "@/lib/types";
 
+const ALLOWED_VIBES = [
+  "beach",
+  "city",
+  "mountains",
+  "party",
+  "culture",
+  "adventure",
+  "relax",
+  "nature",
+  "food",
+  "romantic",
+  "hiking",
+  "wine",
+  "spa",
+  "luxury",
+  "budget",
+  "history",
+  "art",
+  "nightlife",
+  "diving",
+];
+
 function normalizeInput(raw: Record<string, unknown>): TripInput {
+  const budget = Math.min(Math.max(Number(raw.budget) || 500, 50), 10000);
+  const travelers = Math.min(
+    Math.max(Math.round(Number(raw.travelers) || 1), 1),
+    10,
+  );
+  const originCity = String(raw.originCity ?? "Prague")
+    .slice(0, 50)
+    .replace(/[^\w\s,\-.]/g, "")
+    .trim();
+  const vibeRaw = String(raw.vibe ?? "").toLowerCase().trim();
+  const vibe = ALLOWED_VIBES.includes(vibeRaw) ? vibeRaw : "city";
+
   return {
-    budget: Number(raw.budget),
+    budget,
     checkIn: String(raw.checkIn ?? "").trim(),
     checkOut: String(raw.checkOut ?? "").trim(),
-    travelers: Math.max(1, Number(raw.travelers) || 1),
-    vibe: String(raw.vibe).toLowerCase().trim(),
-    originCity: String(raw.originCity).trim(),
+    travelers,
+    vibe,
+    originCity,
   };
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as Record<string, unknown>;
+    const body = (await req.json()) as Record<string, unknown>;
     const input = normalizeInput(body);
 
-    if (!input.budget || !input.checkIn || !input.checkOut || !input.travelers || !input.vibe || !input.originCity) {
+    if (!input.checkIn || !input.checkOut || !input.originCity) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -49,13 +83,12 @@ export async function POST(req: NextRequest) {
 
     if (error || !trip) {
       console.error("[api/trips] failed to save trip:", error);
-      return NextResponse.json({ error: "Failed to save trip" }, { status: 500 });
+      return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
 
     return NextResponse.json({ tripId: trip.id });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    console.error("[api/trips] error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[api/trips] error:", err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

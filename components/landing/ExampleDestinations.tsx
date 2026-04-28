@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCityPhoto } from "@/lib/photos";
 import { getGradient } from "@/lib/utils/gradient";
+import { TypewriterHeadline } from "./TypewriterHeadline";
 
 const EXAMPLES = [
   { id: "porto", name: "Porto", country: "Portugal", price: 360 },
@@ -20,9 +21,7 @@ export async function ExampleDestinations() {
     <section className="py-24 md:py-32 bg-white">
       <div className="max-w-6xl mx-auto px-6">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#1A1A1A]">
-            Where €500 takes you in August
-          </h2>
+          <TypewriterHeadline />
           <p className="text-muted mt-3 text-lg">
             Click any destination to see the full plan.
           </p>
