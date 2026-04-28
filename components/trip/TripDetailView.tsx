@@ -43,7 +43,7 @@ export function TripDetailView({ detail, dest, tripId }: Props) {
       </FadeIn>
 
       <FadeIn delay={0.34} className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 space-y-12">
-        <TipsList tips={dest.tips} />
+        <TipsList tips={dest.tips ?? []} />
 
         {(dest.confidence === "low" || dest.confidence === "medium") && (
           <div className="text-sm text-muted pt-2 border-t border-border">

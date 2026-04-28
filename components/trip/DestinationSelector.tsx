@@ -12,7 +12,7 @@ interface Props {
 export function DestinationSelector({ trip }: Props) {
   const { input, result } = trip;
   const { budget, checkIn, checkOut, vibe, originCity } = input;
-  const { destinations } = result;
+  const destinations = result?.destinations ?? [];
   const nights = computeNights(checkIn, checkOut);
   const dateRange = formatRange(checkIn, checkOut);
 

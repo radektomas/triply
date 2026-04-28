@@ -39,6 +39,19 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
   const vibeRaw = String(raw.vibe ?? "").toLowerCase().trim();
   const vibe = ALLOWED_VIBES.includes(vibeRaw) ? vibeRaw : "city";
 
+  const requestedMode = String(raw.destinationMode ?? "surprise") === "specific"
+    ? "specific"
+    : "surprise";
+  const destinationInputRaw = String(raw.destinationInput ?? "")
+    .slice(0, 80)
+    .replace(/[^\p{L}\p{N}\s,\-.']/gu, "")
+    .trim();
+  const destinationInput =
+    requestedMode === "specific" && destinationInputRaw.length >= 2
+      ? destinationInputRaw
+      : undefined;
+  const destinationMode: "surprise" | "specific" = destinationInput ? "specific" : "surprise";
+
   return {
     budget,
     checkIn: String(raw.checkIn ?? "").trim(),
@@ -46,6 +59,8 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
     travelers,
     vibe,
     originCity,
+    destinationMode,
+    destinationInput,
   };
 }
 

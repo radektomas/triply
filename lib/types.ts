@@ -63,6 +63,8 @@ export interface APITripResponse {
   searchSummary: string;
 }
 
+export type DestinationMode = "surprise" | "specific";
+
 export interface TripInput {
   budget: number;
   checkIn: string;   // ISO date: YYYY-MM-DD
@@ -70,4 +72,6 @@ export interface TripInput {
   travelers: number;
   vibe: string;
   originCity: string;
+  destinationMode?: DestinationMode;
+  destinationInput?: string;
 }

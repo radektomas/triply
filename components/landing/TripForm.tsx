@@ -22,6 +22,38 @@ import {
 
 const MAX_NIGHTS = 14;
 
+interface ModeIconProps {
+  color: string;
+  size?: number;
+}
+
+function SurpriseIcon({ color, size = 18 }: ModeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="1.8" />
+      <circle cx="9" cy="9" r="1.4" fill={color} />
+      <circle cx="12" cy="12" r="1.4" fill={color} />
+      <circle cx="15" cy="15" r="1.4" fill={color} />
+    </svg>
+  );
+}
+
+function PinIcon({ color, size = 18 }: ModeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 2.5C8 2.5 5 5.4 5 9c0 4.5 7 12 7 12s7-7.5 7-12c0-3.6-3-6.5-7-6.5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <circle cx="12" cy="9" r="2.3" fill={color} />
+    </svg>
+  );
+}
+
 function computeNights(from: Date, to: Date): number {
   return Math.max(0, differenceInDays(to, from));
 }
@@ -258,6 +290,8 @@ export function TripForm() {
   const [travelers, setTravelers] = useState(2);
   const [vibe, setVibe] = useState("beach");
   const [originCity, setOriginCity] = useState("Prague");
+  const [destinationMode, setDestinationMode] = useState<"surprise" | "specific">("surprise");
+  const [destinationInput, setDestinationInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [nightsWarning, setNightsWarning] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
@@ -289,9 +323,29 @@ export function TripForm() {
 
   const rdp = getDefaultClassNames();
 
-  const stateRef = useRef({ currentStep, budget, range, travelers, vibe, originCity, loading });
+  const stateRef = useRef({
+    currentStep,
+    budget,
+    range,
+    travelers,
+    vibe,
+    originCity,
+    destinationMode,
+    destinationInput,
+    loading,
+  });
   useEffect(() => {
-    stateRef.current = { currentStep, budget, range, travelers, vibe, originCity, loading };
+    stateRef.current = {
+      currentStep,
+      budget,
+      range,
+      travelers,
+      vibe,
+      originCity,
+      destinationMode,
+      destinationInput,
+      loading,
+    };
   });
 
   useLayoutEffect(() => {
@@ -308,7 +362,7 @@ export function TripForm() {
         setDirection("forward");
         setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
       } else {
-        handleSubmit(s.budget, s.range!, s.travelers, s.vibe, s.originCity);
+        handleSubmit(s.budget, s.range!, s.travelers, s.vibe, s.originCity, s.destinationMode, s.destinationInput);
       }
     }
     document.addEventListener("keydown", onKeyDown);
@@ -320,7 +374,9 @@ export function TripForm() {
     r: DateRange,
     t: number,
     v: string,
-    o: string
+    o: string,
+    m: "surprise" | "specific",
+    d: string,
   ) {
     if (!r.from || !r.to) return;
     setLoading(true);
@@ -335,6 +391,8 @@ export function TripForm() {
           travelers: t,
           vibe: v,
           originCity: o,
+          destinationMode: m,
+          destinationInput: m === "specific" ? d.trim() : undefined,
         }),
       });
       if (!res.ok) {
@@ -603,9 +661,59 @@ export function TripForm() {
             </div>
           )}
 
-          {/* Step 3 — Vibe + Origin */}
+          {/* Step 3 — Destination + Vibe + Origin */}
           {currentStep === 3 && (
             <div className="space-y-8 px-1 sm:px-0">
+              <div>
+                <div className="flex items-baseline gap-2 mb-3">
+                  <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
+                    Destination
+                  </p>
+                </div>
+                <p className="text-sm text-[#1a1a1a]/70 mb-4">Let us pick, or tell us where</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    { value: "surprise" as const, label: "Surprise me",          Icon: SurpriseIcon },
+                    { value: "specific" as const, label: "I have a destination", Icon: PinIcon },
+                  ]).map(({ value, label, Icon }) => {
+                    const isActive = destinationMode === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setDestinationMode(value)}
+                        className={`rounded-2xl py-3 px-3 flex items-center justify-center gap-2 transition-all duration-200 ${
+                          isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"
+                        }`}
+                        style={{
+                          backgroundColor: isActive ? "#FF6B47" : "#F5F5F5",
+                          color: isActive ? "#ffffff" : "#1a1a1a",
+                          minHeight: "48px",
+                        }}
+                      >
+                        <Icon color={isActive ? "#ffffff" : "#FF6B47"} size={18} />
+                        <span className="text-sm font-semibold">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div
+                  className="grid transition-[grid-template-rows] duration-300 ease-out"
+                  style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
+                >
+                  <div className="overflow-hidden">
+                    <input
+                      type="text"
+                      value={destinationInput}
+                      onChange={(e) => setDestinationInput(e.target.value)}
+                      placeholder="Where in Europe? (e.g. Portugal, Tuscany...)"
+                      maxLength={80}
+                      className="mt-3 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <div className="flex items-baseline gap-2 mb-3">
                   <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
@@ -696,8 +804,23 @@ export function TripForm() {
                   ← Back
                 </button>
                 <TagButton
-                  onClick={() => handleSubmit(budget, range!, travelers, vibe, originCity)}
-                  disabled={loading || !range?.from || !range?.to}
+                  onClick={() =>
+                    handleSubmit(
+                      budget,
+                      range!,
+                      travelers,
+                      vibe,
+                      originCity,
+                      destinationMode,
+                      destinationInput,
+                    )
+                  }
+                  disabled={
+                    loading ||
+                    !range?.from ||
+                    !range?.to ||
+                    (destinationMode === "specific" && destinationInput.trim().length < 2)
+                  }
                   size="md"
                 >
                   {loading ? "Finding your trip…" : "Find my trip →"}

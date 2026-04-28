@@ -40,7 +40,7 @@ export default async function TripPage({
     return <DestinationSelector trip={trip} />;
   }
 
-  const dest = trip.result.destinations.find((d) => d.id === destId);
+  const dest = trip.result?.destinations?.find((d) => d.id === destId);
   if (!dest) {
     return <DestinationSelector trip={trip} />;
   }

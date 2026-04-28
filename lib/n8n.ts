@@ -47,7 +47,10 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
 export function buildCacheKey(input: TripInput): string {
   const weekKey = isoWeekKey(input.checkIn);
   const nights = computeNights(input.checkIn, input.checkOut);
-  return `${input.originCity}_${input.budget}_${weekKey}_${nights}_${input.vibe}_${input.travelers}`
+  const destSuffix = input.destinationInput
+    ? `_d-${input.destinationInput.toLowerCase().replace(/\s+/g, "-")}`
+    : "";
+  return `${input.originCity}_${input.budget}_${weekKey}_${nights}_${input.vibe}_${input.travelers}${destSuffix}`
     .toLowerCase()
     .replace(/\s+/g, "_");
 }

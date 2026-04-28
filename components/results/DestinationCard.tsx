@@ -99,7 +99,7 @@ export async function DestinationCard({
         </p>
 
         <div className="flex flex-wrap gap-1.5 mb-4">
-          {destination.vibes.map((v) => (
+          {(destination.vibes ?? []).map((v) => (
             <VibeTag key={v} label={v} />
           ))}
         </div>

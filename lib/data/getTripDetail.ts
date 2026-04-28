@@ -92,11 +92,11 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
 export function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
   const nights = computeNights(input.checkIn, input.checkOut);
 
-  const itinerary: ItineraryDay[] = dest.itinerary.map((day) => ({
+  const itinerary: ItineraryDay[] = (dest.itinerary ?? []).map((day) => ({
     day: day.day,
     title: day.title,
     estimatedCost: day.estimatedCost,
-    activities: day.activities.map(
+    activities: (day.activities ?? []).map(
       (act, i): ItineraryActivity => ({
         timeOfDay: inferTimeOfDay(act, i),
         title: stripTimePrefix(act),
@@ -104,7 +104,12 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     ),
   }));
 
-  const sources = dest.trustedSources;
+  const sources = dest.trustedSources ?? {
+    flights: [],
+    hotels: [],
+    activities: [],
+    reviews: [],
+  };
 
   const buildFlightUrl = (s: TrustedSource): string => {
     const name = s.name.toLowerCase();
@@ -142,34 +147,37 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     primary: s.trustScore >= 4.5,
   });
 
+  const weather = dest.weather;
+  const estimates = dest.estimates ?? ({} as APIDestination["estimates"]);
+
   return {
     id: dest.id,
     destination: dest.name,
     country: dest.country,
     countryCode: dest.countryCode,
     description: dest.description,
-    vibes: dest.vibes,
+    vibes: dest.vibes ?? [],
     weather: {
-      temperature: dest.weather.tempC,
-      sunHours: dest.weather.sunshineHours,
-      seaTemperature: dest.weather.seaTemp ?? 18,
-      precipitation: adaptRain(dest.weather.rain),
+      temperature: weather?.tempC ?? 0,
+      sunHours: weather?.sunshineHours ?? 0,
+      seaTemperature: weather?.seaTemp ?? 18,
+      precipitation: adaptRain(weather?.rain ?? "low"),
       month: capitalizeFirst(monthName(input.checkIn)),
     },
     nights,
     checkIn: input.checkIn,
     checkOut: input.checkOut,
-    budget: buildBudget(dest.estimates, nights, input.travelers),
+    budget: buildBudget(estimates, nights, input.travelers),
     mustDo: deriveMustDo(dest, nights),
     itinerary,
     localWisdom: [],
     goodToKnow: defaultGoodToKnow(dest.country),
     whatToPack: [],
     booking: {
-      flights:    sources.flights.map((s) => toLink(buildFlightUrl(s))(s)),
-      hotels:     sources.hotels.map((s) => toLink(buildHotelUrl(s))(s)),
-      activities: sources.activities.map((s) => toLink(buildActivityUrl(s))(s)),
-      reviews:    sources.reviews.map((s) => toLink(s.url)(s)),
+      flights:    (sources.flights ?? []).map((s) => toLink(buildFlightUrl(s))(s)),
+      hotels:     (sources.hotels ?? []).map((s) => toLink(buildHotelUrl(s))(s)),
+      activities: (sources.activities ?? []).map((s) => toLink(buildActivityUrl(s))(s)),
+      reviews:    (sources.reviews ?? []).map((s) => toLink(s.url)(s)),
     },
     photos: [],
   };
@@ -200,8 +208,8 @@ function inferMustDoCategory(title: string): MustDoCategory {
 
 function deriveMustDo(dest: APIDestination, nights: number): MustDoItem[] {
   const activities: string[] = [];
-  for (const day of dest.itinerary) {
-    for (const act of day.activities) {
+  for (const day of dest.itinerary ?? []) {
+    for (const act of day.activities ?? []) {
       const clean = stripTimePrefix(act);
       if (clean) activities.push(clean);
     }
