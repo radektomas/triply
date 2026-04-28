@@ -10,9 +10,10 @@ const precipLabel = { dry: "Dry", mixed: "Some rain", wet: "Wet" } as const;
 interface Props {
   trip: TripDetail;
   returnUrl: string;
+  returnLabel?: string;
 }
 
-export async function TripHero({ trip, returnUrl }: Props) {
+export async function TripHero({ trip, returnUrl, returnLabel = "Back to results" }: Props) {
   const photos = await getCityPhotos(trip.destination, trip.country);
   const gradient = getGradient(trip.id);
 
@@ -37,7 +38,7 @@ export async function TripHero({ trip, returnUrl }: Props) {
           href={returnUrl}
           className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 text-white text-sm font-medium hover:bg-white/25 transition-all duration-200"
         >
-          <span aria-hidden="true">←</span> Back to results
+          <span aria-hidden="true">←</span> {returnLabel}
         </Link>
       </div>
 

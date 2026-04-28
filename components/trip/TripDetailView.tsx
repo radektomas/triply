@@ -6,23 +6,30 @@ import { TipsList } from "./TipsList";
 import { BookingHub } from "./BookingHub";
 import { GradientMesh } from "@/components/landing/GradientMesh";
 import type { TripDetail } from "@/lib/types/trip";
-import type { APIDestination } from "@/lib/types";
 
 interface Props {
   detail: TripDetail;
-  dest: APIDestination;
-  tripId: string;
+  tips: string[];
+  confidence?: "high" | "medium" | "low";
+  disclaimer?: string;
+  returnUrl: string;
+  returnLabel?: string;
 }
 
-export function TripDetailView({ detail, dest, tripId }: Props) {
-  const returnUrl = `/trip/${tripId}`;
-
+export function TripDetailView({
+  detail,
+  tips,
+  confidence,
+  disclaimer,
+  returnUrl,
+  returnLabel,
+}: Props) {
   return (
     <>
     <GradientMesh variant="fixed" />
     <main className="flex-1 pb-16">
       <FadeIn>
-        <TripHero trip={detail} returnUrl={returnUrl} />
+        <TripHero trip={detail} returnUrl={returnUrl} returnLabel={returnLabel} />
       </FadeIn>
 
       <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 pt-10">
@@ -43,16 +50,16 @@ export function TripDetailView({ detail, dest, tripId }: Props) {
       </FadeIn>
 
       <FadeIn delay={0.34} className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 space-y-12">
-        <TipsList tips={dest.tips ?? []} />
+        <TipsList tips={tips} />
 
-        {(dest.confidence === "low" || dest.confidence === "medium") && (
+        {(confidence === "low" || confidence === "medium") && (
           <div className="text-sm text-muted pt-2 border-t border-border">
-            {dest.confidence === "low" && (
+            {confidence === "low" && (
               <p className="mb-1 font-medium text-[#374151]">
                 ⓘ Low confidence — AI had limited data for this destination. Verify details independently.
               </p>
             )}
-            <p className="italic">{dest.disclaimer}</p>
+            {disclaimer && <p className="italic">{disclaimer}</p>}
           </div>
         )}
       </FadeIn>

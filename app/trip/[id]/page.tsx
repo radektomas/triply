@@ -46,5 +46,13 @@ export default async function TripPage({
   }
 
   const detail = adaptAPIDestination(dest, trip.input);
-  return <TripDetailView detail={detail} dest={dest} tripId={tripId} />;
+  return (
+    <TripDetailView
+      detail={detail}
+      tips={dest.tips ?? []}
+      confidence={dest.confidence}
+      disclaimer={dest.disclaimer}
+      returnUrl={`/trip/${tripId}`}
+    />
+  );
 }

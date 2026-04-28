@@ -4,17 +4,35 @@ import { getGradient } from "@/lib/utils/gradient";
 import { TypewriterHeadline } from "./TypewriterHeadline";
 
 const EXAMPLES = [
-  { id: "porto", name: "Porto", country: "Portugal", price: 360 },
-  { id: "krakow", name: "Kraków", country: "Poland", price: 340 },
-  { id: "valencia", name: "Valencia", country: "Spain", price: 375 },
+  {
+    slug: "prague",
+    name: "Prague",
+    country: "Czech Republic",
+    price: 280,
+    vibeLabel: "City",
+  },
+  {
+    slug: "algarve",
+    name: "Algarve",
+    country: "Portugal",
+    price: 340,
+    vibeLabel: "Beach",
+  },
+  {
+    slug: "hallstatt",
+    name: "Hallstatt",
+    country: "Austria",
+    price: 395,
+    vibeLabel: "Mountains",
+  },
 ];
 
-const RESULTS_HREF =
-  "/results?budget=500&month=august&nights=6&vibe=city&originCity=Prague";
+const NIGHTS = 6;
+const MONTH_LABEL = "June";
 
 export async function ExampleDestinations() {
   const photoUrls = await Promise.all(
-    EXAMPLES.map(({ name, country }) => getCityPhoto(name, country))
+    EXAMPLES.map(({ name, country }) => getCityPhoto(name, country)),
   );
 
   return (
@@ -28,14 +46,15 @@ export async function ExampleDestinations() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {EXAMPLES.map(({ id, name, country, price }, i) => {
+          {EXAMPLES.map(({ slug, name, country, price, vibeLabel }, i) => {
             const photoUrl = photoUrls[i];
-            const gradient = getGradient(id);
+            const gradient = getGradient(slug);
 
             return (
               <Link
-                key={id}
-                href={RESULTS_HREF}
+                key={slug}
+                href={`/examples/${slug}`}
+                prefetch
                 className="group block rounded-2xl overflow-hidden shadow-sm border border-border hover:-translate-y-1 hover:shadow-lg transition-all duration-200"
               >
                 <div
@@ -53,14 +72,18 @@ export async function ExampleDestinations() {
                     <p className="text-white/75 text-xs font-semibold uppercase tracking-widest mb-0.5">
                       {country}
                     </p>
-                    <h3 className="text-white text-2xl font-bold leading-tight group-hover:text-white transition-colors">
+                    <h3 className="text-white text-2xl font-bold leading-tight">
                       {name}
                     </h3>
                   </div>
                 </div>
                 <div className="bg-card px-4 py-3 flex items-center justify-between">
-                  <span className="text-sm text-muted">6 nights · August · City</span>
-                  <span className="text-sm font-semibold text-accent">See plan →</span>
+                  <span className="text-sm text-muted">
+                    {NIGHTS} nights · {MONTH_LABEL} · {vibeLabel}
+                  </span>
+                  <span className="text-sm font-semibold text-accent">
+                    See plan →
+                  </span>
                 </div>
               </Link>
             );
