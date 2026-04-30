@@ -19,6 +19,10 @@ import {
   CultureIcon,
   AdventureIcon,
 } from "@/components/landing/VibeIcons";
+import { AirportSearch } from "@/components/landing/AirportSearch";
+import { AIRPORTS } from "@/lib/data/airports";
+
+const DEFAULT_AIRPORT = AIRPORTS.find((a) => a.iata === "PRG");
 
 const MAX_NIGHTS = 14;
 
@@ -65,16 +69,6 @@ const VIBE_PRESETS = [
   { value: "party",     label: "Party",     Icon: PartyIcon,     activeBg: "#FF6B47", accent: "#FF6B47" },
   { value: "culture",   label: "Culture",   Icon: CultureIcon,   activeBg: "#D4574E", accent: "#D4574E" },
   { value: "adventure", label: "Adventure", Icon: AdventureIcon, activeBg: "#2A9D8F", accent: "#2A9D8F" },
-];
-
-const ORIGIN_CITIES = [
-  { value: "Prague",    label: "Prague" },
-  { value: "Vienna",    label: "Vienna" },
-  { value: "Berlin",    label: "Berlin" },
-  { value: "Warsaw",    label: "Warsaw" },
-  { value: "Budapest",  label: "Budapest" },
-  { value: "London",    label: "London" },
-  { value: "Amsterdam", label: "Amsterdam" },
 ];
 
 const TRAVELER_PRESETS = [
@@ -756,43 +750,11 @@ export function TripForm() {
                     Flying From
                   </p>
                 </div>
-                <p className="text-sm text-[#1a1a1a]/70 mb-4">Pick your home airport</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {ORIGIN_CITIES.map((city) => {
-                    const isActive = originCity === city.value;
-                    return (
-                      <button
-                        key={city.value}
-                        type="button"
-                        onClick={() => setOriginCity(city.value)}
-                        className={`
-                          rounded-2xl py-3 px-3
-                          flex items-center justify-center gap-2
-                          transition-all duration-200
-                          ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
-                        `}
-                        style={{
-                          backgroundColor: isActive ? "#FF6B47" : "#F5F5F5",
-                          color: isActive ? "#ffffff" : "#1a1a1a",
-                          minHeight: "48px",
-                        }}
-                      >
-                        {isActive && (
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path
-                              d="M7 1C4.5 1 2.5 3 2.5 5.5C2.5 8.5 7 13 7 13C7 13 11.5 8.5 11.5 5.5C11.5 3 9.5 1 7 1Z"
-                              fill="white"
-                              stroke="white"
-                              strokeWidth="1"
-                            />
-                            <circle cx="7" cy="5.5" r="1.5" fill="#FF6B47" />
-                          </svg>
-                        )}
-                        <span className="text-sm font-semibold">{city.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <p className="text-sm text-[#1a1a1a]/70 mb-4">Search for your home airport</p>
+                <AirportSearch
+                  defaultAirport={DEFAULT_AIRPORT}
+                  onChange={(city) => setOriginCity(city)}
+                />
               </div>
 
               <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
