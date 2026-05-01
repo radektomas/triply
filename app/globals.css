@@ -274,6 +274,23 @@ input[type="range"]::-moz-range-thumb {
   opacity: 1 !important;
 }
 
+/* Hero leaf — gentle sway around its base 195° rotation */
+@keyframes leaf-sway {
+  0%, 100% { transform: rotate(193deg); }
+  50%       { transform: rotate(197deg); }
+}
+.animate-leaf-sway {
+  animation: leaf-sway 6s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-leaf-sway {
+    animation: none;
+    transform: rotate(195deg);
+  }
+}
+
 @keyframes cursor-blink {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }

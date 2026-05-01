@@ -5,6 +5,8 @@ const CORAL = "#FF6B47";
 interface Props {
   size?: "sm" | "md" | "lg";
   className?: string;
+  hideString?: boolean;
+  noSway?: boolean;
 }
 
 const configs = {
@@ -31,14 +33,14 @@ const configs = {
   },
 };
 
-export function Wordmark({ size = "md", className = "" }: Props) {
+export function Wordmark({ size = "md", className = "", hideString = false, noSway = false }: Props) {
   const c = configs[size];
 
   return (
     // group drives both the CSS hover selector and the scale transition
     <div className={`relative inline-block group ${className}`}>
       {/* Pin + string — fixed, does not swing */}
-      {c.showString && (
+      {c.showString && !hideString && (
         <svg
           className="absolute left-1/2 -translate-x-1/2 -top-7 w-5 h-8 z-10 pointer-events-none"
           viewBox="0 0 20 32"
@@ -59,7 +61,7 @@ export function Wordmark({ size = "md", className = "" }: Props) {
       <div className="transition-transform duration-500 group-hover:scale-105">
         {/* Swinging tag — rotation only, pivots from top */}
         <div
-          className={`relative ${c.padding} rounded-xl select-none cursor-default animate-swing`}
+          className={`relative ${c.padding} rounded-xl select-none cursor-default ${noSway ? "" : "animate-swing"}`}
           style={{
             backgroundColor: TAG_GREEN,
             boxShadow: "0 8px 28px rgba(13,115,119,0.35), 0 2px 8px rgba(0,0,0,0.12)",
