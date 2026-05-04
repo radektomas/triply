@@ -183,6 +183,17 @@ export function CustomCityPicker({ tripParams }: Props) {
     };
   }, [submitting]);
 
+  // Warm Photon's DNS/TLS/CDN path on mount. Vercel cold-start + first hop
+  // to komoot.io can add 5-10s on the user's first search; firing a tiny
+  // request while they read the 3-card grid eats that latency invisibly.
+  // Fire-and-forget; failures don't matter.
+  useEffect(() => {
+    fetch("https://photon.komoot.io/api/?q=warmup&limit=1", {
+      mode: "cors",
+      priority: "low",
+    } as RequestInit).catch(() => {});
+  }, []);
+
   // The input is bound to `query` so keystrokes are reflected synchronously.
   // The search side-effect uses a DEFERRED copy of the query — when the user
   // types fast, React can drop intermediate values and only run the (more
@@ -469,20 +480,39 @@ export function CustomCityPicker({ tripParams }: Props) {
                 value={query}
                 onFocus={() => setShowDropdown(true)}
                 onChange={(e) => {
-                  setQuery(e.target.value);
+                  const v = e.target.value;
+                  setQuery(v);
                   setShowDropdown(true);
                   // Clear any prior error immediately on input change — don't
                   // wait the 300ms debounce to wipe it.
                   setSearchError(null);
-                  if (selected && e.target.value !== suggestionLabel(selected)) {
+                  if (selected && v !== suggestionLabel(selected)) {
                     setSelected(null);
+                  }
+                  // Show "searching" state immediately, before the 300ms debounce
+                  // fires — masks the cold-start latency on the first request.
+                  // The fetch completion in the effect resets it via `finally`.
+                  if (v.trim().length >= 2) {
+                    setLoadingSearch(true);
+                  } else {
+                    setLoadingSearch(false);
                   }
                 }}
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
                 placeholder="Lisbon, Athens, Reykjavík…"
-                className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-[#1A1A1A] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#F8F7F5]"
+                className="w-full rounded-xl border border-border bg-white pl-4 pr-10 py-3 text-sm text-[#1A1A1A] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#F8F7F5]"
               />
+
+              {/* Inline spinner — appears instantly when the user starts
+                  typing, even before the 300ms debounce fires. Hidden once the
+                  fetch's `finally` resets `loadingSearch`. */}
+              {loadingSearch && !submitting && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 inline-block w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"
+                />
+              )}
 
               {showDropdown && suggestions.length > 0 && !submitting && (
                 <ul
