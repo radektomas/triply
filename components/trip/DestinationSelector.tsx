@@ -2,6 +2,7 @@ import { ResultsHeader } from "@/components/results/ResultsHeader";
 import { DestinationCard } from "@/components/results/DestinationCard";
 import { AnimatedCard } from "@/components/results/AnimatedCard";
 import { GradientMesh } from "@/components/landing/GradientMesh";
+import { CustomCityPicker } from "@/components/CustomCityPicker";
 import { computeNights, formatRange } from "@/lib/dates";
 import type { TripRecord } from "@/lib/data/getTripById";
 
@@ -11,7 +12,7 @@ interface Props {
 
 export function DestinationSelector({ trip }: Props) {
   const { input, result } = trip;
-  const { budget, checkIn, checkOut, vibe, originCity } = input;
+  const { budget, checkIn, checkOut, vibe, originCity, travelers } = input;
   const destinations = result?.destinations ?? [];
   const nights = computeNights(checkIn, checkOut);
   const dateRange = formatRange(checkIn, checkOut);
@@ -36,6 +37,19 @@ export function DestinationSelector({ trip }: Props) {
             </AnimatedCard>
           ))}
         </div>
+
+        <CustomCityPicker
+          tripParams={{
+            budget,
+            nights,
+            travelers,
+            vibe,
+            originCity,
+            checkIn,
+            checkOut,
+          }}
+        />
+
         <div className="mt-10 text-center">
           <a
             href="/"

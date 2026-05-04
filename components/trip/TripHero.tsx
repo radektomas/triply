@@ -3,6 +3,7 @@ import { getCityPhotos } from "@/lib/photos";
 import { getGradient } from "@/lib/utils/gradient";
 import { formatRange } from "@/lib/dates";
 import { PhotoCarousel } from "./PhotoCarousel";
+import { ShareTripButton } from "./ShareTripButton";
 import type { TripDetail } from "@/lib/types/trip";
 
 const precipLabel = { dry: "Dry", mixed: "Some rain", wet: "Wet" } as const;
@@ -29,9 +30,9 @@ export async function TripHero({ trip, returnUrl, returnLabel = "Back to results
         country={trip.country}
       />
 
-      {/* Back chip — floating, safe-area aware */}
+      {/* Back + share chips — floating, safe-area aware */}
       <div
-        className="absolute top-0 left-0 right-0 z-20 max-w-2xl mx-auto px-4 sm:px-6"
+        className="absolute top-0 left-0 right-0 z-20 max-w-2xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3"
         style={{ paddingTop: "max(1.5rem, env(safe-area-inset-top))" }}
       >
         <Link
@@ -40,6 +41,11 @@ export async function TripHero({ trip, returnUrl, returnLabel = "Back to results
         >
           <span aria-hidden="true">←</span> {returnLabel}
         </Link>
+        <ShareTripButton
+          destination={trip.destination}
+          budget={trip.budget.total}
+          nights={trip.nights}
+        />
       </div>
 
       {/* Hero content pinned to bottom */}
