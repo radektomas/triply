@@ -39,18 +39,21 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
   const vibeRaw = String(raw.vibe ?? "").toLowerCase().trim();
   const vibe = ALLOWED_VIBES.includes(vibeRaw) ? vibeRaw : "city";
 
-  const requestedMode = String(raw.destinationMode ?? "surprise") === "specific"
-    ? "specific"
-    : "surprise";
+  const rawMode = String(raw.destinationMode ?? "surprise");
+  const requestedMode: "surprise" | "specific" | "exact_city" =
+    rawMode === "specific" || rawMode === "exact_city" ? rawMode : "surprise";
   const destinationInputRaw = String(raw.destinationInput ?? "")
     .slice(0, 80)
     .replace(/[^\p{L}\p{N}\s,\-.']/gu, "")
     .trim();
+  // Both `specific` and `exact_city` carry a destinationInput. If the input
+  // is missing/too short we fall back to surprise mode.
   const destinationInput =
-    requestedMode === "specific" && destinationInputRaw.length >= 2
+    requestedMode !== "surprise" && destinationInputRaw.length >= 2
       ? destinationInputRaw
       : undefined;
-  const destinationMode: "surprise" | "specific" = destinationInput ? "specific" : "surprise";
+  const destinationMode: "surprise" | "specific" | "exact_city" =
+    destinationInput ? requestedMode : "surprise";
 
   return {
     budget,
@@ -101,7 +104,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
 
-    return NextResponse.json({ tripId: trip.id });
+    // Surface the first destination's slug so exact_city callers can deep-link
+    // straight to /trip/<id>?d=<slug>. Harmless for surprise/specific modes.
+    const firstDestinationId = result.destinations?.[0]?.id ?? null;
+    return NextResponse.json({ tripId: trip.id, firstDestinationId });
   } catch (err: unknown) {
     console.error("[api/trips] error:", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

@@ -21,6 +21,10 @@ import {
 } from "@/components/landing/VibeIcons";
 import { AirportSearch } from "@/components/landing/AirportSearch";
 import { AIRPORTS } from "@/lib/data/airports";
+import {
+  CityAutocomplete,
+  type CitySelection,
+} from "@/components/shared/CityAutocomplete";
 
 const DEFAULT_AIRPORT = AIRPORTS.find((a) => a.iata === "PRG");
 
@@ -54,6 +58,19 @@ function PinIcon({ color, size = 18 }: ModeIconProps) {
         fill="none"
       />
       <circle cx="12" cy="9" r="2.3" fill={color} />
+    </svg>
+  );
+}
+
+function CrosshairIcon({ color, size = 18 }: ModeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="2.6" fill={color} />
+      <line x1="12" y1="2.5" x2="12" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="12" y1="18" x2="12" y2="21.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="2.5" y1="12" x2="6" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="18" y1="12" x2="21.5" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
@@ -284,8 +301,22 @@ export function TripForm() {
   const [travelers, setTravelers] = useState(2);
   const [vibe, setVibe] = useState("beach");
   const [originCity, setOriginCity] = useState("Prague");
-  const [destinationMode, setDestinationMode] = useState<"surprise" | "specific">("surprise");
+  const [destinationMode, setDestinationMode] = useState<
+    "surprise" | "specific" | "exact_city"
+  >("surprise");
   const [destinationInput, setDestinationInput] = useState("");
+  const [exactCity, setExactCity] = useState<CitySelection | null>(null);
+  // Tracks whether the exact_city collapsible panel has finished its
+  // expand animation. Drives an overflow-hidden → overflow-visible swap so
+  // the autocomplete dropdown isn't clipped by the panel boundary, while
+  // still allowing the grid-template-rows collapse animation to clip
+  // content during open/close transitions.
+  const [exactCityExpanded, setExactCityExpanded] = useState(false);
+  // Reset the expanded flag synchronously (before paint) on every mode
+  // change so we always re-clip during the next transition cycle.
+  useLayoutEffect(() => {
+    setExactCityExpanded(false);
+  }, [destinationMode]);
   const [loading, setLoading] = useState(false);
   const [nightsWarning, setNightsWarning] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
@@ -326,6 +357,7 @@ export function TripForm() {
     originCity,
     destinationMode,
     destinationInput,
+    exactCity,
     loading,
   });
   useEffect(() => {
@@ -338,6 +370,7 @@ export function TripForm() {
       originCity,
       destinationMode,
       destinationInput,
+      exactCity,
       loading,
     };
   });
@@ -356,7 +389,16 @@ export function TripForm() {
         setDirection("forward");
         setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
       } else {
-        handleSubmit(s.budget, s.range!, s.travelers, s.vibe, s.originCity, s.destinationMode, s.destinationInput);
+        handleSubmit(
+          s.budget,
+          s.range!,
+          s.travelers,
+          s.vibe,
+          s.originCity,
+          s.destinationMode,
+          s.destinationInput,
+          s.exactCity,
+        );
       }
     }
     document.addEventListener("keydown", onKeyDown);
@@ -369,12 +411,26 @@ export function TripForm() {
     t: number,
     v: string,
     o: string,
-    m: "surprise" | "specific",
+    m: "surprise" | "specific" | "exact_city",
     d: string,
+    city: CitySelection | null,
   ) {
     if (!r.from || !r.to) return;
+    // Guard: exact_city mode requires a picked city object, not just typed text.
+    if (m === "exact_city" && !city) return;
     setLoading(true);
     try {
+      // Build the destinationInput per mode: region text for "specific",
+      // "City, Country" for "exact_city", omitted for "surprise".
+      let destinationInput: string | undefined;
+      if (m === "specific") {
+        destinationInput = d.trim();
+      } else if (m === "exact_city" && city) {
+        destinationInput = city.countryName
+          ? `${city.cityName}, ${city.countryName}`
+          : city.cityName;
+      }
+
       const res = await fetch("/api/trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -386,15 +442,24 @@ export function TripForm() {
           vibe: v,
           originCity: o,
           destinationMode: m,
-          destinationInput: m === "specific" ? d.trim() : undefined,
+          destinationInput,
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(err.error ?? "Failed to create trip");
       }
-      const { tripId } = await res.json() as { tripId: string };
-      router.push(`/trip/${tripId}`);
+      const { tripId, firstDestinationId } = (await res.json()) as {
+        tripId: string;
+        firstDestinationId?: string | null;
+      };
+      // exact_city deep-links straight to the chosen city's detail view;
+      // surprise/specific land on the destination selector as before.
+      if (m === "exact_city" && firstDestinationId) {
+        router.push(`/trip/${tripId}?d=${firstDestinationId}`);
+      } else {
+        router.push(`/trip/${tripId}`);
+      }
     } catch (err) {
       console.error("[TripForm] submit error:", err);
       setLoading(false);
@@ -665,10 +730,11 @@ export function TripForm() {
                   </p>
                 </div>
                 <p className="text-sm text-[#1a1a1a]/70 mb-4">Let us pick, or tell us where</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {([
-                    { value: "surprise" as const, label: "Surprise me",          Icon: SurpriseIcon },
-                    { value: "specific" as const, label: "I have a destination", Icon: PinIcon },
+                    { value: "surprise" as const,   label: "Surprise me",          Icon: SurpriseIcon  },
+                    { value: "specific" as const,   label: "I know the region",    Icon: PinIcon       },
+                    { value: "exact_city" as const, label: "I know the exact city", Icon: CrosshairIcon },
                   ]).map(({ value, label, Icon }) => {
                     const isActive = destinationMode === value;
                     return (
@@ -691,6 +757,9 @@ export function TripForm() {
                     );
                   })}
                 </div>
+
+                {/* Region text input — visible only in "specific" mode. Smooth
+                    grid-row expand keeps the layout from jumping. */}
                 <div
                   className="grid transition-[grid-template-rows] duration-300 ease-out"
                   style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
@@ -704,6 +773,45 @@ export function TripForm() {
                       maxLength={80}
                       className="mt-3 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
                     />
+                    <p className="mt-2 text-xs text-muted">
+                      Tell us a country or area — we&apos;ll find 3 great spots.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Photon city autocomplete — visible only in "exact_city" mode.
+                    The inner wrapper swaps overflow-hidden → overflow-visible
+                    once the expand transition completes so the dropdown can
+                    extend below the panel without being clipped. */}
+                <div
+                  className="grid transition-[grid-template-rows] duration-300 ease-out"
+                  style={{ gridTemplateRows: destinationMode === "exact_city" ? "1fr" : "0fr" }}
+                  onTransitionEnd={(e) => {
+                    if (
+                      e.propertyName === "grid-template-rows" &&
+                      destinationMode === "exact_city"
+                    ) {
+                      setExactCityExpanded(true);
+                    }
+                  }}
+                >
+                  <div
+                    className={
+                      exactCityExpanded && destinationMode === "exact_city"
+                        ? "overflow-visible"
+                        : "overflow-hidden"
+                    }
+                  >
+                    <div className="mt-3">
+                      <CityAutocomplete
+                        value={exactCity}
+                        onChange={setExactCity}
+                        placeholder="Type a city — Lisbon, Athens, Reykjavík…"
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-muted">
+                      Pick a specific city — we&apos;ll plan a detailed trip there.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -775,17 +883,24 @@ export function TripForm() {
                       originCity,
                       destinationMode,
                       destinationInput,
+                      exactCity,
                     )
                   }
                   disabled={
                     loading ||
                     !range?.from ||
                     !range?.to ||
-                    (destinationMode === "specific" && destinationInput.trim().length < 2)
+                    (destinationMode === "specific" &&
+                      destinationInput.trim().length < 2) ||
+                    (destinationMode === "exact_city" && !exactCity)
                   }
                   size="md"
                 >
-                  {loading ? "Finding your trip…" : "Find my trip →"}
+                  {loading
+                    ? destinationMode === "exact_city" && exactCity
+                      ? `Planning your trip to ${exactCity.cityName}…`
+                      : "Finding your trip…"
+                    : "Find my trip →"}
                 </TagButton>
               </div>
             </div>

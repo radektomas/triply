@@ -63,7 +63,7 @@ export interface APITripResponse {
   searchSummary: string;
 }
 
-export type DestinationMode = "surprise" | "specific";
+export type DestinationMode = "surprise" | "specific" | "exact_city";
 
 export interface TripInput {
   budget: number;

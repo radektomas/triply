@@ -1,20 +1,17 @@
 "use client";
 
-import {
-  useDeferredValue,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  CityAutocomplete,
+  type CitySelection,
+} from "@/components/shared/CityAutocomplete";
 
-// "Pick your own city" escape hatch on the destination-selector page. Self-
-// contained section that collapses/expands inline, runs a Photon autocomplete
-// against OpenStreetMap, and POSTs the chosen city + the existing trip params
-// straight to the n8n single-city webhook. n8n is expected to return
-// { tripId } so we can navigate to the new trip detail page.
+// "Pick your own city" escape hatch on the destination-selector page. Wraps
+// the shared CityAutocomplete with the picker section's collapse toggle,
+// submit button, and phased loading panel. Posts the chosen city + the
+// existing trip params to the n8n single-city webhook; expects { id | tripId }
+// back so we can navigate to the new trip detail page.
 
 interface TripParams {
   budget: number;
@@ -29,41 +26,6 @@ interface TripParams {
 interface Props {
   tripParams: TripParams;
 }
-
-interface PhotonFeature {
-  geometry: { coordinates: [number, number] };
-  properties: {
-    name?: string;
-    country?: string;
-    countrycode?: string;
-    type?: string;
-    osm_id?: number;
-    osm_type?: string;
-  };
-}
-
-interface PhotonResponse {
-  features: PhotonFeature[];
-}
-
-interface CitySuggestion {
-  key: string;
-  cityName: string;
-  countryName: string;
-  countryCode: string;
-  lat: number;
-  lng: number;
-}
-
-const PHOTON_URL = "https://photon.komoot.io/api/";
-const DEBOUNCE_MS = 300;
-const MAX_RESULTS = 5;
-
-// Stable empty-array reference. `setSuggestions([])` with a fresh literal
-// clobbers identity even when the previous value was already empty, which
-// triggers a needless re-render. Reusing one constant keeps no-op clears
-// no-op all the way through React's bail-out path.
-const EMPTY_SUGGESTIONS: CitySuggestion[] = [];
 
 function PinIcon({ size = 18, className }: { size?: number; className?: string }) {
   return (
@@ -122,52 +84,18 @@ function ChevronDownIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-function suggestionLabel(s: CitySuggestion): string {
-  return s.countryName ? `${s.cityName}, ${s.countryName}` : s.cityName;
-}
-
-function mapPhotonFeature(f: PhotonFeature): CitySuggestion | null {
-  const name = f.properties.name?.trim();
-  if (!name) return null;
-  const [lng, lat] = f.geometry.coordinates;
-  if (typeof lat !== "number" || typeof lng !== "number") return null;
-  const osmKey = `${f.properties.osm_type ?? ""}-${f.properties.osm_id ?? ""}`;
-  return {
-    key: `${osmKey}-${name}-${lat.toFixed(4)},${lng.toFixed(4)}`,
-    cityName: name,
-    countryName: f.properties.country?.trim() ?? "",
-    countryCode: f.properties.countrycode?.trim().toUpperCase() ?? "",
-    lat,
-    lng,
-  };
-}
-
 export function CustomCityPicker({ tripParams }: Props) {
   const router = useRouter();
   const reactId = useId();
-  const listboxId = `city-listbox-${reactId}`;
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  // Tracks the in-flight Photon fetch so the next keystroke can abort it
-  // before kicking off a new one — prevents stale results clobbering newer.
-  const abortRef = useRef<AbortController | null>(null);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<CitySuggestion[]>(EMPTY_SUGGESTIONS);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [loadingSearch, setLoadingSearch] = useState(false);
-  const [selected, setSelected] = useState<CitySuggestion | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [selected, setSelected] = useState<CitySelection | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showDropdown, setShowDropdown] = useState(false);
   // 0=Finding spots · 1=Crafting itinerary · 2=Calculating budget · 3=Almost there · 4=Taking longer
   const [loadingPhase, setLoadingPhase] = useState<0 | 1 | 2 | 3 | 4>(0);
 
   // Cycle through phased loading messages while a submit is in flight.
-  // Multiple `setTimeout`s at fixed offsets (instead of one `setInterval`)
-  // because the gates aren't all 4s apart — phase 4 only triggers at 30s.
   useEffect(() => {
     if (!submitting) return;
     setLoadingPhase(0);
@@ -183,127 +111,6 @@ export function CustomCityPicker({ tripParams }: Props) {
     };
   }, [submitting]);
 
-  // Warm Photon's DNS/TLS/CDN path on mount. Vercel cold-start + first hop
-  // to komoot.io can add 5-10s on the user's first search; firing a tiny
-  // request while they read the 3-card grid eats that latency invisibly.
-  // Fire-and-forget; failures don't matter.
-  useEffect(() => {
-    fetch("https://photon.komoot.io/api/?q=warmup&limit=1", {
-      mode: "cors",
-      priority: "low",
-    } as RequestInit).catch(() => {});
-  }, []);
-
-  // The input is bound to `query` so keystrokes are reflected synchronously.
-  // The search side-effect uses a DEFERRED copy of the query — when the user
-  // types fast, React can drop intermediate values and only run the (more
-  // expensive) effect for the latest committed value. Eliminates input lag
-  // even on slow devices.
-  const deferredQuery = useDeferredValue(query);
-
-  // Debounced Photon fetch with abort-on-new-keystroke. The error state itself
-  // is cleared synchronously in the input's `onChange` so users don't see a
-  // stale error while typing — this effect only sets a NEW error when a
-  // request actually fails.
-  useEffect(() => {
-    const trimmed = deferredQuery.trim();
-
-    // Skip when query is too short to be meaningful, or when the input
-    // already displays the currently-selected city's label.
-    if (
-      trimmed.length < 2 ||
-      selected?.cityName === trimmed.split(",")[0]?.trim()
-    ) {
-      // Use the stable empty array so React can bail out if `suggestions` was
-      // already empty.
-      setSuggestions((prev) => (prev.length === 0 ? prev : EMPTY_SUGGESTIONS));
-      setLoadingSearch(false);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      // Cancel any prior in-flight request before launching a new one.
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      setLoadingSearch(true);
-      try {
-        // Photon requires `osm_tag` to be repeated as a separate param per
-        // value — comma-joined values produce a 400.
-        const params = new URLSearchParams();
-        params.set("q", trimmed);
-        params.set("limit", String(MAX_RESULTS));
-        params.append("osm_tag", "place:city");
-        params.append("osm_tag", "place:town");
-        params.set("lang", "en");
-        const url = `${PHOTON_URL}?${params.toString()}`;
-
-        // Dev-only verification log: confirms the debounce truly fires once
-        // per pause-in-typing rather than per keystroke.
-        if (process.env.NODE_ENV !== "production") {
-          // eslint-disable-next-line no-console
-          console.log("[CustomCityPicker] photon fetch", url);
-        }
-
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) throw new Error(`Photon returned ${res.status}`);
-        const data = (await res.json()) as PhotonResponse;
-        const next = data.features
-          .map(mapPhotonFeature)
-          .filter((x): x is CitySuggestion => x !== null);
-        setSuggestions(next.length > 0 ? next : EMPTY_SUGGESTIONS);
-        setActiveIndex(0);
-        setSearchError(null);
-      } catch (err) {
-        // Abort is expected (every keystroke kills the prior fetch).
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setSearchError("Couldn't search right now. Try again.");
-        setSuggestions(EMPTY_SUGGESTIONS);
-      } finally {
-        setLoadingSearch(false);
-      }
-    }, DEBOUNCE_MS);
-
-    return () => {
-      clearTimeout(timer);
-      abortRef.current?.abort();
-    };
-  }, [deferredQuery, selected]);
-
-  function pick(s: CitySuggestion) {
-    setSelected(s);
-    setQuery(suggestionLabel(s));
-    setShowDropdown(false);
-    setSuggestions(EMPTY_SUGGESTIONS);
-    setSubmitError(null);
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!showDropdown || suggestions.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter") {
-      const item = suggestions[activeIndex];
-      if (item) {
-        e.preventDefault();
-        pick(item);
-      }
-    } else if (e.key === "Escape") {
-      setShowDropdown(false);
-      inputRef.current?.blur();
-    }
-  }
-
-  function onBlur(e: React.FocusEvent<HTMLInputElement>) {
-    if (containerRef.current?.contains(e.relatedTarget as Node)) return;
-    setShowDropdown(false);
-  }
-
   async function handleSubmit() {
     if (!selected || submitting) return;
     setSubmitting(true);
@@ -312,18 +119,14 @@ export function CustomCityPicker({ tripParams }: Props) {
       const webhookUrl = process.env.NEXT_PUBLIC_N8N_SINGLE_CITY_WEBHOOK;
       if (!webhookUrl) throw new Error("Webhook not configured");
 
-      // Field names match the n8n "Validate & Prepare" node contract:
-      // `city` / `country` (NOT `cityName` / `countryName`). The Photon
-      // response is read into `selected.cityName / countryName` for internal
-      // clarity, but we rename on the wire.
+      // n8n's "Validate & Prepare" node expects keys `city` / `country` (not
+      // `cityName` / `countryName`). Rename on the wire.
       const payload = {
-        // Selected city (from Photon result)
         city: selected.cityName,
         country: selected.countryName,
         countryCode: selected.countryCode,
         lat: selected.lat,
         lng: selected.lng,
-        // Existing trip context (budget, dates, vibe, origin)
         budget: tripParams.budget,
         nights: tripParams.nights,
         travelers: tripParams.travelers,
@@ -333,8 +136,6 @@ export function CustomCityPicker({ tripParams }: Props) {
         checkOut: tripParams.checkOut,
       };
 
-      // Diagnostic — paste this into the bug report if validation still fails.
-      // Strip after the integration is verified.
       console.log(
         "[CustomCityPicker] submitting payload:",
         JSON.stringify(payload, null, 2),
@@ -347,9 +148,8 @@ export function CustomCityPicker({ tripParams }: Props) {
       });
       if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
 
-      // Read as text first so we can diagnose empty / malformed bodies
-      // without the cryptic "did not match the expected pattern" SyntaxError
-      // that `res.json()` throws on Content-Length: 0.
+      // Read as text first so empty/malformed bodies surface a real diagnostic
+      // instead of a SyntaxError from `res.json()` on Content-Length: 0.
       const rawText = await res.text();
       console.log("[CustomCityPicker] raw response:", rawText);
       console.log("[CustomCityPicker] response status:", res.status);
@@ -367,22 +167,26 @@ export function CustomCityPicker({ tripParams }: Props) {
       try {
         data = JSON.parse(rawText) as { id?: string; tripId?: string };
       } catch (parseErr) {
-        console.error("[CustomCityPicker] JSON parse failed. Raw:", rawText, parseErr);
+        console.error(
+          "[CustomCityPicker] JSON parse failed. Raw:",
+          rawText,
+          parseErr,
+        );
         throw new Error("Invalid JSON response from trip planner");
       }
 
-      // n8n returns the full trip record with an `id` field; older mock /
-      // alternate paths used `tripId`. Accept either.
       const tripId = data.id || data.tripId;
       if (!tripId) {
-        console.error("[CustomCityPicker] No tripId in response. Full data:", data);
+        console.error(
+          "[CustomCityPicker] No tripId in response. Full data:",
+          data,
+        );
         throw new Error("No trip ID returned from webhook");
       }
       router.push(`/trip/${tripId}`);
     } catch (err) {
       console.error("[CustomCityPicker] submit failed:", err);
       const message = err instanceof Error ? err.message : "";
-      // Surface the empty-webhook case directly so the dev sees what to fix.
       if (message.startsWith("Empty response")) {
         setSubmitError("Webhook returned empty response — check n8n workflow");
       } else {
@@ -393,34 +197,8 @@ export function CustomCityPicker({ tripParams }: Props) {
   }
 
   function toggleOpen() {
-    if (isOpen) {
-      setIsOpen(false);
-      return;
-    }
-    setIsOpen(true);
-    // give the picker a tick to render before focusing
-    setTimeout(() => inputRef.current?.focus(), 50);
+    setIsOpen((prev) => !prev);
   }
-
-  const activeId =
-    showDropdown && suggestions[activeIndex]
-      ? `${listboxId}-opt-${suggestions[activeIndex].key}`
-      : undefined;
-
-  const displayedHelpText = useMemo(() => {
-    if (loadingSearch) return "Searching…";
-    if (searchError) return searchError;
-    // Only surface "no results" when we've actually searched the deferred
-    // value (matching the fetch guard) and the request settled with zero hits.
-    if (
-      showDropdown &&
-      deferredQuery.trim().length >= 2 &&
-      suggestions.length === 0
-    ) {
-      return "No cities found.";
-    }
-    return null;
-  }, [loadingSearch, searchError, showDropdown, deferredQuery, suggestions.length]);
 
   return (
     <section className="mt-12 mx-auto max-w-2xl">
@@ -464,93 +242,13 @@ export function CustomCityPicker({ tripParams }: Props) {
               City
             </label>
 
-            <div ref={containerRef} className="relative">
-              <input
-                ref={inputRef}
-                id={`city-input-${reactId}`}
-                type="text"
-                role="combobox"
-                aria-controls={listboxId}
-                aria-expanded={showDropdown && suggestions.length > 0 && !submitting}
-                aria-autocomplete="list"
-                aria-activedescendant={activeId}
-                autoComplete="off"
-                spellCheck={false}
-                disabled={submitting}
-                value={query}
-                onFocus={() => setShowDropdown(true)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setQuery(v);
-                  setShowDropdown(true);
-                  // Clear any prior error immediately on input change — don't
-                  // wait the 300ms debounce to wipe it.
-                  setSearchError(null);
-                  if (selected && v !== suggestionLabel(selected)) {
-                    setSelected(null);
-                  }
-                  // Show "searching" state immediately, before the 300ms debounce
-                  // fires — masks the cold-start latency on the first request.
-                  // The fetch completion in the effect resets it via `finally`.
-                  if (v.trim().length >= 2) {
-                    setLoadingSearch(true);
-                  } else {
-                    setLoadingSearch(false);
-                  }
-                }}
-                onBlur={onBlur}
-                onKeyDown={onKeyDown}
-                placeholder="Lisbon, Athens, Reykjavík…"
-                className="w-full rounded-xl border border-border bg-white pl-4 pr-10 py-3 text-sm text-[#1A1A1A] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#F8F7F5]"
-              />
-
-              {/* Inline spinner — appears instantly when the user starts
-                  typing, even before the 300ms debounce fires. Hidden once the
-                  fetch's `finally` resets `loadingSearch`. */}
-              {loadingSearch && !submitting && (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 inline-block w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"
-                />
-              )}
-
-              {showDropdown && suggestions.length > 0 && !submitting && (
-                <ul
-                  id={listboxId}
-                  role="listbox"
-                  className="absolute left-0 right-0 z-20 mt-2 bg-card border border-border rounded-xl shadow-lg overflow-hidden"
-                >
-                  {suggestions.map((s, i) => (
-                    <li
-                      key={s.key}
-                      id={`${listboxId}-opt-${s.key}`}
-                      role="option"
-                      aria-selected={i === activeIndex}
-                      onMouseEnter={() => setActiveIndex(i)}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        pick(s);
-                      }}
-                      className={`px-4 py-3 cursor-pointer transition-colors duration-150 min-h-[48px] flex items-center gap-2.5 ${
-                        i === activeIndex ? "bg-accent-light" : "hover:bg-accent-light/60"
-                      }`}
-                    >
-                      <PinIcon size={15} className="text-accent shrink-0" />
-                      <span className="text-sm text-[#1A1A1A] truncate">
-                        <span className="font-semibold">{s.cityName}</span>
-                        {s.countryName && (
-                          <span className="text-muted">, {s.countryName}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {displayedHelpText && (
-              <p className="mt-2 text-xs text-muted">{displayedHelpText}</p>
-            )}
+            <CityAutocomplete
+              value={selected}
+              onChange={setSelected}
+              placeholder="Lisbon, Athens, Reykjavík…"
+              disabled={submitting}
+              inputId={`city-input-${reactId}`}
+            />
 
             <div className="mt-6">
               {submitting ? (
@@ -560,8 +258,6 @@ export function CustomCityPicker({ tripParams }: Props) {
                   className="animate-fade-in-overlay flex flex-col items-end gap-2"
                 >
                   <div className="inline-flex items-center gap-3 bg-accent/10 border border-accent/20 rounded-full pl-4 pr-5 py-3">
-                    {/* Pulsing dot — same accent color as the brand CTA, ping
-                        ring suggests live activity without being noisy. */}
                     <span className="relative inline-flex w-2.5 h-2.5">
                       <span className="absolute inset-0 rounded-full bg-accent opacity-60 animate-ping" />
                       <span className="relative w-2.5 h-2.5 rounded-full bg-accent" />
