@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/ui/Wordmark";
+import { GuessTheCity } from "@/components/game/GuessTheCity";
 
 const QUOTES = [
   { text: "The world is a book, and those who do not travel read only one page.", author: "Saint Augustine" },
@@ -15,9 +16,21 @@ const QUOTES = [
   { text: "Once a year, go somewhere you've never been before.", author: "Dalai Lama" },
 ];
 
-export function LoadingOverlay() {
+interface Props {
+  /** Parent flips true when the n8n response arrives and we have a redirect. */
+  loadingComplete?: boolean;
+  /** Parent's redirect handler. Called immediately when loading completes
+   *  in default-quote mode, or after the game's reveal sequence. */
+  onReady?: () => void;
+}
+
+export function LoadingOverlay({
+  loadingComplete = false,
+  onReady,
+}: Props = {}) {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [gameActive, setGameActive] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -30,13 +43,42 @@ export function LoadingOverlay() {
     return () => clearInterval(interval);
   }, []);
 
+  // No-game path: when loading finishes, redirect immediately. The game has
+  // its own deferred redirect via the reveal sequence and won't be subject
+  // to this branch.
+  // Read `onReady` through a ref so the quote-rotator's 3.8s re-renders don't
+  // produce fresh callback identities that re-fire this effect.
+  const onReadyRef = useRef(onReady);
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  });
+  const firedRef = useRef(false);
+  useEffect(() => {
+    if (gameActive) return;
+    if (!loadingComplete) return;
+    if (firedRef.current) return;
+    firedRef.current = true;
+    onReadyRef.current?.();
+  }, [gameActive, loadingComplete]);
+
+  // Render the game in place of the quote/dot UI when active.
+  if (gameActive) {
+    return (
+      <GuessTheCity
+        loadingComplete={loadingComplete}
+        onGameEnd={() => onReady?.()}
+      />
+    );
+  }
+
   const quote = QUOTES[quoteIndex];
 
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden animate-fade-in-overlay"
       style={{
-        background: "linear-gradient(160deg, #0F0805 0%, #2C1406 35%, #451E09 65%, #0F0805 100%)",
+        background:
+          "linear-gradient(160deg, #0F0805 0%, #2C1406 35%, #451E09 65%, #0F0805 100%)",
       }}
     >
       {/* Ambient blobs */}
@@ -101,6 +143,18 @@ export function LoadingOverlay() {
         <p className="text-white/20 text-xs mt-10 tracking-[0.2em] uppercase">
           Planning your escape…
         </p>
+
+        {/* Opt-in mini-game trigger. Only visible until activated. */}
+        <div className="mt-8">
+          <button
+            type="button"
+            onClick={() => setGameActive(true)}
+            className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur-sm rounded-full px-5 py-2.5 text-white text-sm font-medium transition-all duration-200 active:scale-95"
+          >
+            <span aria-hidden="true">🌍</span>
+            <span>Play while you wait</span>
+          </button>
+        </div>
       </div>
     </div>
   );

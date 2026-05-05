@@ -306,6 +306,10 @@ export function TripForm() {
   >("surprise");
   const [destinationInput, setDestinationInput] = useState("");
   const [exactCity, setExactCity] = useState<CitySelection | null>(null);
+  // Set by handleSubmit once we have a tripId; consumed by LoadingOverlay's
+  // onReady to drive the actual router.push (after the optional game's
+  // reveal delay if the user opted in).
+  const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
   // Tracks whether the exact_city collapsible panel has finished its
   // expand animation. Drives an overflow-hidden → overflow-visible swap so
   // the autocomplete dropdown isn't clipped by the panel boundary, while
@@ -455,11 +459,14 @@ export function TripForm() {
       };
       // exact_city deep-links straight to the chosen city's detail view;
       // surprise/specific land on the destination selector as before.
-      if (m === "exact_city" && firstDestinationId) {
-        router.push(`/trip/${tripId}?d=${firstDestinationId}`);
-      } else {
-        router.push(`/trip/${tripId}`);
-      }
+      const target =
+        m === "exact_city" && firstDestinationId
+          ? `/trip/${tripId}?d=${firstDestinationId}`
+          : `/trip/${tripId}`;
+      // Defer the actual navigation: hand the URL to the LoadingOverlay,
+      // which fires `onReady` immediately in default-quote mode or after
+      // the Pack-the-Suitcase reveal sequence when the user opted in.
+      setPendingRedirect(target);
     } catch (err) {
       console.error("[TripForm] submit error:", err);
       setLoading(false);
@@ -908,7 +915,14 @@ export function TripForm() {
         </div>
       </div>
 
-      {loading && <LoadingOverlay />}
+      {loading && (
+        <LoadingOverlay
+          loadingComplete={pendingRedirect !== null}
+          onReady={() => {
+            if (pendingRedirect) router.push(pendingRedirect);
+          }}
+        />
+      )}
     </>
   );
 }
