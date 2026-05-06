@@ -304,21 +304,25 @@ export function TripForm() {
   const [destinationMode, setDestinationMode] = useState<
     "surprise" | "specific" | "exact_city"
   >("surprise");
-  const [destinationInput, setDestinationInput] = useState("");
+  // Both `specific` (region) and `exact_city` modes use Photon autocomplete —
+  // the parent holds a CitySelection per mode and derives the wire-level
+  // `destinationInput` string at submit time.
+  const [regionSelection, setRegionSelection] = useState<CitySelection | null>(null);
   const [exactCity, setExactCity] = useState<CitySelection | null>(null);
   // Set by handleSubmit once we have a tripId; consumed by LoadingOverlay's
   // onReady to drive the actual router.push (after the optional game's
   // reveal delay if the user opted in).
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
-  // Tracks whether the exact_city collapsible panel has finished its
-  // expand animation. Drives an overflow-hidden → overflow-visible swap so
-  // the autocomplete dropdown isn't clipped by the panel boundary, while
-  // still allowing the grid-template-rows collapse animation to clip
-  // content during open/close transitions.
+  // Per-panel "expand has settled" flags. Drive an overflow-hidden →
+  // overflow-visible swap so the autocomplete dropdown isn't clipped by
+  // the panel boundary, while still letting the grid-template-rows
+  // collapse animation clip content during open/close transitions.
+  const [specificExpanded, setSpecificExpanded] = useState(false);
   const [exactCityExpanded, setExactCityExpanded] = useState(false);
-  // Reset the expanded flag synchronously (before paint) on every mode
+  // Reset both expand flags synchronously (before paint) on every mode
   // change so we always re-clip during the next transition cycle.
   useLayoutEffect(() => {
+    setSpecificExpanded(false);
     setExactCityExpanded(false);
   }, [destinationMode]);
   const [loading, setLoading] = useState(false);
@@ -360,7 +364,7 @@ export function TripForm() {
     vibe,
     originCity,
     destinationMode,
-    destinationInput,
+    regionSelection,
     exactCity,
     loading,
   });
@@ -373,7 +377,7 @@ export function TripForm() {
       vibe,
       originCity,
       destinationMode,
-      destinationInput,
+      regionSelection,
       exactCity,
       loading,
     };
@@ -400,7 +404,7 @@ export function TripForm() {
           s.vibe,
           s.originCity,
           s.destinationMode,
-          s.destinationInput,
+          s.regionSelection,
           s.exactCity,
         );
       }
@@ -416,42 +420,55 @@ export function TripForm() {
     v: string,
     o: string,
     m: "surprise" | "specific" | "exact_city",
-    d: string,
+    region: CitySelection | null,
     city: CitySelection | null,
   ) {
     if (!r.from || !r.to) return;
-    // Guard: exact_city mode requires a picked city object, not just typed text.
+    // Both autocomplete modes require a picked selection.
+    if (m === "specific" && !region) return;
     if (m === "exact_city" && !city) return;
     setLoading(true);
     try {
-      // Build the destinationInput per mode: region text for "specific",
-      // "City, Country" for "exact_city", omitted for "surprise".
+      // Build the wire-level `destinationInput` string from the picked
+      // selection. Region (place:country) results have name===country, so
+      // we collapse that to just the name. Cities/towns/states render as
+      // "Name, Country".
+      const labelOf = (sel: CitySelection): string =>
+        sel.countryName && sel.countryName !== sel.cityName
+          ? `${sel.cityName}, ${sel.countryName}`
+          : sel.cityName;
       let destinationInput: string | undefined;
-      if (m === "specific") {
-        destinationInput = d.trim();
-      } else if (m === "exact_city" && city) {
-        destinationInput = city.countryName
-          ? `${city.cityName}, ${city.countryName}`
-          : city.cityName;
-      }
+      if (m === "specific" && region) destinationInput = labelOf(region);
+      else if (m === "exact_city" && city) destinationInput = labelOf(city);
+
+      const requestBody = {
+        budget: b,
+        checkIn: toIso(r.from),
+        checkOut: toIso(r.to),
+        travelers: t,
+        vibe: v,
+        originCity: o,
+        destinationMode: m,
+        destinationInput,
+      };
 
       const res = await fetch("/api/trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          budget: b,
-          checkIn: toIso(r.from),
-          checkOut: toIso(r.to),
-          travelers: t,
-          vibe: v,
-          originCity: o,
-          destinationMode: m,
-          destinationInput,
-        }),
+        body: JSON.stringify(requestBody),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? "Failed to create trip");
+        const errBody = (await res
+          .clone()
+          .json()
+          .catch(() => ({}))) as { error?: string };
+        console.error("[TripForm] Trip create failed:", {
+          status: res.status,
+          error: errBody.error,
+        });
+        throw new Error(
+          errBody.error ?? `Failed to create trip (${res.status})`,
+        );
       }
       const { tripId, firstDestinationId } = (await res.json()) as {
         tripId: string;
@@ -765,23 +782,39 @@ export function TripForm() {
                   })}
                 </div>
 
-                {/* Region text input — visible only in "specific" mode. Smooth
-                    grid-row expand keeps the layout from jumping. */}
+                {/* Region autocomplete — visible only in "specific" mode.
+                    Same expand-transition + overflow-swap pattern as the
+                    exact_city panel below so the dropdown isn't clipped. */}
                 <div
                   className="grid transition-[grid-template-rows] duration-300 ease-out"
                   style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
+                  onTransitionEnd={(e) => {
+                    if (
+                      e.propertyName === "grid-template-rows" &&
+                      destinationMode === "specific"
+                    ) {
+                      setSpecificExpanded(true);
+                    }
+                  }}
                 >
-                  <div className="overflow-hidden">
-                    <input
-                      type="text"
-                      value={destinationInput}
-                      onChange={(e) => setDestinationInput(e.target.value)}
-                      placeholder="Where in Europe? (e.g. Portugal, Tuscany...)"
-                      maxLength={80}
-                      className="mt-3 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
-                    />
+                  <div
+                    className={
+                      specificExpanded && destinationMode === "specific"
+                        ? "overflow-visible"
+                        : "overflow-hidden"
+                    }
+                  >
+                    <div className="mt-3">
+                      <CityAutocomplete
+                        mode="region"
+                        value={regionSelection}
+                        onChange={setRegionSelection}
+                        placeholder="e.g. Portugal, Sicily, Bali..."
+                      />
+                    </div>
                     <p className="mt-2 text-xs text-muted">
-                      Tell us a country or area — we&apos;ll find 3 great spots.
+                      Country, region, or island — we&apos;ll find 3 great
+                      spots there.
                     </p>
                   </div>
                 </div>
@@ -889,7 +922,7 @@ export function TripForm() {
                       vibe,
                       originCity,
                       destinationMode,
-                      destinationInput,
+                      regionSelection,
                       exactCity,
                     )
                   }
@@ -897,8 +930,7 @@ export function TripForm() {
                     loading ||
                     !range?.from ||
                     !range?.to ||
-                    (destinationMode === "specific" &&
-                      destinationInput.trim().length < 2) ||
+                    (destinationMode === "specific" && !regionSelection) ||
                     (destinationMode === "exact_city" && !exactCity)
                   }
                   size="md"
@@ -906,7 +938,9 @@ export function TripForm() {
                   {loading
                     ? destinationMode === "exact_city" && exactCity
                       ? `Planning your trip to ${exactCity.cityName}…`
-                      : "Finding your trip…"
+                      : destinationMode === "specific" && regionSelection
+                        ? `Planning your trip to ${regionSelection.cityName}…`
+                        : "Finding your trip…"
                     : "Find my trip →"}
                 </TagButton>
               </div>

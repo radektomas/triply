@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error || !trip) {
-      console.error("[api/trips] failed to save trip:", error);
+      console.error("[/api/trips] Supabase insert failed:", error);
       return NextResponse.json({ error: "Internal error" }, { status: 500 });
     }
 
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     const firstDestinationId = result.destinations?.[0]?.id ?? null;
     return NextResponse.json({ tripId: trip.id, firstDestinationId });
   } catch (err: unknown) {
-    console.error("[api/trips] error:", err);
+    console.error("[/api/trips] Failed:", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

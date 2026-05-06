@@ -24,6 +24,11 @@ export interface CitySelection {
   lng: number;
 }
 
+/** What kind of place suggestions to fetch from Photon.
+ *  - 'city'   → place:city / place:town  (e.g. Lisbon, Barcelona)
+ *  - 'region' → place:country / place:state / place:region  (e.g. Portugal, Tuscany, Bali) */
+export type CityAutocompleteMode = "city" | "region";
+
 interface Props {
   value: CitySelection | null;
   onChange: (selection: CitySelection | null) => void;
@@ -31,6 +36,8 @@ interface Props {
   disabled?: boolean;
   /** id passed through to the <input> so callers can wire <label htmlFor=...> */
   inputId?: string;
+  /** Filters Photon results by OSM place tag. Defaults to 'city'. */
+  mode?: CityAutocompleteMode;
 }
 
 const PHOTON_URL = "https://photon.komoot.io/api/";
@@ -75,7 +82,10 @@ function warmupPhoton() {
 }
 
 function suggestionLabel(s: CitySelection): string {
-  return s.countryName ? `${s.cityName}, ${s.countryName}` : s.cityName;
+  // For Photon's place:country results, name and country are identical
+  // ("Portugal, Portugal"). Dedupe so the label reads cleanly.
+  if (!s.countryName || s.countryName === s.cityName) return s.cityName;
+  return `${s.cityName}, ${s.countryName}`;
 }
 
 function mapPhotonFeature(f: PhotonFeature): CitySuggestion | null {
@@ -120,13 +130,28 @@ function PinIcon({
   );
 }
 
+// Default placeholder copy by mode — overridable via the `placeholder` prop.
+const PLACEHOLDER_BY_MODE: Record<CityAutocompleteMode, string> = {
+  city: "Lisbon, Barcelona, Tokyo…",
+  region: "Portugal, Tuscany, Bali…",
+};
+
+// Photon `osm_tag` values per mode. Each tag is appended as a separate
+// query param (Photon rejects comma-joined values).
+const OSM_TAGS_BY_MODE: Record<CityAutocompleteMode, readonly string[]> = {
+  city: ["place:city", "place:town"],
+  region: ["place:country", "place:state", "place:region"],
+};
+
 export function CityAutocomplete({
   value,
   onChange,
-  placeholder = "Search for a city",
+  placeholder,
   disabled = false,
   inputId,
+  mode = "city",
 }: Props) {
+  const effectivePlaceholder = placeholder ?? PLACEHOLDER_BY_MODE[mode];
   const reactId = useId();
   const listboxId = `city-listbox-${reactId}`;
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -172,12 +197,14 @@ export function CityAutocomplete({
 
       setLoadingSearch(true);
       try {
-        // Photon requires `osm_tag` repeated as a separate param per value.
+        // Photon requires `osm_tag` repeated as a separate param per value
+        // (comma-joined values produce a 400). The list is driven by `mode`.
         const params = new URLSearchParams();
         params.set("q", trimmed);
         params.set("limit", String(MAX_RESULTS));
-        params.append("osm_tag", "place:city");
-        params.append("osm_tag", "place:town");
+        for (const tag of OSM_TAGS_BY_MODE[mode]) {
+          params.append("osm_tag", tag);
+        }
         params.set("lang", "en");
         const url = `${PHOTON_URL}?${params.toString()}`;
 
@@ -208,7 +235,7 @@ export function CityAutocomplete({
       clearTimeout(timer);
       abortRef.current?.abort();
     };
-  }, [deferredQuery, value]);
+  }, [deferredQuery, value, mode]);
 
   function pick(s: CitySuggestion) {
     onChange({
@@ -248,9 +275,13 @@ export function CityAutocomplete({
     setShowDropdown(false);
   }
 
+  // Photon can return duplicate `s.key` values for the same place + coords,
+  // which breaks React's reconciler. Suffix the index so each rendered row
+  // has a unique key/id within the list — and so aria-activedescendant
+  // stays in sync with the actual DOM ids.
   const activeId =
     showDropdown && suggestions[activeIndex]
-      ? `${listboxId}-opt-${suggestions[activeIndex].key}`
+      ? `${listboxId}-opt-${suggestions[activeIndex].key}-${activeIndex}`
       : undefined;
 
   const helpText: string | null = (() => {
@@ -301,7 +332,7 @@ export function CityAutocomplete({
         }}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
-        placeholder={placeholder}
+        placeholder={effectivePlaceholder}
         className="w-full rounded-xl border border-border bg-white pl-4 pr-10 py-3 text-sm text-[#1A1A1A] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#F8F7F5]"
       />
 
@@ -320,8 +351,8 @@ export function CityAutocomplete({
         >
           {suggestions.map((s, i) => (
             <li
-              key={s.key}
-              id={`${listboxId}-opt-${s.key}`}
+              key={`${s.key}-${i}`}
+              id={`${listboxId}-opt-${s.key}-${i}`}
               role="option"
               aria-selected={i === activeIndex}
               onMouseEnter={() => setActiveIndex(i)}
