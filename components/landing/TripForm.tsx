@@ -551,9 +551,6 @@ export function TripForm() {
             <div className="space-y-8">
               {/* Heading */}
               <div className="text-center">
-                <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60 mb-2">
-                  Step 1 of 3 — Budget
-                </p>
                 <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
                   What&apos;s your budget?
                 </h2>
