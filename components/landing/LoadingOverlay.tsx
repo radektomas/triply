@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { GuessTheCity } from "@/components/game/GuessTheCity";
+import { LoadingFooter } from "@/components/shared/LoadingFooter";
 
 const QUOTES = [
   { text: "The world is a book, and those who do not travel read only one page.", author: "Saint Augustine" },
@@ -140,9 +141,7 @@ export function LoadingOverlay({
           ))}
         </div>
 
-        <p className="text-white/20 text-xs mt-10 tracking-[0.2em] uppercase">
-          Planning your escape…
-        </p>
+        <LoadingFooter className="text-white/20 text-xs mt-10 tracking-[0.2em] uppercase" />
 
         {/* Opt-in mini-game trigger. Only visible until activated. */}
         <div className="mt-8">

@@ -2,6 +2,7 @@ import { GradientMesh } from "./GradientMesh";
 import { Wordmark } from "@/components/ui/Wordmark";
 import { TicketButton } from "@/components/ui/TicketButton";
 import { PalmLeafCorner } from "./PalmLeafCorner";
+import { TriplyHeroPresence } from "@/components/triply/TriplyHeroPresence";
 import {
   PlaneIcon,
   HotelIcon,
@@ -64,10 +65,22 @@ export function Hero() {
           3 trips that actually fit. All sorted.
         </p>
 
-        {/* CTA */}
-        <TicketButton href="#planner" size="lg" serial="BOARDING · 001">
-          Start planning →
-        </TicketButton>
+        {/* CTA — boarding pass centered. On md+ Triply floats absolutely to
+            the right so the CTA stays at true page center; on mobile Triply
+            stacks underneath via the block below. */}
+        <div className="relative flex justify-center">
+          <TicketButton href="#planner" size="lg" serial="BOARDING · 001">
+            Start planning →
+          </TicketButton>
+          <div
+            className="absolute left-1/2 top-0 h-full pointer-events-none hidden md:block"
+            style={{ transform: "translateX(calc(50% + 2.5rem))" }}
+          >
+            <div className="h-full flex items-center">
+              <TriplyHeroPresence />
+            </div>
+          </div>
+        </div>
 
         {/* Trust badges */}
         <div className="mt-8 flex flex-col items-center gap-3">

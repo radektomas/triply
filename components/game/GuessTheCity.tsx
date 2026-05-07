@@ -2,6 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { GUESS_CITIES, type GuessCity } from "@/lib/game/cities";
+import {
+  CORRECT_QUOTES,
+  MID_QUOTES,
+  PERFECT_QUOTES,
+  WRONG_QUOTES,
+  ZERO_QUOTES,
+  getRandomQuote,
+} from "@/lib/quotes";
+import { LoadingFooter } from "@/components/shared/LoadingFooter";
 
 interface Props {
   /** Parent flips this true once the n8n response arrives. */
@@ -71,6 +80,8 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
   });
   const [selected, setSelected] = useState<GuessCity | null>(null);
   const [revealing, setRevealing] = useState(false);
+  // Picked once per guess so re-renders don't reroll the line under the user.
+  const [revealQuote, setRevealQuote] = useState<string | null>(null);
 
   // Game-wide stats
   const [score, setScore] = useState(0);
@@ -88,7 +99,13 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Summary state — final overlay shown when loadingComplete fires.
-  const [summary, setSummary] = useState<{ score: number; total: number } | null>(null);
+  // `line` is picked once when the summary is built so it stays stable across
+  // the brief reveal-before-redirect window.
+  const [summary, setSummary] = useState<{
+    score: number;
+    total: number;
+    line: string;
+  } | null>(null);
 
   // Build the first round on mount.
   useEffect(() => {
@@ -109,6 +126,7 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
     setChoices(nextChoices);
     setSelected(null);
     setRevealing(false);
+    setRevealQuote(null);
     setPhoto({
       status: "loading",
       url: null,
@@ -156,6 +174,7 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
     setSelected(choice);
     setRevealing(true);
     const correct = choice.id === target.id;
+    setRevealQuote(getRandomQuote(correct ? CORRECT_QUOTES : WRONG_QUOTES));
     if (correct) setScore((s) => s + 1);
     setTotalAnswered((n) => n + 1);
 
@@ -185,7 +204,22 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
     // their answer, we just don't credit any future round.
     const finalScore = score;
     const finalTotal = totalAnswered;
-    setSummary({ score: finalScore, total: finalTotal });
+    // Pick a flavor line that matches the run shape. `total === 0` means the
+    // user never answered before loading finished, so we keep that branch
+    // copy-only with no flavor (handled at render time).
+    const bank =
+      finalTotal === 0
+        ? null
+        : finalScore === finalTotal && finalTotal >= 3
+          ? PERFECT_QUOTES
+          : finalScore === 0
+            ? ZERO_QUOTES
+            : MID_QUOTES;
+    setSummary({
+      score: finalScore,
+      total: finalTotal,
+      line: bank ? getRandomQuote(bank) : "",
+    });
 
     const t = setTimeout(() => onGameEndRef.current(), SUMMARY_DELAY_MS);
     return () => clearTimeout(t);
@@ -344,14 +378,17 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
                 {isCorrect ? "Correct!" : `It was ${target.name}`}
               </span>
             </p>
+            {revealQuote && (
+              <p className="text-sm font-medium text-[#1A1A1A]/70 mb-2">
+                {revealQuote}
+              </p>
+            )}
             <p className="text-sm sm:text-base leading-relaxed">{target.fact}</p>
             <p className="text-xs text-muted mt-3">→ Next round in 2s…</p>
           </div>
         )}
 
-        <p className="text-white/30 text-xs text-center tracking-[0.2em] uppercase mt-auto pt-6">
-          Planning your escape…
-        </p>
+        <LoadingFooter className="text-white/30 text-xs text-center tracking-[0.2em] uppercase mt-auto pt-6" />
       </div>
 
       {/* Summary reveal — overlays the entire game once loading completes. */}
@@ -374,6 +411,11 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
             {summary.total > 0 && (
               <p className="font-mono text-3xl sm:text-4xl font-bold text-accent tabular-nums">
                 {summary.score}
+              </p>
+            )}
+            {summary.line && (
+              <p className="text-sm font-medium text-[#1A1A1A]/70 mt-3">
+                {summary.line}
               </p>
             )}
           </div>

@@ -25,6 +25,10 @@ import {
   CityAutocomplete,
   type CitySelection,
 } from "@/components/shared/CityAutocomplete";
+import {
+  TriplyFormPresence,
+  TriplyFormPresenceMobile,
+} from "@/components/triply/TriplyFormPresence";
 
 const DEFAULT_AIRPORT = AIRPORTS.find((a) => a.iata === "PRG");
 
@@ -511,13 +515,35 @@ export function TripForm() {
   return (
     <>
       <div
-        className="bg-card rounded-3xl border border-accent/10 p-8 sm:p-10 md:p-14 w-full"
+        className="relative bg-card rounded-3xl border border-accent/10 p-8 sm:p-10 md:p-14 w-full"
         style={{
           boxShadow:
             "0 25px 60px rgba(255, 107, 71, 0.08), 0 4px 20px rgba(0, 0, 0, 0.06)",
         }}
       >
+        <TriplyFormPresence
+          budget={budget}
+          travelers={travelers}
+          vibe={vibe}
+          originCity={originCity}
+          range={range}
+          nights={nights}
+          loading={loading}
+        />
         <ProgressDots currentStep={currentStep} onJump={handleJump} />
+
+        {/* Mobile-only inline Triply, sits under the progress dots. The
+            desktop variant above is hidden on small viewports; this one is
+            hidden on md+, so each breakpoint sees exactly one Triply. */}
+        <TriplyFormPresenceMobile
+          budget={budget}
+          travelers={travelers}
+          vibe={vibe}
+          originCity={originCity}
+          range={range}
+          nights={nights}
+          loading={loading}
+        />
 
         <div key={currentStep} className={animClass}>
           {/* Step 1 — Budget */}
