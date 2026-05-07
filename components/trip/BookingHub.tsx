@@ -177,6 +177,12 @@ function BookingCTACard({
         Search on {primary.provider} →
       </a>
 
+      {isAffiliateActive() && (
+        <p className="text-[11px] text-[#1a1a1a]/45 -mt-2 text-center leading-snug">
+          Partner link — at no extra cost to you.
+        </p>
+      )}
+
       {secondary.length > 0 && (
         <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
           {secondary.map((s) => (

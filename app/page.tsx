@@ -3,7 +3,6 @@ import { Hero } from "@/components/landing/Hero";
 import { PlannerSection } from "@/components/landing/PlannerSection";
 import { ExampleDestinations } from "@/components/landing/ExampleDestinations";
 import { ExampleDestinationsSkeleton } from "@/components/landing/ExampleDestinationsSkeleton";
-import { Footer } from "@/components/landing/Footer";
 
 export default function HomePage() {
   return (
@@ -13,7 +12,6 @@ export default function HomePage() {
       <Suspense fallback={<ExampleDestinationsSkeleton />}>
         <ExampleDestinations />
       </Suspense>
-      <Footer />
     </>
   );
 }
