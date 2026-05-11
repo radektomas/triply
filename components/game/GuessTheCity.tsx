@@ -11,6 +11,7 @@ import {
   getRandomQuote,
 } from "@/lib/quotes";
 import { LoadingFooter } from "@/components/shared/LoadingFooter";
+import { TriplyMascot, type TriplyState } from "@/components/triply/TriplyMascot";
 
 interface Props {
   /** Parent flips this true once the n8n response arrives. */
@@ -230,6 +231,15 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
   const userChoiceId = selected?.id ?? null;
   const isCorrect = revealing && correctChoiceId === userChoiceId;
 
+  // Derived from existing state — no separate setter, no effect. Resets to
+  // idle automatically when `revealing` flips back to false on round advance.
+  const mascotMood: TriplyState =
+    revealing && isCorrect
+      ? "happy"
+      : revealing && !isCorrect
+        ? "sad"
+        : "idle";
+
   return (
     <div
       className="fixed inset-0 z-50 overflow-y-auto animate-fade-in-overlay text-white"
@@ -278,6 +288,12 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
             {score} / {totalAnswered}
           </div>
         </header>
+
+        {/* Mascot — single instance, mood derived from existing game state.
+            Stays mounted across rounds; only `state` changes. */}
+        <div className="flex justify-center mb-2 sm:mb-3">
+          <TriplyMascot state={mascotMood} size="md" />
+        </div>
 
         {/* Photo card */}
         <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-white/5 border border-white/10 mb-4 sm:mb-5">
