@@ -265,6 +265,13 @@ export function TriplyMascot({
             style={{
               top: "-6%",
               left: "78%",
+              // `width: max-content` bypasses the CSS shrink-to-fit clamp on
+              // absolutely-positioned boxes with `left` set and `right: auto`.
+              // Without this the wrapper collapses to (container_width - left)
+              // available space (~31px at md), which forced the bubble inside
+              // to wrap one word per line. With max-content the wrapper sizes
+              // to the bubble's own max-w-[150px] / max-w-[200px].
+              width: "max-content",
             }}
           >
             <TriplyBubble

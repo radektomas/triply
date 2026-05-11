@@ -27,7 +27,7 @@ interface PhotoState {
   photographerUrl: string | null;
 }
 
-const REVEAL_DELAY_MS = 2500;       // how long the reveal/fact stays before next round
+const REVEAL_DELAY_MS = 4000;       // how long the reveal/fact stays before next round
 const SUMMARY_DELAY_MS = 1500;      // how long the final summary card sits before redirect
 const MAX_PHOTO_RETRIES = 3;        // skip-to-next-city attempts before giving up on photo
 
@@ -81,7 +81,9 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
   });
   const [selected, setSelected] = useState<GuessCity | null>(null);
   const [revealing, setRevealing] = useState(false);
-  // Picked once per guess so re-renders don't reroll the line under the user.
+  // Reaction line — picked once per guess in handleAnswer and rendered in
+  // the mascot's speech bubble. Stays stable across re-renders for the
+  // duration of the reveal; resets to null when the next round starts.
   const [revealQuote, setRevealQuote] = useState<string | null>(null);
 
   // Game-wide stats
@@ -292,7 +294,11 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
         {/* Mascot — single instance, mood derived from existing game state.
             Stays mounted across rounds; only `state` changes. */}
         <div className="flex justify-center mb-2 sm:mb-3">
-          <TriplyMascot state={mascotMood} size="md" />
+          <TriplyMascot
+            state={mascotMood}
+            size="md"
+            bubbleText={revealQuote ?? undefined}
+          />
         </div>
 
         {/* Photo card */}
@@ -394,13 +400,8 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
                 {isCorrect ? "Correct!" : `It was ${target.name}`}
               </span>
             </p>
-            {revealQuote && (
-              <p className="text-sm font-medium text-[#1A1A1A]/70 mb-2">
-                {revealQuote}
-              </p>
-            )}
             <p className="text-sm sm:text-base leading-relaxed">{target.fact}</p>
-            <p className="text-xs text-muted mt-3">→ Next round in 2s…</p>
+            <p className="text-xs text-muted mt-3">→ Next round in 4s…</p>
           </div>
         )}
 
