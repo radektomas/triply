@@ -11,6 +11,7 @@ const STATES: TriplyState[] = [
   "sleepy",
   "smug",
   "sitting",
+  "lost",
 ];
 const QUOTES: Record<TriplyState, string> = {
   idle: "Tell me your budget. I'll find you a trip.",
@@ -19,6 +20,7 @@ const QUOTES: Record<TriplyState, string> = {
   sleepy: "Bribing the algorithm...",
   smug: "3/3. Cartographer behavior.",
   sitting: "fill it in. I'll handle the rest.",
+  lost: "Hmm... I don't think we're supposed to be here.",
 };
 
 export default function TriplyTestPage() {

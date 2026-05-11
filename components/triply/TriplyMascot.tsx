@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { TriplyBubble } from "./TriplyBubble";
 
 export type TriplyState =
   | "idle"
@@ -8,14 +9,21 @@ export type TriplyState =
   | "sad"
   | "sleepy"
   | "smug"
-  | "sitting";
+  | "sitting"
+  | "lost";
 export type TriplySize = "sm" | "md" | "lg" | "xl";
 
 interface TriplyMascotProps {
   state?: TriplyState;
   size?: TriplySize;
   className?: string;
+  /** Optional short reaction line. Renders a speech bubble above-right of
+   *  the mascot when state is happy/sad/smug. Ignored for other states —
+   *  the sleepy "z"s are a separate accessory keyed off `state` itself. */
+  bubbleText?: string;
 }
+
+const BUBBLE_STATES: ReadonlySet<TriplyState> = new Set(["happy", "sad", "smug"]);
 
 const SIZE_MAP: Record<TriplySize, number> = {
   sm: 80,
@@ -26,7 +34,11 @@ const SIZE_MAP: Record<TriplySize, number> = {
 
 const FLOAT_ANIMATIONS: Record<
   TriplyState,
-  { y: number | number[]; rotate: number | number[] }
+  {
+    y: number | number[];
+    rotate: number | number[];
+    x?: number | number[];
+  }
 > = {
   idle: {
     y: [0, -10, 0, -8, 0],
@@ -53,6 +65,13 @@ const FLOAT_ANIMATIONS: Record<
     y: [0, -3, 0],
     rotate: [-1, 1, -1],
   },
+  // Wandering side-to-side as if looking around — small y bob, small x sway,
+  // gentle rotation. Slower than idle so it reads as "lost", not "energetic".
+  lost: {
+    y: [0, -2, 0, -1, 0],
+    x: [0, -3.5, 0, 3.5, 0],
+    rotate: [-2, 1.5, -1, 2, -2],
+  },
 };
 
 const FLOAT_DURATIONS: Record<TriplyState, number> = {
@@ -62,19 +81,30 @@ const FLOAT_DURATIONS: Record<TriplyState, number> = {
   sad: 2,
   smug: 2.8,
   sitting: 3.2,
+  lost: 4,
 };
 
 export function TriplyMascot({
   state = "idle",
   size = "md",
   className = "",
+  bubbleText,
 }: TriplyMascotProps) {
   const px = SIZE_MAP[size];
+  const showBubble = !!bubbleText && BUBBLE_STATES.has(state);
+  // Mobile mascots are ~80–140px wide; the bubble gets a tighter footprint at
+  // those sizes so it doesn't crowd the photo card next to it.
+  const isCompact = size === "sm" || size === "md";
 
   return (
     <motion.div
       className={className}
-      style={{ width: px, height: px * 1.2, display: "inline-block" }}
+      style={{
+        width: px,
+        height: px * 1.2,
+        display: "inline-block",
+        position: "relative",
+      }}
       animate={FLOAT_ANIMATIONS[state]}
       transition={{
         duration: FLOAT_DURATIONS[state],
@@ -216,6 +246,39 @@ export function TriplyMascot({
           </g>
         )}
       </svg>
+
+      {/* Speech bubble — above-right of the head, anchored just inside the
+          wrapper's top-right corner so it reads as part of the mascot's
+          gesture. Lives inside the float wrapper so it bobs with the body.
+          AnimatePresence here handles mount/unmount fade between rounds;
+          TriplyBubble's internal AnimatePresence handles text-change fade
+          if `bubbleText` swaps while showing. */}
+      <AnimatePresence>
+        {showBubble && (
+          <motion.div
+            key="speech-bubble"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute pointer-events-none"
+            style={{
+              top: "-6%",
+              left: "78%",
+            }}
+          >
+            <TriplyBubble
+              text={bubbleText!}
+              side="left"
+              className={
+                isCompact
+                  ? "text-xs px-3 py-1.5 max-w-[150px] whitespace-normal leading-snug"
+                  : "text-sm px-4 py-2 max-w-[200px] whitespace-normal leading-snug"
+              }
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -389,6 +452,75 @@ function TriplyFace({ state }: { state: TriplyState }) {
     );
   }
 
+  if (state === "lost") {
+    return (
+      <g>
+        {/* Puzzled asymmetric brows — left arched higher, right tilted. */}
+        <path
+          d="M 165 190 Q 178 178 195 188"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 208 188 Q 222 184 233 192"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+        {/* Eyes — slightly wider than idle (r=10 vs 9), pupils offset right
+            so the mascot reads as looking around / searching. */}
+        <circle cx="180" cy="210" r="10" fill="#fff" />
+        <circle cx="183" cy="213" r="5" fill="#0d3b2e" />
+        <circle cx="220" cy="210" r="10" fill="#fff" />
+        <circle cx="223" cy="213" r="5" fill="#0d3b2e" />
+        {/* Small open "o" mouth — "huh, where am I". */}
+        <ellipse
+          cx="200"
+          cy="250"
+          rx="5"
+          ry="3.5"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2.5"
+        />
+        {/* Floating question mark above-right of the head — same easing /
+            offset pattern as the sleepy z's. */}
+        <motion.text
+          x="318"
+          y="80"
+          fontSize="26"
+          fill="#7dd9b0"
+          fontWeight="600"
+          fontFamily="system-ui"
+          animate={{ y: [80, 62, 80], opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          ?
+        </motion.text>
+        <motion.text
+          x="336"
+          y="58"
+          fontSize="16"
+          fill="#7dd9b0"
+          fontWeight="600"
+          fontFamily="system-ui"
+          animate={{ y: [58, 42, 58], opacity: [0.2, 0.8, 0.2] }}
+          transition={{
+            duration: 2.6,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.9,
+          }}
+        >
+          ?
+        </motion.text>
+      </g>
+    );
+  }
+
   if (state === "sleepy") {
     return (
       <g>
@@ -552,6 +684,36 @@ function TriplyArms({ state }: { state: TriplyState }) {
           strokeLinecap="round"
         />
         <circle cx="342" cy="138" r="6" fill="#0d3b2e" />
+      </g>
+    );
+  }
+
+  if (state === "lost") {
+    // Shrug — both arms angled slightly up and out, palms-ish forward.
+    // Reuses the existing single-line + hand-circle primitive; arms stay
+    // outside the dark body so they read against the page background.
+    return (
+      <g>
+        <line
+          x1="130"
+          y1="220"
+          x2="95"
+          y2="200"
+          stroke="#0d3b2e"
+          strokeWidth="5.5"
+          strokeLinecap="round"
+        />
+        <circle cx="92" cy="198" r="6.5" fill="#0d3b2e" />
+        <line
+          x1="310"
+          y1="220"
+          x2="345"
+          y2="200"
+          stroke="#0d3b2e"
+          strokeWidth="5.5"
+          strokeLinecap="round"
+        />
+        <circle cx="348" cy="198" r="6.5" fill="#0d3b2e" />
       </g>
     );
   }
