@@ -169,6 +169,7 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     checkOut: input.checkOut,
     budget: buildBudget(estimates, nights, input.travelers),
     mustDo: deriveMustDo(dest, nights),
+    dayPlans: dest.dayPlans,
     itinerary,
     localWisdom: [],
     goodToKnow: defaultGoodToKnow(dest.country),

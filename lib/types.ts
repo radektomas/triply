@@ -56,6 +56,17 @@ export interface APIDestination {
   trustedSources: TrustedSources;
   confidence: "high" | "medium" | "low";
   disclaimer: string;
+  dayPlans?: Array<{
+    id: string;
+    emoji: string;
+    vibe: string;
+    tagline: string;
+    schedule: Array<{
+      time: "Morning" | "Midday" | "Afternoon" | "Evening";
+      activity: string;
+      tip?: string;
+    }>;
+  }>;
 }
 
 export interface APITripResponse {

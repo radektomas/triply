@@ -53,6 +53,17 @@ export type TripDetail = {
   };
 
   mustDo: MustDoItem[];
+  dayPlans?: Array<{
+    id: string;
+    emoji: string;
+    vibe: string;
+    tagline: string;
+    schedule: Array<{
+      time: "Morning" | "Midday" | "Afternoon" | "Evening";
+      activity: string;
+      tip?: string;
+    }>;
+  }>;
   itinerary: ItineraryDay[];
   localWisdom: LocalTip[];
 

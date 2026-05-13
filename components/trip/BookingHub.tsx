@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import type { TripDetail, BookingLink } from "@/lib/types/trip";
 import { formatRange } from "@/lib/dates";
 import { isAffiliateActive } from "@/lib/affiliate";
@@ -36,15 +37,13 @@ export function BookingHub({ detail }: Props) {
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-6 items-start">
+      <div className="grid md:grid-cols-3 gap-4 mb-6 items-stretch">
         <BookingCTACard
           icon="🏨"
           title="Hotels"
           estimate={hotelEstimate ? `~€${hotelEstimate}` : undefined}
           estimateLabel="total stay"
           providers={booking.hotels}
-          emphasis="#FF6B47"
-          featured
         />
         <BookingCTACard
           icon="✈️"
@@ -52,7 +51,6 @@ export function BookingHub({ detail }: Props) {
           estimate={flightEstimate ? `from €${flightEstimate}` : undefined}
           estimateLabel="per person"
           providers={booking.flights}
-          emphasis="#4A90E2"
         />
         <BookingCTACard
           icon="🎭"
@@ -60,7 +58,6 @@ export function BookingHub({ detail }: Props) {
           estimate={activitiesEstimate ? `from €${activitiesEstimate}` : undefined}
           estimateLabel="per person"
           providers={booking.activities}
-          emphasis="#F4A261"
         />
       </div>
 
@@ -111,16 +108,12 @@ function BookingCTACard({
   estimate,
   estimateLabel,
   providers,
-  emphasis,
-  featured = false,
 }: {
   icon: string;
   title: string;
   estimate?: string;
   estimateLabel?: string;
   providers: BookingLink[];
-  emphasis: string;
-  featured?: boolean;
 }) {
   if (providers.length === 0) return null;
 
@@ -128,76 +121,92 @@ function BookingCTACard({
   const secondary = providers.filter((p) => p.provider !== primary.provider).slice(0, 2);
 
   return (
-    <div
-      className={`relative rounded-2xl bg-white p-5 transition-shadow flex flex-col gap-4 ${
-        featured
-          ? "border-2 shadow-md hover:shadow-lg"
-          : "border border-[#1a1a1a]/10 shadow-sm hover:shadow-md"
-      }`}
-      style={featured ? { borderColor: `${emphasis}40` } : undefined}
+    <motion.div
+      whileHover={{
+        y: -2,
+        boxShadow:
+          "0 2px 4px rgba(0,0,0,0.06), 0 20px 40px -16px rgba(13,115,119,0.18)",
+      }}
+      transition={{ duration: 0.2 }}
+      className="bg-white rounded-3xl p-6 sm:p-7 flex flex-col h-full"
+      style={{
+        border: "1px solid rgba(13,115,119,0.06)",
+        boxShadow:
+          "0 1px 2px rgba(0,0,0,0.04), 0 12px 32px -12px rgba(13,115,119,0.10)",
+      }}
     >
-      {featured && (
-        <div
-          className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-sm whitespace-nowrap"
-          style={{ backgroundColor: emphasis }}
-        >
-          Most popular
+      <div className="flex items-center gap-2 mb-5">
+        <span className="text-2xl leading-none">{icon}</span>
+        <h3 className="font-bold text-lg text-[#1A1A1A]">{title}</h3>
+      </div>
+
+      {estimate && (
+        <div className="mb-6 flex items-baseline">
+          <span className="font-semibold text-2xl text-[#1A1A1A]">{estimate}</span>
+          {estimateLabel && (
+            <span className="text-sm text-[#1A1A1A]/55 ml-1.5">{estimateLabel}</span>
+          )}
         </div>
       )}
 
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-2xl leading-none">{icon}</span>
-          <h3 className="font-bold text-lg text-[#1a1a1a]">{title}</h3>
-        </div>
-        {estimate && (
-          <div className="flex items-baseline gap-1.5">
-            <span
-              className={featured ? "text-2xl font-bold" : "text-xl font-bold"}
-              style={{ color: emphasis }}
-            >
-              {estimate}
-            </span>
-            {estimateLabel && (
-              <span className="text-xs text-[#1a1a1a]/50">{estimateLabel}</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <a
+      <motion.a
         href={primary.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
-        className={`rounded-xl px-4 text-white font-semibold text-center transition-all hover:scale-[1.02] hover:shadow-md ${
-          featured ? "py-3.5 text-base" : "py-3 text-sm"
-        }`}
-        style={{ backgroundColor: emphasis }}
+        whileHover={{
+          y: -1,
+          background: "#0A5D60",
+          boxShadow: "0 6px 18px rgba(13,115,119,0.32)",
+        }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+        className="group/cta mt-auto w-full inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-[15px] font-semibold"
+        style={{
+          background: "#0D7377",
+          color: "#FFFFFF",
+          border: "1px solid transparent",
+          boxShadow: "0 2px 8px rgba(13,115,119,0.18)",
+        }}
       >
-        Search on {primary.provider} →
-      </a>
+        <span>Search on {primary.provider}</span>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="transition-transform duration-200 group-hover/cta:translate-x-0.5"
+          aria-hidden="true"
+        >
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <polyline points="12 5 19 12 12 19" />
+        </svg>
+      </motion.a>
 
       {isAffiliateActive() && (
-        <p className="text-[11px] text-[#1a1a1a]/45 -mt-2 text-center leading-snug">
+        <p className="text-[11px] text-[#1A1A1A]/45 mt-2 text-center leading-snug">
           Partner link — at no extra cost to you.
         </p>
       )}
 
       {secondary.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5">
+        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
           {secondary.map((s) => (
             <a
               key={s.provider}
               href={s.url}
               target="_blank"
               rel="noopener noreferrer sponsored"
-              className="text-xs text-[#1a1a1a]/60 hover:text-[#1a1a1a] underline-offset-2 hover:underline"
+              className="text-[12px] text-[#0D7377]/55 hover:text-[#0D7377]/80 transition-colors underline-offset-2 hover:underline"
             >
               or try {s.provider}
             </a>
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
