@@ -50,7 +50,10 @@ export async function TripHero({ trip, returnUrl, returnLabel = "Back to results
 
       {/* Hero content pinned to bottom */}
       <div className="absolute bottom-0 left-0 right-0 z-10 max-w-2xl mx-auto px-4 sm:px-6 pb-10">
-        <p className="text-white/70 text-xs font-bold uppercase tracking-widest mb-2">
+        <p
+          className="text-white/90 text-xs font-bold uppercase tracking-widest mb-2"
+          style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6), 0 0 12px rgba(0,0,0,0.4)" }}
+        >
           <span aria-hidden="true" className="mr-1.5">{trip.countryCode
             .toUpperCase()
             .replace(/./g, (c) =>
@@ -61,14 +64,20 @@ export async function TripHero({ trip, returnUrl, returnLabel = "Back to results
 
         <h1
           className="font-bold text-white leading-tight mb-3"
-          style={{ fontSize: "clamp(2.5rem, 8vw, 5rem)" }}
+          style={{
+            fontSize: "clamp(2.5rem, 8vw, 5rem)",
+            textShadow: "0 2px 8px rgba(0,0,0,0.55), 0 0 20px rgba(0,0,0,0.35)",
+          }}
         >
           {trip.destination}
         </h1>
 
         <p
-          className="text-white/80 text-base sm:text-lg leading-relaxed mb-6"
-          style={{ maxWidth: "min(52ch, 100%)" }}
+          className="text-white/95 text-base sm:text-lg leading-relaxed mb-6"
+          style={{
+            maxWidth: "min(52ch, 100%)",
+            textShadow: "0 1px 4px rgba(0,0,0,0.65), 0 0 16px rgba(0,0,0,0.4)",
+          }}
         >
           {trip.description}
         </p>

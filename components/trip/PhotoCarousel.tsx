@@ -28,7 +28,7 @@ export function PhotoCarousel({ photos, fallbackGradient }: Props) {
 
   return (
     <>
-      {/* Photo layers */}
+      {/* Photo layers — also carry hover-to-pause since overlays above are pointer-events-none */}
       {photos.map((photo, idx) => (
         <div
           key={photo.url}
@@ -41,18 +41,18 @@ export function PhotoCarousel({ photos, fallbackGradient }: Props) {
           }}
           role="img"
           aria-label={photo.alt}
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
         />
       ))}
 
-      {/* Bottom-fade gradient for text legibility + hover detection area */}
+      {/* Bottom-fade gradient — darkens top for Back/Share row and bottom for stats chips */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
           background:
             "linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 50%, rgba(0,0,0,0.6) 100%)",
         }}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
       />
 
       {/* Carousel dots — coral pill on active, 44px tap targets */}
