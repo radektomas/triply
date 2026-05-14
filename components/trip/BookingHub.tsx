@@ -80,28 +80,6 @@ export function BookingHub({ detail }: Props) {
         </div>
       </div>
 
-      {booking.reviews.length > 0 && (
-        <div className="pt-6 border-t border-[#1a1a1a]/10">
-          <p className="text-xs uppercase tracking-widest text-[#1a1a1a]/50 mb-3 font-semibold">
-            Research the destination
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {booking.reviews.map((r) => (
-              <a
-                key={r.provider}
-                href={r.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1a1a1a]/5 hover:bg-[#1a1a1a]/10 text-sm text-[#1a1a1a]/70 transition-colors"
-              >
-                <span>⭐</span>
-                <span>{r.provider}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
       {isAffiliateActive() && (
         <p className="text-xs text-[#1a1a1a]/50 mt-8 text-center leading-relaxed">
           Triply may earn a commission when you book through our partner links, at no extra cost to you.

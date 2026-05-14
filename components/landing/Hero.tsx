@@ -3,19 +3,6 @@ import { Wordmark } from "@/components/ui/Wordmark";
 import { TicketButton } from "@/components/ui/TicketButton";
 import { PalmLeafCorner } from "./PalmLeafCorner";
 import { TriplyHeroPresence } from "@/components/triply/TriplyHeroPresence";
-import {
-  PlaneIcon,
-  HotelIcon,
-  TicketIcon,
-  StarIcon,
-} from "@/components/TrustBadgeIcons";
-
-const TRUST_BADGES = [
-  { name: "Skyscanner", Icon: PlaneIcon },
-  { name: "Booking.com", Icon: HotelIcon },
-  { name: "GetYourGuide", Icon: TicketIcon },
-  { name: "TripAdvisor", Icon: StarIcon },
-];
 
 export function Hero() {
   return (
@@ -82,19 +69,26 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Trust badges */}
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <p className="text-xs uppercase tracking-widest text-muted font-medium">Book with the names you know</p>
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-            {TRUST_BADGES.map(({ name, Icon }) => (
-              <span
-                key={name}
-                className="inline-flex items-center gap-1.5 text-sm text-slate-700 font-medium"
-              >
-                <Icon size={20} className="text-teal shrink-0" />
-                {name}
-              </span>
-            ))}
+        {/* Social proof */}
+        <div className="mt-8 flex flex-col items-center">
+          <div className="text-[11px] font-medium tracking-[0.2em] uppercase text-[#0D7377] mb-4 text-center">
+            EARLY TRAVELERS LOVE IT
+          </div>
+          <div className="flex items-center justify-center gap-6 sm:gap-10">
+            <div className="text-center">
+              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">100+</div>
+              <div className="text-[11px] font-medium tracking-[0.15em] uppercase text-[#0D7377]/70 mt-1">travelers</div>
+            </div>
+            <div className="w-px h-8 bg-[#0D7377]/20" />
+            <div className="text-center">
+              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">10+</div>
+              <div className="text-[11px] font-medium tracking-[0.15em] uppercase text-[#0D7377]/70 mt-1">countries</div>
+            </div>
+            <div className="w-px h-8 bg-[#0D7377]/20" />
+            <div className="text-center">
+              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">50+</div>
+              <div className="text-[11px] font-medium tracking-[0.15em] uppercase text-[#0D7377]/70 mt-1">trips generated</div>
+            </div>
           </div>
         </div>
       </div>
