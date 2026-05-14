@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import type { TripDetail, BookingLink } from "@/lib/types/trip";
 import { formatRange } from "@/lib/dates";
 import { isAffiliateActive } from "@/lib/affiliate";
+import { TriplyBookingSignoff } from "./TriplyBookingSignoff";
 
 interface Props {
   detail: TripDetail;
@@ -37,28 +38,36 @@ export function BookingHub({ detail }: Props) {
         )}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-6 items-stretch">
-        <BookingCTACard
-          icon="🏨"
-          title="Hotels"
-          estimate={hotelEstimate ? `~€${hotelEstimate}` : undefined}
-          estimateLabel="total stay"
-          providers={booking.hotels}
-        />
-        <BookingCTACard
-          icon="✈️"
-          title="Flights"
-          estimate={flightEstimate ? `from €${flightEstimate}` : undefined}
-          estimateLabel="per person"
-          providers={booking.flights}
-        />
-        <BookingCTACard
-          icon="🎭"
-          title="Activities"
-          estimate={activitiesEstimate ? `from €${activitiesEstimate}` : undefined}
-          estimateLabel="per person"
-          providers={booking.activities}
-        />
+      <div className="relative mb-6">
+        <div className="grid md:grid-cols-3 gap-4 items-stretch">
+          <BookingCTACard
+            icon="🏨"
+            title="Hotels"
+            estimate={hotelEstimate ? `~€${hotelEstimate}` : undefined}
+            estimateLabel="total stay"
+            providers={booking.hotels}
+          />
+          <BookingCTACard
+            icon="✈️"
+            title="Flights"
+            estimate={flightEstimate ? `from €${flightEstimate}` : undefined}
+            estimateLabel="per person"
+            providers={booking.flights}
+          />
+          <BookingCTACard
+            icon="🎭"
+            title="Activities"
+            estimate={activitiesEstimate ? `from €${activitiesEstimate}` : undefined}
+            estimateLabel="per person"
+            providers={booking.activities}
+          />
+        </div>
+
+        <div className="hidden lg:flex absolute right-[-220px] top-[-140px] z-10 pointer-events-none">
+          <div className="pointer-events-auto">
+            <TriplyBookingSignoff />
+          </div>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-[#FFF4E6] border border-[#F4A261]/30 p-4 flex items-start gap-3 mb-6">
