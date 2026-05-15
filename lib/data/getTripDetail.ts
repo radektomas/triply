@@ -150,7 +150,10 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     checkIn: input.checkIn,
     checkOut: input.checkOut,
     budget: buildBudget(estimates, nights, input.travelers),
-    dayPlans: dest.dayPlans,
+    dayPlans: dest.dayPlans?.map((p) => ({
+      ...p,
+      vibe: Array.isArray(p.vibe) ? p.vibe.join(", ") : (p.vibe ?? ""),
+    })),
     localWisdom: [],
     goodToKnow: defaultGoodToKnow(dest.country),
     whatToPack: [],

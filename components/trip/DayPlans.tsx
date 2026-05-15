@@ -23,7 +23,7 @@ const childVariants = {
 };
 
 function getVibeGradient(vibe: string): string {
-  const v = vibe.toLowerCase();
+  const v = (vibe ?? "").toLowerCase();
   if (
     v.includes("hik") ||
     v.includes("adventur") ||
