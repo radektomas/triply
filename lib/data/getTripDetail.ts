@@ -1,15 +1,9 @@
-import { getCityCoords, spreadAroundCenter } from "@/lib/data/cityCoords";
 import { computeNights, monthName } from "@/lib/dates";
 import { bookingHotelUrl, skyscannerFlightUrl, getYourGuideUrl } from "@/lib/booking";
 import type { APIDestination, TripInput, TrustedSource } from "@/lib/types";
 import type {
   TripDetail,
-  BudgetCategory,
-  ItineraryDay,
-  ItineraryActivity,
   BookingLink,
-  MustDoItem,
-  MustDoCategory,
 } from "@/lib/types/trip";
 
 // ─── Adapter ─────────────────────────────────────────────────────────────────
@@ -92,18 +86,6 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
 export function adaptAPIDestination(dest: APIDestination, input: TripInput): TripDetail {
   const nights = computeNights(input.checkIn, input.checkOut);
 
-  const itinerary: ItineraryDay[] = (dest.itinerary ?? []).map((day) => ({
-    day: day.day,
-    title: day.title,
-    estimatedCost: day.estimatedCost,
-    activities: (day.activities ?? []).map(
-      (act, i): ItineraryActivity => ({
-        timeOfDay: inferTimeOfDay(act, i),
-        title: stripTimePrefix(act),
-      })
-    ),
-  }));
-
   const sources = dest.trustedSources ?? {
     flights: [],
     hotels: [],
@@ -168,9 +150,7 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     checkIn: input.checkIn,
     checkOut: input.checkOut,
     budget: buildBudget(estimates, nights, input.travelers),
-    mustDo: deriveMustDo(dest, nights),
     dayPlans: dest.dayPlans,
-    itinerary,
     localWisdom: [],
     goodToKnow: defaultGoodToKnow(dest.country),
     whatToPack: [],
@@ -184,72 +164,6 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
   };
 }
 
-// ─── MustDo fallback derivation ──────────────────────────────────────────────
-
-const CATEGORY_KEYWORDS: Partial<Record<MustDoCategory, string[]>> = {
-  landmark: ["castle", "palace", "cathedral", "church", "tower", "bridge", "square", "basilica", "fort", "old town", "ruins"],
-  museum: ["museum", "gallery", "memorial", "exhibition"],
-  park: ["park", "garden", "forest", "nature", "botanical"],
-  restaurant: ["restaurant", "dinner", "lunch", "eat", "bistro", "taverna", "dining", "cataplana", "food"],
-  cafe: ["cafe", "coffee", "breakfast", "café"],
-  shopping: ["market", "shop", "boutique", "mall", "bazaar", "souk"],
-  nightlife: ["pub", "bar", "club", "nightlife", "ruin bar", "cocktail"],
-  beach: ["beach", "praia", "shore", "coast", "cove", "bay"],
-  viewpoint: ["viewpoint", "lookout", "vista", "panorama", "hill", "cape", "summit", "peak"],
-  activity: ["hiking", "tour", "boat", "bike", "zip", "kayak", "snorkel", "swim", "bath", "spa"],
-};
-
-function inferMustDoCategory(title: string): MustDoCategory {
-  const lower = title.toLowerCase();
-  for (const [cat, keywords] of Object.entries(CATEGORY_KEYWORDS) as [MustDoCategory, string[]][]) {
-    if (keywords.some((kw) => lower.includes(kw))) return cat;
-  }
-  return "activity";
-}
-
-function deriveMustDo(dest: APIDestination, nights: number): MustDoItem[] {
-  const activities: string[] = [];
-  for (const day of dest.itinerary ?? []) {
-    for (const act of day.activities ?? []) {
-      const clean = stripTimePrefix(act);
-      if (clean) activities.push(clean);
-    }
-  }
-
-  const unique = [...new Map(activities.map((a) => [a.toLowerCase(), a])).values()];
-  const picks = unique.slice(0, 5);
-
-  const FALLBACKS = [
-    "Explore the old town",
-    "Try local cuisine",
-    "Visit a local market",
-    "Walk the waterfront",
-    "Take a day trip nearby",
-  ];
-  while (picks.length < 5) {
-    picks.push(FALLBACKS[picks.length]);
-  }
-
-  const items: MustDoItem[] = picks.map((title, idx) => ({
-    rank: idx + 1,
-    title,
-    category: inferMustDoCategory(title),
-    description: `A top highlight of ${dest.name} — not to be missed on a ${nights}-night stay.`,
-  }));
-
-  // Spread around city center for items that have no real coords
-  const cityCenter = getCityCoords(dest.name);
-  if (cityCenter) {
-    const needCoords = items.filter((i) => !i.location);
-    const spread = spreadAroundCenter(cityCenter, needCoords.length);
-    needCoords.forEach((item, idx) => {
-      item.location = { name: dest.name, lat: spread[idx].lat, lng: spread[idx].lng };
-    });
-  }
-
-  return items;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function adaptRain(rain: "low" | "medium" | "high"): "dry" | "mixed" | "wet" {
@@ -260,21 +174,6 @@ function adaptRain(rain: "low" | "medium" | "high"): "dry" | "mixed" | "wet" {
 
 function capitalizeFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function inferTimeOfDay(
-  activity: string,
-  index: number
-): "morning" | "afternoon" | "evening" {
-  const lower = activity.toLowerCase();
-  if (lower.startsWith("morning")) return "morning";
-  if (lower.startsWith("afternoon")) return "afternoon";
-  if (lower.startsWith("evening") || lower.startsWith("night")) return "evening";
-  return index === 0 ? "morning" : index === 1 ? "afternoon" : "evening";
-}
-
-function stripTimePrefix(str: string): string {
-  return str.replace(/^(morning|afternoon|evening|night)\s*:?\s*/i, "").trim();
 }
 
 // ─── Good to Know defaults ────────────────────────────────────────────────────

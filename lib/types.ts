@@ -51,7 +51,7 @@ export interface APIDestination {
   weather: APIWeather;
   estimates: APIEstimates;
   budgetFit: "under" | "fit" | "over";
-  itinerary: ItineraryDay[];
+  itinerary?: ItineraryDay[];
   tips: string[];
   trustedSources: TrustedSources;
   confidence: "high" | "medium" | "low";

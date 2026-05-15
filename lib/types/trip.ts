@@ -52,7 +52,7 @@ export type TripDetail = {
     breakdown: BudgetCategory[];
   };
 
-  mustDo: MustDoItem[];
+  mustDo?: MustDoItem[];
   dayPlans?: Array<{
     id: string;
     emoji: string;
@@ -64,7 +64,7 @@ export type TripDetail = {
       tip?: string;
     }>;
   }>;
-  itinerary: ItineraryDay[];
+  itinerary?: ItineraryDay[];
   localWisdom: LocalTip[];
 
   goodToKnow: {
