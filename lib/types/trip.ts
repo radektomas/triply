@@ -93,7 +93,17 @@ export type BudgetCategory = {
   label: string;             // "Flights"
   icon: string;              // "✈️"
   amount: number;            // 115
-  perUnit?: string;          // "€100–€130 range" or "€45/night × 3"
+  // Optional per-unit breakdown rendered under the category amount. Amount
+  // fields are in EUR (the app's source-of-truth currency); the display
+  // layer formats them per the user's selected currency. All fields are
+  // optional — `{ unit: "Train + ferry" }` describes a category that has no
+  // quantitative breakdown, while `{ amount: 45, unit: "/night × 3" }`
+  // gives a rate per period.
+  perUnit?: {
+    amount?: number;
+    amountMax?: number;
+    unit?: string;
+  };
   color: string;             // hex for stacked bar
   tips?: string[];           // ["Book 6–8 weeks ahead", ...]
   typical?: string;          // "Budget airline round-trip"

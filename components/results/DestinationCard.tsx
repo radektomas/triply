@@ -2,6 +2,7 @@ import Link from "next/link";
 import { VibeTag } from "@/components/ui/VibeTag";
 import { getGradient } from "@/lib/utils/gradient";
 import { getCityPhoto } from "@/lib/photos";
+import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import type { APIDestination } from "@/lib/types";
 
 interface Props {
@@ -160,18 +161,18 @@ export async function DestinationCard({
         <div className="flex-1 text-xs text-muted space-y-1">
           <p>
             <span className="font-medium text-[#374151]">Flights</span>{" "}
-            ~€{estimates.flightRange.typical}
+            ~<FormattedPrice eur={estimates.flightRange.typical} />
             <span className="ml-1 text-muted/70">
-              (€{estimates.flightRange.min}–€{estimates.flightRange.max})
+              (<FormattedPrice eur={estimates.flightRange.min} />–<FormattedPrice eur={estimates.flightRange.max} />)
             </span>
           </p>
           <p>
             <span className="font-medium text-[#374151]">Hotel</span>{" "}
-            ~€{estimates.hotelPerNightRange.typical}/night
+            ~<FormattedPrice eur={estimates.hotelPerNightRange.typical} />/night
           </p>
           <p>
             <span className="font-medium text-[#374151]">Food</span>{" "}
-            ~€{estimates.foodPerDay.midRange}/day
+            ~<FormattedPrice eur={estimates.foodPerDay.midRange} />/day
           </p>
         </div>
 
@@ -181,10 +182,10 @@ export async function DestinationCard({
           </p>
           <div>
             <p className="text-4xl font-bold text-slate-900 leading-none">
-              €{estimates.totalEstimate.typical}
+              <FormattedPrice eur={estimates.totalEstimate.typical} />
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              €{estimates.totalEstimate.min}–€{estimates.totalEstimate.max}
+              <FormattedPrice eur={estimates.totalEstimate.min} />–<FormattedPrice eur={estimates.totalEstimate.max} />
             </p>
           </div>
           <Link

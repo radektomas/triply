@@ -4,7 +4,21 @@ import { motion } from "framer-motion";
 import type { TripDetail, BookingLink } from "@/lib/types/trip";
 import { formatRange } from "@/lib/dates";
 import { isAffiliateActive } from "@/lib/affiliate";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { TriplyBookingSignoff } from "./TriplyBookingSignoff";
+
+// Booking.com supports a `selected_currency` URL param that pre-selects the
+// currency on their search results page. We inject the user's currently
+// selected currency so display continuity is preserved from Triply → Booking.
+// EUR is Booking's default for many EU markets — skip the param when EUR to
+// keep the URL shorter. Only applied to Booking.com URLs; other providers
+// (Hostelworld, Airbnb) handle currency on their own.
+function withBookingCurrency(url: string, currency: string): string {
+  if (currency === "EUR") return url;
+  if (!url.includes("booking.com")) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}selected_currency=${encodeURIComponent(currency)}`;
+}
 
 interface Props {
   detail: TripDetail;
@@ -14,6 +28,15 @@ export function BookingHub({ detail }: Props) {
   const { booking, destination, checkIn, checkOut, budget } = detail;
   const travelers = budget.travelers || 1;
   const dateRange = checkIn && checkOut ? formatRange(checkIn, checkOut) : undefined;
+  const { selectedCurrency, format } = useCurrency();
+  const fmt = (eur: number) => format(eur, { rounded: true });
+
+  // Hotel providers get Booking.com `selected_currency` injection. Other
+  // category providers (flights, activities) pass through unchanged.
+  const hotelProviders = booking.hotels.map((p) => ({
+    ...p,
+    url: withBookingCurrency(p.url, selectedCurrency),
+  }));
 
   const findCost = (key: string) =>
     budget.breakdown.find((c) => c.label.toLowerCase().includes(key))?.amount;
@@ -43,21 +66,21 @@ export function BookingHub({ detail }: Props) {
           <BookingCTACard
             icon="🏨"
             title="Hotels"
-            estimate={hotelEstimate ? `~€${hotelEstimate}` : undefined}
+            estimate={hotelEstimate ? `~${fmt(hotelEstimate)}` : undefined}
             estimateLabel="total stay"
-            providers={booking.hotels}
+            providers={hotelProviders}
           />
           <BookingCTACard
             icon="✈️"
             title="Flights"
-            estimate={flightEstimate ? `from €${flightEstimate}` : undefined}
+            estimate={flightEstimate ? `from ${fmt(flightEstimate)}` : undefined}
             estimateLabel="per person"
             providers={booking.flights}
           />
           <BookingCTACard
             icon="🎭"
             title="Activities"
-            estimate={activitiesEstimate ? `from €${activitiesEstimate}` : undefined}
+            estimate={activitiesEstimate ? `from ${fmt(activitiesEstimate)}` : undefined}
             estimateLabel="per person"
             providers={booking.activities}
           />

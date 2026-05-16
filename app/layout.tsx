@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { Footer } from "@/components/landing/Footer";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import "./globals.css";
 
 const inter = Inter({
@@ -61,9 +62,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-cream text-[#1A1A1A]">
-        <div className="flex-1">{children}</div>
-        <Footer />
-        <FeedbackButton />
+        <CurrencyProvider>
+          <div className="flex-1">{children}</div>
+          <Footer />
+          <FeedbackButton />
+        </CurrencyProvider>
         <Analytics />
       </body>
     </html>

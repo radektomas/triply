@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "framer-motion";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import type { BudgetCategory } from "@/lib/types/trip";
 
 interface Props {
@@ -48,6 +49,8 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
   const barRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(barRef, { once: true });
   const shouldReduce = useReducedMotion() ?? false;
+  const { format } = useCurrency();
+  const fmt = (eur: number) => format(eur, { rounded: true });
 
   useEffect(() => {
     if (!active) return;
@@ -61,8 +64,8 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
   const sum = Math.max(breakdown.reduce((acc, c) => acc + (c.amount || 0), 0), 1);
 
   const ariaLabel = `Budget breakdown: ${breakdown
-    .map((c) => `${c.label} €${c.amount}`)
-    .join(", ")} — total €${total}`;
+    .map((c) => `${c.label} ${fmt(c.amount)}`)
+    .join(", ")} — total ${fmt(total)}`;
 
   return (
     <div className="space-y-6">
@@ -72,10 +75,10 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
           className="font-bold text-[#FF6B47] leading-none"
           style={{ fontSize: "clamp(2.5rem, 10vw, 4.5rem)" }}
         >
-          €{total}
+          {fmt(total)}
         </p>
         <p className="text-[#0D7377] text-xs font-bold uppercase tracking-widest mt-2">
-          Total Trip · €{range.min}–€{range.max} range
+          Total Trip · {fmt(range.min)}–{fmt(range.max)} range
         </p>
       </div>
 
@@ -152,7 +155,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
               type="button"
               onClick={() => setActive((a) => (a === cat.label ? null : cat.label))}
               aria-expanded={isActive}
-              aria-label={`${cat.label} — €${cat.amount}, ${pct}% of total`}
+              aria-label={`${cat.label} — ${fmt(cat.amount)}, ${pct}% of total`}
               className="flex items-center gap-2 min-h-[44px] px-2 py-1.5 rounded-lg transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47]/50 focus-visible:ring-offset-1 hover:bg-[rgba(13,115,119,0.04)]"
               style={{
                 opacity: active && !isActive ? 0.5 : 1,
@@ -169,7 +172,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
                   {cat.icon} {cat.label}
                 </span>
                 <span className="text-xs text-[#0D7377] ml-1.5">
-                  €{cat.amount} · {pct}%
+                  {fmt(cat.amount)} · {pct}%
                 </span>
               </span>
               <svg
@@ -236,7 +239,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-2xl font-bold text-[#FF6B47]">
-                              €{cat.amount}
+                              {fmt(cat.amount)}
                             </span>
                             <button
                               type="button"
@@ -253,7 +256,15 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
 
                         {cat.perUnit && (
                           <p className="text-sm font-medium text-[#1A1A1A] mb-2">
-                            {cat.perUnit}
+                            {cat.perUnit.amount !== undefined && (
+                              <>
+                                {fmt(cat.perUnit.amount)}
+                                {cat.perUnit.amountMax !== undefined && (
+                                  <>–{fmt(cat.perUnit.amountMax)}</>
+                                )}
+                              </>
+                            )}
+                            {cat.perUnit.unit ?? ""}
                           </p>
                         )}
                         {typical && (

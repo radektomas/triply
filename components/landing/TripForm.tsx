@@ -29,6 +29,8 @@ import {
   TriplyFormPresence,
   TriplyFormPresenceMobile,
 } from "@/components/triply/TriplyFormPresence";
+import { CurrencySelector } from "@/components/CurrencySelector";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const DEFAULT_AIRPORT = AIRPORTS.find((a) => a.iata === "PRG");
 
@@ -299,6 +301,7 @@ function ProgressDots({
 
 export function TripForm() {
   const router = useRouter();
+  const { selectedCurrency, format } = useCurrency();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [budget, setBudget] = useState(500);
@@ -556,10 +559,16 @@ export function TripForm() {
                 </h2>
               </div>
 
-              {/* Hero: big €N + "per person" subtitle */}
+              {/* Currency picker */}
+              <div className="flex items-center justify-center gap-2.5 text-sm text-[#1a1a1a]/60">
+                <span className="font-medium">Choose your currency</span>
+                <CurrencySelector />
+              </div>
+
+              {/* Hero: big formatted amount + "per person" subtitle */}
               <div className="text-center py-4">
                 <span className="text-7xl md:text-8xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight">
-                  €{budget}
+                  {format(budget, { rounded: true })}
                 </span>
                 <p className="text-sm text-[#1a1a1a]/50 mt-2 font-medium">per person</p>
               </div>
@@ -574,14 +583,14 @@ export function TripForm() {
                   value={budget}
                   onChange={(e) => setBudget(Number(e.target.value))}
                   className="triply-slider w-full"
-                  aria-label="Budget in euros"
+                  aria-label={`Budget in ${selectedCurrency}`}
                   style={{
                     background: `linear-gradient(to right, #FF6B47 0%, #FF6B47 ${((budget - 100) / 900) * 100}%, rgba(26,26,26,0.1) ${((budget - 100) / 900) * 100}%, rgba(26,26,26,0.1) 100%)`,
                   }}
                 />
                 <div className="flex justify-between mt-3 text-xs text-[#1a1a1a]/40 font-medium">
-                  <span>€100</span>
-                  <span>€1,000</span>
+                  <span>{format(100, { rounded: true })}</span>
+                  <span>{format(1000, { rounded: true })}</span>
                 </div>
               </div>
 
@@ -590,10 +599,10 @@ export function TripForm() {
                   <p className="text-sm text-[#1a1a1a]/55 font-medium">
                     <span className="text-[#1a1a1a]/30 mr-1.5">·</span>
                     {travelers === 1 ? (
-                      <>€{budget} solo trip budget</>
+                      <>{format(budget, { rounded: true })} solo trip budget</>
                     ) : (
                       <>
-                        <span className="tabular-nums">€{budget * travelers}</span>
+                        <span className="tabular-nums">{format(budget * travelers, { rounded: true })}</span>
                         {" "}total for {travelers} travelers
                       </>
                     )}

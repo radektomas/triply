@@ -4,6 +4,7 @@ import { getGradient } from "@/lib/utils/gradient";
 import { formatRange } from "@/lib/dates";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { ShareTripButton } from "./ShareTripButton";
+import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import type { TripDetail } from "@/lib/types/trip";
 
 const precipLabel = { dry: "Dry", mixed: "Some rain", wet: "Wet" } as const;
@@ -93,11 +94,11 @@ export async function TripHero({ trip, returnUrl, returnLabel = "Back to results
               className="text-2xl font-bold text-white"
               style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
             >
-              €{trip.budget.total}
+              <FormattedPrice eur={trip.budget.total} />
             </span>
             <span className="text-white/70 text-sm ml-1.5">typical</span>
             <p className="text-white/55 text-xs mt-0.5">
-              €{trip.budget.range.min}–€{trip.budget.range.max}
+              <FormattedPrice eur={trip.budget.range.min} />–<FormattedPrice eur={trip.budget.range.max} />
             </p>
           </div>
 

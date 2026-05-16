@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface IconProps {
   size?: number;
@@ -58,6 +59,7 @@ interface Props {
 export function ShareTripButton({ destination, budget, nights }: Props) {
   const [copied, setCopied] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { format } = useCurrency();
 
   const showCopiedFor = useCallback((ms: number) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -68,7 +70,7 @@ export function ShareTripButton({ destination, budget, nights }: Props) {
   const handleShare = useCallback(async () => {
     const url = window.location.href;
     const title = `Check out this trip to ${destination} on Triply`;
-    const text = `${nights} ${nights === 1 ? "night" : "nights"} in ${destination} for ${budget}€ — found via Triply`;
+    const text = `${nights} ${nights === 1 ? "night" : "nights"} in ${destination} for ${format(budget, { rounded: true })} — found via Triply`;
 
     // Mobile / native share sheet first
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {

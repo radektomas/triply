@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCityPhoto } from "@/lib/photos";
 import { getGradient } from "@/lib/utils/gradient";
+import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import { TypewriterHeadline } from "./TypewriterHeadline";
 
 const EXAMPLES = [
@@ -66,7 +67,7 @@ export async function ExampleDestinations() {
                   }}
                 >
                   <span className="absolute top-3 right-3 bg-white/90 text-[#1A1A1A] text-sm font-bold px-3 py-1 rounded-full">
-                    €{price}
+                    <FormattedPrice eur={price} />
                   </span>
                   <div>
                     <p className="text-white/75 text-xs font-semibold uppercase tracking-widest mb-0.5">

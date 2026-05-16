@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FormattedPrice } from "@/components/shared/FormattedPrice";
 
 interface BudgetBarProps {
   label: string;
@@ -33,7 +34,9 @@ export function BudgetBar({ label, amount, total, compact = false }: BudgetBarPr
     <div>
       <div className="flex justify-between items-center mb-1.5">
         <span className="text-sm text-muted">{label}</span>
-        <span className="text-sm font-semibold text-[#1A1A1A]">€{amount}</span>
+        <span className="text-sm font-semibold text-[#1A1A1A]">
+          <FormattedPrice eur={amount} />
+        </span>
       </div>
       <div className="h-2 rounded-full bg-[#E5E7EB] overflow-hidden">
         <div
