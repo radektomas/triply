@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      // Legacy /examples/* routes — replaced by Quick Picks /trips/<slug>.
+      { source: "/examples/prague", destination: "/trips/prague-budget-weekend", permanent: true },
+      { source: "/examples/algarve", destination: "/trips/corfu-beach-reset", permanent: true },
+      { source: "/examples/hallstatt", destination: "/trips/dolomites-mountain-stretch", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

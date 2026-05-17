@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { getVibeGradient } from "@/lib/vibeGradient";
 import type { TripDetail } from "@/lib/types/trip";
 
 interface Props {
@@ -21,47 +22,6 @@ const childVariants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] as const } },
 };
-
-function getVibeGradient(vibe: string): string {
-  const v = (vibe ?? "").toLowerCase();
-  if (
-    v.includes("hik") ||
-    v.includes("adventur") ||
-    v.includes("natur") ||
-    v.includes("mountain") ||
-    v.includes("outdoor")
-  ) {
-    return "linear-gradient(135deg, #FFF4E8 0%, #FFE4CC 100%)";
-  }
-  if (
-    v.includes("spa") ||
-    v.includes("relax") ||
-    v.includes("wellness") ||
-    v.includes("chill") ||
-    v.includes("cozy")
-  ) {
-    return "linear-gradient(135deg, #E8F4F0 0%, #D4E9DD 100%)";
-  }
-  if (v.includes("romant") || v.includes("couples")) {
-    return "linear-gradient(135deg, #FCE8F3 0%, #F5D7E5 100%)";
-  }
-  if (v.includes("food") || v.includes("foodie") || v.includes("culinary")) {
-    return "linear-gradient(135deg, #FFF8E1 0%, #FFE8B0 100%)";
-  }
-  if (v.includes("nightlife") || v.includes("party") || v.includes("bars")) {
-    return "linear-gradient(135deg, #E8E4F8 0%, #D4CCED 100%)";
-  }
-  if (
-    v.includes("explorer") ||
-    v.includes("culture") ||
-    v.includes("history") ||
-    v.includes("city") ||
-    v.includes("art")
-  ) {
-    return "linear-gradient(135deg, #E4EEF8 0%, #CCDDED 100%)";
-  }
-  return "linear-gradient(135deg, #FFF5EC 0%, #FFE4D0 100%)";
-}
 
 const CARD_BORDER = "1px solid rgba(13,115,119,0.06)";
 const CARD_SHADOW =

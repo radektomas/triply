@@ -73,3 +73,97 @@ export function InstagramIcon({ color, size = 22 }: VibeIconProps) {
     </svg>
   );
 }
+
+export function RomanticIcon({ color, size = 32 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M16 27 C 6 19, 4 12, 9 9 Q 13 6.5, 16 11 Q 19 6.5, 23 9 C 28 12, 26 19, 16 27 Z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+export function HiddenGemIcon({ color, size = 32 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 12 L 12 6 L 20 6 L 24 12 L 16 26 Z" fill={color} />
+      <path d="M12 6 L 16 12 L 20 6 M 8 12 L 16 12 L 24 12" stroke="white" strokeWidth="1.2" opacity="0.6" fill="none" />
+    </svg>
+  );
+}
+
+export function BudgetIcon({ color, size = 32 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="16" cy="16" r="11" fill={color} />
+      <text
+        x="16"
+        y="21"
+        textAnchor="middle"
+        fontSize="14"
+        fontWeight="700"
+        fill="white"
+        fontFamily="system-ui"
+      >
+        €
+      </text>
+    </svg>
+  );
+}
+
+export function FamilyIcon({ color, size = 32 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="10" cy="10" r="3.5" fill={color} />
+      <circle cx="22" cy="10" r="3.5" fill={color} />
+      <circle cx="16" cy="18" r="2.5" fill={color} opacity="0.85" />
+      <path d="M3 26 Q 10 19, 16 22 Q 22 19, 29 26 L 29 28 L 3 28 Z" fill={color} />
+    </svg>
+  );
+}
+
+export function UnderratedIcon({ color, size = 32 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 4 L 18 13 L 27 14 L 20 20 L 22 28 L 16 23 L 10 28 L 12 20 L 5 14 L 14 13 Z" fill={color} />
+      <circle cx="25" cy="7" r="1.5" fill={color} opacity="0.6" />
+      <circle cx="7" cy="9" r="1" fill={color} opacity="0.45" />
+    </svg>
+  );
+}
+
+// Quick Picks vibe enum → icon component.
+// Free-form vibe strings from n8n should NOT use this — those go through
+// substring matching elsewhere. This is for the fixed Quick Picks enum.
+export type QuickPickVibe =
+  | "romantic"
+  | "mountain"
+  | "hidden_gem"
+  | "budget"
+  | "beach"
+  | "city"
+  | "family"
+  | "underrated";
+
+export function getVibeIcon(vibe: QuickPickVibe) {
+  switch (vibe) {
+    case "romantic":
+      return RomanticIcon;
+    case "mountain":
+      return MountainsIcon;
+    case "hidden_gem":
+      return HiddenGemIcon;
+    case "budget":
+      return BudgetIcon;
+    case "beach":
+      return BeachIcon;
+    case "city":
+      return CityIcon;
+    case "family":
+      return FamilyIcon;
+    case "underrated":
+      return UnderratedIcon;
+  }
+}

@@ -14,11 +14,13 @@ const SIGNOFF_QUOTES = [
 const ROTATE_MS = 7000;
 
 export function TriplyBookingSignoff() {
-  const [index, setIndex] = useState(() =>
-    Math.floor(Math.random() * SIGNOFF_QUOTES.length),
-  );
+  // Start at index 0 on both server render and first client hydration to
+  // avoid a TriplyBubble text mismatch. Pick a random starting quote post-
+  // mount, then rotate from there on the existing interval.
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
+    setIndex(Math.floor(Math.random() * SIGNOFF_QUOTES.length));
     const id = setInterval(
       () => setIndex((i) => (i + 1) % SIGNOFF_QUOTES.length),
       ROTATE_MS,
