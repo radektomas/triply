@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { GradientMesh } from "@/components/landing/GradientMesh";
 import { BudgetBreakdown } from "@/components/trip/BudgetBreakdown";
-import { DayPlans } from "@/components/trip/DayPlans";
+import { TopPlaces } from "@/components/trip/TopPlaces";
 import { BookingHub } from "@/components/trip/BookingHub";
 import { PhotoCarousel } from "@/components/trip/PhotoCarousel";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
@@ -113,7 +113,7 @@ export default async function QuickPickPage({ params }: { params: Params }) {
   // Slugs without an in-repo entry fall back to the hero-only view below.
   const detail = getQuickPickTrip(slug);
   const hasBudget = !!detail?.budget?.breakdown?.length;
-  const hasDayPlans = !!detail?.dayPlans?.length;
+  const hasTopPlaces = !!detail?.topPlaces?.length;
   const hasBooking = !!detail?.booking;
 
   const remixHref = `/?vibe=${encodeURIComponent(pick.vibe)}&destination=${encodeURIComponent(pick.destination)}`;
@@ -246,10 +246,10 @@ export default async function QuickPickPage({ params }: { params: Params }) {
           </FadeIn>
         )}
 
-        {hasDayPlans && detail && (
+        {hasTopPlaces && detail && (
           <FadeIn delay={0.26} className="max-w-4xl mx-auto px-4 sm:px-6 pt-12">
-            <DayPlans
-              dayPlans={detail.dayPlans ?? []}
+            <TopPlaces
+              topPlaces={detail.topPlaces ?? []}
               destinationName={pick.destination}
             />
           </FadeIn>

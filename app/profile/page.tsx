@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { getCityPhoto } from "@/lib/photos";
@@ -124,6 +125,13 @@ export default async function ProfilePage() {
       <GradientMesh variant="absolute-tall" />
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-10">
         <header className="mb-8">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[#0D7377] hover:text-[#0A5D60] transition-colors mb-3"
+          >
+            <span aria-hidden="true">←</span>
+            Back to Triply
+          </Link>
           <p className="font-mono text-[11px] font-medium uppercase text-accent tracking-[0.18em] mb-1">
             Your profile
           </p>

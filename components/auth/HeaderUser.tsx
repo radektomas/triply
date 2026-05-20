@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogoutIcon, UserIcon } from "./AuthIcons";
@@ -36,6 +37,7 @@ function Avatar({ url, initial }: { url: string | null; initial: string }) {
 
 export function HeaderUser() {
   const { user, openAuthModal, signOut } = useAuth();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -100,6 +102,10 @@ export function HeaderUser() {
             onClick={async () => {
               setMenuOpen(false);
               await signOut();
+              // Navigate off any protected/personalized route (e.g. /profile)
+              // and refresh so server components re-evaluate auth state.
+              router.replace("/");
+              router.refresh();
             }}
             className="w-full flex items-center gap-2 px-4 py-3 text-sm text-[#1a1a1a] hover:bg-[#F5F5F5] transition-colors cursor-pointer border-t border-border"
           >

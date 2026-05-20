@@ -1,7 +1,7 @@
 import { FadeIn } from "@/components/ui/FadeIn";
 import { TripHero } from "./TripHero";
 import { BudgetBreakdown } from "./BudgetBreakdown";
-import { DayPlans } from "./DayPlans";
+import { TopPlaces } from "./TopPlaces";
 import { TipsList } from "./TipsList";
 import { BookingHub } from "./BookingHub";
 import { GradientMesh } from "@/components/landing/GradientMesh";
@@ -59,9 +59,14 @@ export function TripDetailView({
         </section>
       </FadeIn>
 
-      <FadeIn delay={0.26} className="max-w-4xl mx-auto px-4 sm:px-6 pt-12">
-        <DayPlans dayPlans={detail.dayPlans ?? []} destinationName={detail.destination} />
-      </FadeIn>
+      {detail.topPlaces && detail.topPlaces.length > 0 && (
+        <FadeIn delay={0.26} className="max-w-4xl mx-auto px-4 sm:px-6 pt-12">
+          <TopPlaces
+            topPlaces={detail.topPlaces}
+            destinationName={detail.destination}
+          />
+        </FadeIn>
+      )}
 
       <FadeIn delay={0.34} className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 space-y-12">
         <TipsList tips={tips} />

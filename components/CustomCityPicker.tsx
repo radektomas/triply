@@ -116,82 +116,48 @@ export function CustomCityPicker({ tripParams }: Props) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const webhookUrl = process.env.NEXT_PUBLIC_N8N_SINGLE_CITY_WEBHOOK;
-      if (!webhookUrl) throw new Error("Webhook not configured");
-
-      // n8n's "Validate & Prepare" node expects keys `city` / `country` (not
-      // `cityName` / `countryName`). Rename on the wire.
-      const payload = {
-        city: selected.cityName,
-        country: selected.countryName,
-        countryCode: selected.countryCode,
-        lat: selected.lat,
-        lng: selected.lng,
-        budget: tripParams.budget,
-        nights: tripParams.nights,
-        travelers: tripParams.travelers,
-        vibe: tripParams.vibe,
-        originCity: tripParams.originCity,
-        checkIn: tripParams.checkIn,
-        checkOut: tripParams.checkOut,
-      };
-
-      console.log(
-        "[CustomCityPicker] submitting payload:",
-        JSON.stringify(payload, null, 2),
-      );
-
-      const res = await fetch(webhookUrl, {
+      // Unified single-destination flow: same /api/trips call the header
+      // search uses, with the actual trip context (budget / dates / vibe /
+      // origin / travelers) so the "same budget and vibe" promise holds.
+      const res = await fetch("/api/trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          budget: tripParams.budget,
+          travelers: tripParams.travelers,
+          vibe: tripParams.vibe,
+          originCity: tripParams.originCity,
+          checkIn: tripParams.checkIn,
+          checkOut: tripParams.checkOut,
+          destinationMode: "specific",
+          destinationInput: selected.cityName,
+        }),
       });
-      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
-
-      // Read as text first so empty/malformed bodies surface a real diagnostic
-      // instead of a SyntaxError from `res.json()` on Content-Length: 0.
-      const rawText = await res.text();
-      console.log("[CustomCityPicker] raw response:", rawText);
-      console.log("[CustomCityPicker] response status:", res.status);
-      console.log(
-        "[CustomCityPicker] response headers:",
-        Object.fromEntries(res.headers.entries()),
-      );
-      if (!rawText || rawText.trim() === "") {
+      if (!res.ok) {
+        const errBody = (await res
+          .clone()
+          .json()
+          .catch(() => ({}))) as { error?: string };
         throw new Error(
-          "Empty response from trip planner. The webhook may be misconfigured.",
+          errBody.error ?? `Trip request failed (${res.status})`,
         );
       }
-
-      let data: { id?: string; tripId?: string };
-      try {
-        data = JSON.parse(rawText) as { id?: string; tripId?: string };
-      } catch (parseErr) {
-        console.error(
-          "[CustomCityPicker] JSON parse failed. Raw:",
-          rawText,
-          parseErr,
-        );
-        throw new Error("Invalid JSON response from trip planner");
-      }
-
-      const tripId = data.id || data.tripId;
-      if (!tripId) {
-        console.error(
-          "[CustomCityPicker] No tripId in response. Full data:",
-          data,
-        );
-        throw new Error("No trip ID returned from webhook");
-      }
-      router.push(`/trip/${tripId}`);
+      const { tripId, firstDestinationId, destinationCount } =
+        (await res.json()) as {
+          tripId: string;
+          firstDestinationId?: string | null;
+          destinationCount?: number;
+        };
+      // Single destination → detail page; multiple (e.g. a region like
+      // "Sardinia" returned several cities) → results grid for picking.
+      const target =
+        destinationCount === 1 && firstDestinationId
+          ? `/trip/${tripId}?d=${firstDestinationId}`
+          : `/trip/${tripId}`;
+      router.push(target);
     } catch (err) {
       console.error("[CustomCityPicker] submit failed:", err);
-      const message = err instanceof Error ? err.message : "";
-      if (message.startsWith("Empty response")) {
-        setSubmitError("Webhook returned empty response — check n8n workflow");
-      } else {
-        setSubmitError("Couldn't plan that trip. Please try again.");
-      }
+      setSubmitError("Couldn't plan that trip. Please try again.");
       setSubmitting(false);
     }
   }

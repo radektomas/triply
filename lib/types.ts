@@ -56,6 +56,13 @@ export interface APIDestination {
   trustedSources: TrustedSources;
   confidence: "high" | "medium" | "low";
   disclaimer: string;
+  topPlaces?: TopPlace[];
+  /**
+   * @deprecated Replaced by `topPlaces`. Still typed so legacy static data
+   * (Quick Picks) and historical saved/generation rows in Supabase jsonb
+   * continue to typecheck. Not rendered anywhere — kept as an optional
+   * passthrough until the static fixtures are migrated.
+   */
   dayPlans?: Array<{
     id: string;
     emoji: string;
@@ -69,12 +76,23 @@ export interface APIDestination {
   }>;
 }
 
+export interface TopPlace {
+  id: string;
+  emoji: string;
+  name: string;
+  description: string;
+  tip?: string;
+}
+
 export interface APITripResponse {
   destinations: APIDestination[];
   searchSummary: string;
 }
 
-export type DestinationMode = "surprise" | "specific" | "exact_city";
+// The app emits only `surprise` or `specific`. `exact_city` was the
+// legacy single-city alias; the API normalizes it to `specific` for
+// back-compat with any in-flight requests, but no client should send it.
+export type DestinationMode = "surprise" | "specific";
 
 export interface TripInput {
   budget: number;

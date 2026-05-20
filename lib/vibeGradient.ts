@@ -1,11 +1,7 @@
-// Vibe → background-gradient mapping shared between DayPlans (free-form
-// model-generated vibe strings) and QuickPicks (fixed vibe enum values).
-//
-// Free-form callers like DayPlans pass strings such as "Hiking & adventure" or
-// "Romantic mountain day" — substring matching handles those. Fixed-enum
-// callers like QuickPickCard pass exact codes like "hidden_gem" or
-// "underrated" — the same substring matcher catches those via dedicated
-// branches added at the bottom of the cascade.
+// Vibe → background-gradient mapping. Substring-matched against free-form
+// model-generated vibe strings ("Hiking & adventure", "Romantic mountain
+// day") and fixed enum codes ("hidden_gem", "underrated"). Used by
+// QuickPickCard and other vibe-driven gradients.
 //
 // Ordering matters: the first matching branch wins. Branches with the most
 // specific tokens come first; the most generic ("default warm peach") last.

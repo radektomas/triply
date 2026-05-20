@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getCityPhotos } from "@/lib/photos";
 import { getGradient } from "@/lib/utils/gradient";
@@ -20,7 +21,30 @@ interface Props {
   tripInput?: TripInput;
 }
 
-export async function TripHero({
+// Async child that owns the Pexels round-trip. Streamed in via Suspense so
+// the rest of the hero (text, save/share, stats) paints immediately with
+// just the gradient — the page no longer blocks for ~5s on photo lookup.
+async function PhotoBackground({
+  destinationName,
+  country,
+  gradient,
+}: {
+  destinationName: string;
+  country: string;
+  gradient: string;
+}) {
+  const photos = await getCityPhotos(destinationName, country);
+  return (
+    <PhotoCarousel
+      photos={photos}
+      fallbackGradient={gradient}
+      destinationName={destinationName}
+      country={country}
+    />
+  );
+}
+
+export function TripHero({
   trip,
   returnUrl,
   returnLabel = "Back to results",
@@ -28,7 +52,6 @@ export async function TripHero({
   tripId,
   tripInput,
 }: Props) {
-  const photos = await getCityPhotos(trip.destination, trip.country);
   const gradient = getGradient(trip.id);
 
   return (
@@ -36,12 +59,17 @@ export async function TripHero({
       className="relative overflow-hidden"
       style={{ height: "clamp(420px, 70dvh, 640px)" }}
     >
-      <PhotoCarousel
-        photos={photos}
-        fallbackGradient={gradient}
-        destinationName={trip.destination}
-        country={trip.country}
-      />
+      <Suspense
+        fallback={
+          <div className="absolute inset-0" style={{ background: gradient }} />
+        }
+      >
+        <PhotoBackground
+          destinationName={trip.destination}
+          country={trip.country}
+          gradient={gradient}
+        />
+      </Suspense>
 
       {/* Back + share chips — floating, safe-area aware */}
       <div

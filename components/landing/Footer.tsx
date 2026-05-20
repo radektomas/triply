@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Wordmark } from "@/components/ui/Wordmark";
+import Image from "next/image";
 import { InstagramIcon } from "./VibeIcons";
 
 export function Footer() {
@@ -7,7 +7,13 @@ export function Footer() {
     <footer className="border-t border-border bg-white py-10">
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between text-sm text-muted">
         <div className="flex flex-col items-center sm:items-start gap-1">
-          <Wordmark size="sm" />
+          <Image
+            src="/triply-logo.png"
+            alt="Triply"
+            width={320}
+            height={213}
+            className="w-[80px] h-auto select-none"
+          />
           <p className="text-xs text-muted">AI trip planner</p>
           <p className="text-xs text-muted/70">© 2026 Triply</p>
         </div>

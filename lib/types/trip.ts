@@ -53,6 +53,12 @@ export type TripDetail = {
   };
 
   mustDo?: MustDoItem[];
+  topPlaces?: TopPlace[];
+  /**
+   * @deprecated Replaced by `topPlaces`. Kept so existing Quick Picks fixtures
+   * (lib/data/quickPickTrips.ts) and any historical jsonb records still
+   * typecheck. The detail page no longer renders this field.
+   */
   dayPlans?: Array<{
     id: string;
     emoji: string;
@@ -127,6 +133,14 @@ export type ItineraryActivity = {
     lat?: number;
     lng?: number;
   };
+};
+
+export type TopPlace = {
+  id: string;         // slug, e.g. "spilberk-castle"
+  emoji: string;      // single emoji
+  name: string;       // real place name
+  description: string;// 1 sentence
+  tip?: string;       // optional 1 sentence
 };
 
 export type LocalTip = {

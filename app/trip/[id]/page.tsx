@@ -86,13 +86,20 @@ export default async function TripPage({
   }
 
   const detail = adaptAPIDestination(dest, trip.input);
+  // True one-destination trips have no useful selector page to fall back
+  // to — Back goes to landing instead. A `specific` mode that returned
+  // multiple destinations (region like "Sardinia") still has a usable
+  // selector, so we key purely off the array length.
+  const isSingleDestinationTrip =
+    (trip.result?.destinations?.length ?? 0) <= 1;
   return (
     <TripDetailView
       detail={detail}
       tips={dest.tips ?? []}
       confidence={dest.confidence}
       disclaimer={dest.disclaimer}
-      returnUrl={`/trip/${tripId}`}
+      returnUrl={isSingleDestinationTrip ? "/" : `/trip/${tripId}`}
+      returnLabel={isSingleDestinationTrip ? "Back to Triply" : undefined}
       destination={dest}
       tripId={tripId}
       tripInput={trip.input}

@@ -40,20 +40,23 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
   const vibeRaw = String(raw.vibe ?? "").toLowerCase().trim();
   const vibe = ALLOWED_VIBES.includes(vibeRaw) ? vibeRaw : "city";
 
+  // `specific` is the unified single-destination mode. `exact_city` is
+  // kept as a back-compat alias and normalized to `specific` here — the
+  // app no longer emits it, but in-flight requests / stale URLs survive.
   const rawMode = String(raw.destinationMode ?? "surprise");
-  const requestedMode: "surprise" | "specific" | "exact_city" =
-    rawMode === "specific" || rawMode === "exact_city" ? rawMode : "surprise";
+  const requestedMode: "surprise" | "specific" =
+    rawMode === "specific" || rawMode === "exact_city" ? "specific" : "surprise";
   const destinationInputRaw = String(raw.destinationInput ?? "")
     .slice(0, 80)
     .replace(/[^\p{L}\p{N}\s,\-.']/gu, "")
     .trim();
-  // Both `specific` and `exact_city` carry a destinationInput. If the input
-  // is missing/too short we fall back to surprise mode.
+  // `specific` mode carries a destinationInput. If the input is
+  // missing/too short we fall back to surprise mode.
   const destinationInput =
     requestedMode !== "surprise" && destinationInputRaw.length >= 2
       ? destinationInputRaw
       : undefined;
-  const destinationMode: "surprise" | "specific" | "exact_city" =
+  const destinationMode: "surprise" | "specific" =
     destinationInput ? requestedMode : "surprise";
 
   return {
@@ -69,6 +72,9 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
 }
 
 export async function POST(req: NextRequest) {
+  const t0 = Date.now();
+  const tag = (label: string, since: number) =>
+    `[api/trips] +${(Date.now() - since).toString().padStart(5)}ms ${label}`;
   try {
     const body = (await req.json()) as Record<string, unknown>;
     const input = normalizeInput(body);
@@ -84,21 +90,25 @@ export async function POST(req: NextRequest) {
     const cacheKey = buildCacheKey(input);
 
     // Try cross-user trip_cache first (saves n8n cost for repeated searches)
+    const tCache = Date.now();
     let result = await getCachedTripByInput(input);
+    console.log(tag(`cache-check (hit=${!!result})`, tCache));
 
     if (!result) {
+      const tN8n = Date.now();
       console.log("[api/trips] cache miss, calling n8n");
       result = await fetchTripSuggestions(input);
-    } else {
-      console.log("[api/trips] cache hit");
+      console.log(tag("n8n response", tN8n));
     }
 
     // Create a new trips row — unique UUID per user session
+    const tInsert = Date.now();
     const { data: trip, error } = await supabase
       .from("trips")
       .insert({ input, result, cache_key: cacheKey })
       .select("id")
       .single();
+    console.log(tag("trips insert", tInsert));
 
     if (error || !trip) {
       console.error("[/api/trips] Supabase insert failed:", error);
@@ -108,6 +118,7 @@ export async function POST(req: NextRequest) {
     // If the request is from a signed-in user, append this generation to
     // their personal history. Uses the cookie-bound server client so the
     // row is written under the user's identity (RLS-friendly).
+    const tHist = Date.now();
     try {
       const userClient = await getServerSupabase();
       const {
@@ -132,11 +143,21 @@ export async function POST(req: NextRequest) {
     } catch (histErr) {
       console.warn("[/api/trips] generation_history write skipped:", histErr);
     }
+    console.log(tag("generation_history", tHist));
 
-    // Surface the first destination's slug so exact_city callers can deep-link
-    // straight to /trip/<id>?d=<slug>. Harmless for surprise/specific modes.
+    // Surface the destinations count + first slug so the caller can branch:
+    //   count === 1 → deep-link to /trip/<id>?d=<slug> (detail page)
+    //   count >  1 → go to /trip/<id>            (results grid / selector)
+    // A `specific` query for a region (e.g. "Sardinia") can legitimately
+    // return multiple destinations; the count tells callers which.
+    const destinationCount = result.destinations?.length ?? 0;
     const firstDestinationId = result.destinations?.[0]?.id ?? null;
-    return NextResponse.json({ tripId: trip.id, firstDestinationId });
+    console.log(tag("total", t0));
+    return NextResponse.json({
+      tripId: trip.id,
+      firstDestinationId,
+      destinationCount,
+    });
   } catch (err: unknown) {
     console.error("[/api/trips] Failed:", err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

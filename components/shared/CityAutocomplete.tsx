@@ -38,6 +38,20 @@ interface Props {
   inputId?: string;
   /** Filters Photon results by OSM place tag. Defaults to 'city'. */
   mode?: CityAutocompleteMode;
+  /**
+   * Visual treatment:
+   * - 'form' (default): roomy form-field input (rounded-xl, py-3, bg-white).
+   * - 'header': slim pill input (h-9, rounded-full, semi-transparent) for
+   *   the floating top-left header search.
+   */
+  variant?: "form" | "header";
+  /** Notifies the parent of the typed query (not the picked selection) so
+   *  caller can submit the raw text when the user hits Enter / clicks search
+   *  without picking a suggestion. */
+  onQueryChange?: (query: string) => void;
+  /** Optional ref forwarded to the underlying <input>. Useful for caller-
+   *  driven focus (e.g. mobile expand). */
+  innerInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 const PHOTON_URL = "https://photon.komoot.io/api/";
@@ -150,11 +164,15 @@ export function CityAutocomplete({
   disabled = false,
   inputId,
   mode = "city",
+  variant = "form",
+  onQueryChange,
+  innerInputRef,
 }: Props) {
   const effectivePlaceholder = placeholder ?? PLACEHOLDER_BY_MODE[mode];
   const reactId = useId();
   const listboxId = `city-listbox-${reactId}`;
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const localInputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = innerInputRef ?? localInputRef;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -245,7 +263,9 @@ export function CityAutocomplete({
       lat: s.lat,
       lng: s.lng,
     });
-    setQuery(suggestionLabel(s));
+    const label = suggestionLabel(s);
+    setQuery(label);
+    onQueryChange?.(label);
     setShowDropdown(false);
     setSuggestions(EMPTY);
   }
@@ -316,6 +336,7 @@ export function CityAutocomplete({
         onChange={(e) => {
           const v = e.target.value;
           setQuery(v);
+          onQueryChange?.(v);
           setShowDropdown(true);
           setSearchError(null);
           // If the user is editing a previously-picked label, the parent's
@@ -333,13 +354,21 @@ export function CityAutocomplete({
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         placeholder={effectivePlaceholder}
-        className="w-full rounded-xl border border-border bg-white pl-4 pr-10 py-3 text-sm text-[#1A1A1A] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#F8F7F5]"
+        className={
+          variant === "header"
+            ? "w-full h-9 rounded-full border border-[#0D7377]/15 bg-white/80 backdrop-blur-sm shadow-sm pl-9 pr-9 text-sm text-[#1A1A1A] placeholder:text-[#1A1A1A]/45 outline-none focus:bg-white focus:border-[#0D7377]/40 focus:ring-2 focus:ring-[#0D7377]/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            : "w-full rounded-xl border border-border bg-white pl-4 pr-10 py-3 text-sm text-[#1A1A1A] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#F8F7F5]"
+        }
       />
 
       {loadingSearch && !disabled && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 inline-block w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"
+          className={
+            variant === "header"
+              ? "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 inline-block w-3.5 h-3.5 border-2 border-[#0D7377]/30 border-t-[#0D7377] rounded-full animate-spin"
+              : "pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 inline-block w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin"
+          }
         />
       )}
 
@@ -376,7 +405,9 @@ export function CityAutocomplete({
         </ul>
       )}
 
-      {helpText && <p className="mt-2 text-xs text-muted">{helpText}</p>}
+      {helpText && variant !== "header" && (
+        <p className="mt-2 text-xs text-muted">{helpText}</p>
+      )}
     </div>
   );
 }

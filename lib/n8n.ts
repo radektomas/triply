@@ -14,6 +14,12 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
     throw new Error("N8N_WEBHOOK_URL is not configured");
   }
 
+  // `specific` is the unified single-destination flow — the user supplied a
+  // destinationInput (city or region) and wants one curated result. Signal
+  // single-destination intent via `mode: "single", count: 1` so the n8n
+  // workflow can branch on it and return a 1-element destinations array.
+  const isSingle = input.destinationMode === "specific";
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -27,6 +33,8 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
         nights: computeNights(input.checkIn, input.checkOut),
         travelersLabel: travelersLabel(input.travelers),
         travelersFlavor: travelersFlavor(input.travelers),
+        mode: isSingle ? "single" : "multi",
+        count: isSingle ? 1 : 3,
       }),
       signal: AbortSignal.timeout(60_000),
     });
@@ -50,7 +58,10 @@ export function buildCacheKey(input: TripInput): string {
   const destSuffix = input.destinationInput
     ? `_d-${input.destinationInput.toLowerCase().replace(/\s+/g, "-")}`
     : "";
-  return `${input.originCity}_${input.budget}_${weekKey}_${nights}_${input.vibe}_${input.travelers}${destSuffix}`
+  // Tag single-mode responses so they don't collide with cached 3-destination
+  // responses for the same inputs (different response shape).
+  const modeSuffix = input.destinationMode === "specific" ? "_single" : "";
+  return `${input.originCity}_${input.budget}_${weekKey}_${nights}_${input.vibe}_${input.travelers}${destSuffix}${modeSuffix}`
     .toLowerCase()
     .replace(/\s+/g, "_");
 }

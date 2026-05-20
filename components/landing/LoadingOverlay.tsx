@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Wordmark } from "@/components/ui/Wordmark";
+import Image from "next/image";
 import { GuessTheCity } from "@/components/game/GuessTheCity";
 import { LoadingFooter } from "@/components/shared/LoadingFooter";
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
@@ -137,7 +137,14 @@ export function LoadingOverlay({
       {/* Content */}
       <div className="relative z-10 max-w-2xl w-full mx-auto px-8 text-center">
         <div className="flex justify-center mb-12">
-          <Wordmark size="sm" />
+          <Image
+            src="/triply-logo.png"
+            alt="Triply"
+            width={320}
+            height={213}
+            priority
+            className="w-[140px] h-auto select-none"
+          />
         </div>
 
         {/* Quote + Triply row. Quote stays centered; Triply sits absolutely

@@ -448,6 +448,13 @@ export function TripForm() {
       if (m === "specific" && region) destinationInput = labelOf(region);
       else if (m === "exact_city" && city) destinationInput = labelOf(city);
 
+      // Both region and exact-city wizard options now route through the
+      // unified single-destination `specific` flow on the server. The two
+      // UI options stay (different labels/placeholders) but funnel into one
+      // n8n path so the app maintains a single single-destination pipeline.
+      const wireMode: "surprise" | "specific" =
+        m === "surprise" ? "surprise" : "specific";
+
       const requestBody = {
         budget: b,
         checkIn: toIso(r.from),
@@ -455,7 +462,7 @@ export function TripForm() {
         travelers: t,
         vibe: v,
         originCity: o,
-        destinationMode: m,
+        destinationMode: wireMode,
         destinationInput,
       };
 
@@ -477,14 +484,18 @@ export function TripForm() {
           errBody.error ?? `Failed to create trip (${res.status})`,
         );
       }
-      const { tripId, firstDestinationId } = (await res.json()) as {
-        tripId: string;
-        firstDestinationId?: string | null;
-      };
-      // exact_city deep-links straight to the chosen city's detail view;
-      // surprise/specific land on the destination selector as before.
+      const { tripId, firstDestinationId, destinationCount } =
+        (await res.json()) as {
+          tripId: string;
+          firstDestinationId?: string | null;
+          destinationCount?: number;
+        };
+      // A `specific` query can legitimately come back with multiple
+      // destinations (a region like "Sardinia" → several cities). Only
+      // deep-link to detail when exactly one destination was returned;
+      // otherwise show the results selector.
       const target =
-        m === "exact_city" && firstDestinationId
+        destinationCount === 1 && firstDestinationId
           ? `/trip/${tripId}?d=${firstDestinationId}`
           : `/trip/${tripId}`;
       // Defer the actual navigation: hand the URL to the LoadingOverlay,
