@@ -3,6 +3,7 @@ import { VibeTag } from "@/components/ui/VibeTag";
 import { getGradient } from "@/lib/utils/gradient";
 import { getCityPhoto } from "@/lib/photos";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
+import { SaveButton } from "@/components/auth/SaveButton";
 import type { APIDestination } from "@/lib/types";
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   vibe: string;
   originCity: string;
   href?: string;
+  tripId?: string;
 }
 
 // Fix 1 — badge: warm text on frosted white, no generic Tailwind semantic colors
@@ -44,6 +46,7 @@ export async function DestinationCard({
   vibe,
   originCity,
   href: hrefOverride,
+  tripId,
 }: Props) {
   const { estimates, weather } = destination;
   const gradient = getGradient(destination.id);
@@ -74,9 +77,14 @@ export async function DestinationCard({
           {budgetFitLabel[destination.budgetFit]}
         </span>
 
+        <SaveButton
+          destination={destination}
+          context={{ tripId, checkIn, checkOut, budget, vibe, originCity }}
+        />
+
         {destination.confidence === "low" && (
           <span
-            className="absolute top-3 left-3 text-white/70 text-sm cursor-default"
+            className="absolute top-3 left-14 text-white/70 text-sm cursor-default"
             title="Lower confidence — AI had limited data for this destination"
           >
             ⓘ

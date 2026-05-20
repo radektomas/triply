@@ -6,6 +6,7 @@ import { TipsList } from "./TipsList";
 import { BookingHub } from "./BookingHub";
 import { GradientMesh } from "@/components/landing/GradientMesh";
 import type { TripDetail } from "@/lib/types/trip";
+import type { APIDestination, TripInput } from "@/lib/types";
 
 interface Props {
   detail: TripDetail;
@@ -14,6 +15,9 @@ interface Props {
   disclaimer?: string;
   returnUrl: string;
   returnLabel?: string;
+  destination?: APIDestination;
+  tripId?: string;
+  tripInput?: TripInput;
 }
 
 export function TripDetailView({
@@ -23,13 +27,23 @@ export function TripDetailView({
   disclaimer,
   returnUrl,
   returnLabel,
+  destination,
+  tripId,
+  tripInput,
 }: Props) {
   return (
     <>
     <GradientMesh variant="fixed" />
     <main className="flex-1 pb-16">
       <FadeIn>
-        <TripHero trip={detail} returnUrl={returnUrl} returnLabel={returnLabel} />
+        <TripHero
+          trip={detail}
+          returnUrl={returnUrl}
+          returnLabel={returnLabel}
+          destination={destination}
+          tripId={tripId}
+          tripInput={tripInput}
+        />
       </FadeIn>
 
       <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 pt-10">

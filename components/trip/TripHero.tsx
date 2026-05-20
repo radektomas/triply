@@ -4,8 +4,10 @@ import { getGradient } from "@/lib/utils/gradient";
 import { formatRange } from "@/lib/dates";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { ShareTripButton } from "./ShareTripButton";
+import { SaveButton } from "@/components/auth/SaveButton";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import type { TripDetail } from "@/lib/types/trip";
+import type { APIDestination, TripInput } from "@/lib/types";
 
 const precipLabel = { dry: "Dry", mixed: "Some rain", wet: "Wet" } as const;
 
@@ -13,9 +15,19 @@ interface Props {
   trip: TripDetail;
   returnUrl: string;
   returnLabel?: string;
+  destination?: APIDestination;
+  tripId?: string;
+  tripInput?: TripInput;
 }
 
-export async function TripHero({ trip, returnUrl, returnLabel = "Back to results" }: Props) {
+export async function TripHero({
+  trip,
+  returnUrl,
+  returnLabel = "Back to results",
+  destination,
+  tripId,
+  tripInput,
+}: Props) {
   const photos = await getCityPhotos(trip.destination, trip.country);
   const gradient = getGradient(trip.id);
 
@@ -42,11 +54,31 @@ export async function TripHero({ trip, returnUrl, returnLabel = "Back to results
         >
           <span aria-hidden="true">←</span> {returnLabel}
         </Link>
-        <ShareTripButton
-          destination={trip.destination}
-          budget={trip.budget.total}
-          nights={trip.nights}
-        />
+        <div className="flex items-center gap-2">
+          {destination && (
+            <SaveButton
+              destination={destination}
+              variant="chip"
+              context={
+                tripInput
+                  ? {
+                      tripId,
+                      checkIn: tripInput.checkIn,
+                      checkOut: tripInput.checkOut,
+                      budget: tripInput.budget,
+                      vibe: tripInput.vibe,
+                      originCity: tripInput.originCity,
+                    }
+                  : undefined
+              }
+            />
+          )}
+          <ShareTripButton
+            destination={trip.destination}
+            budget={trip.budget.total}
+            nights={trip.nights}
+          />
+        </div>
       </div>
 
       {/* Hero content pinned to bottom */}

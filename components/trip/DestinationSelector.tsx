@@ -32,6 +32,7 @@ export function DestinationSelector({ trip }: Props) {
                 budget={budget}
                 vibe={vibe}
                 originCity={originCity}
+                tripId={trip.id}
                 href={`/trip/${trip.id}?d=${destination.id}`}
               />
             </AnimatedCard>

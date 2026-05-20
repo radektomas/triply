@@ -93,6 +93,9 @@ export default async function TripPage({
       confidence={dest.confidence}
       disclaimer={dest.disclaimer}
       returnUrl={`/trip/${tripId}`}
+      destination={dest}
+      tripId={tripId}
+      tripInput={trip.input}
     />
   );
 }

@@ -4,6 +4,10 @@ import { Analytics } from "@vercel/analytics/next";
 import { FeedbackButton } from "@/components/FeedbackButton";
 import { Footer } from "@/components/landing/Footer";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { Header } from "@/components/auth/Header";
+import { getServerSupabase } from "@/lib/supabase/server";
 import "./globals.css";
 
 const inter = Inter({
@@ -58,15 +62,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await getServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-cream text-[#1A1A1A]">
-        <CurrencyProvider>
-          <div className="flex-1">{children}</div>
-          <Footer />
-          <FeedbackButton />
-        </CurrencyProvider>
+        <AuthProvider initialUser={user}>
+          <CurrencyProvider>
+            <Header />
+            <div className="flex-1">{children}</div>
+            <Footer />
+            <FeedbackButton />
+            <AuthModal />
+          </CurrencyProvider>
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

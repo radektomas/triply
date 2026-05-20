@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchTripSuggestions, getCachedTripByInput, buildCacheKey } from "@/lib/n8n";
 import { computeNights } from "@/lib/dates";
 import type { TripInput } from "@/lib/types";
@@ -102,6 +103,34 @@ export async function POST(req: NextRequest) {
     if (error || !trip) {
       console.error("[/api/trips] Supabase insert failed:", error);
       return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    }
+
+    // If the request is from a signed-in user, append this generation to
+    // their personal history. Uses the cookie-bound server client so the
+    // row is written under the user's identity (RLS-friendly).
+    try {
+      const userClient = await getServerSupabase();
+      const {
+        data: { user },
+      } = await userClient.auth.getUser();
+      if (user) {
+        const { error: histErr } = await userClient
+          .from("generation_history")
+          .insert({
+            user_id: user.id,
+            trip: {
+              tripId: trip.id,
+              input,
+              destinations: result.destinations ?? [],
+              searchSummary: result.searchSummary ?? null,
+            },
+          });
+        if (histErr) {
+          console.warn("[/api/trips] generation_history insert failed:", histErr.message);
+        }
+      }
+    } catch (histErr) {
+      console.warn("[/api/trips] generation_history write skipped:", histErr);
     }
 
     // Surface the first destination's slug so exact_city callers can deep-link
