@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { VibeTag } from "@/components/ui/VibeTag";
 import { getGradient } from "@/lib/utils/gradient";
 import { getCityPhoto } from "@/lib/photos";
@@ -63,12 +64,28 @@ export async function DestinationCard({
       <div className="h-44 relative shrink-0 overflow-hidden">
         <div
           className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-          style={{
-            background: photoUrl
-              ? `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%), url('${photoUrl}') center/cover, ${gradient}`
-              : gradient,
-          }}
-        />
+          style={{ background: gradient }}
+        >
+          {photoUrl && (
+            <>
+              <Image
+                src={photoUrl}
+                alt={`${destination.name}, ${destination.country}`}
+                fill
+                sizes="(max-width: 768px) 100vw, 33vw"
+                className="object-cover"
+              />
+              {/* Darkening overlay — keeps the white country/title legible */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)",
+                }}
+              />
+            </>
+          )}
+        </div>
 
         {/* Fix 1 — budget fit badge: frosted white pill, warm text */}
         <span

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import type { CityPhoto } from "@/lib/photos";
 
 interface Props {
@@ -34,16 +35,21 @@ export function PhotoCarousel({ photos, fallbackGradient }: Props) {
           key={photo.url}
           className="absolute inset-0 transition-opacity duration-700"
           style={{
-            backgroundImage: `url('${photo.urlLarge}'), ${fallbackGradient}`,
-            backgroundSize: "cover, 100% 100%",
-            backgroundPosition: "center",
+            background: fallbackGradient,
             opacity: idx === activeIndex ? 1 : 0,
           }}
-          role="img"
-          aria-label={photo.alt}
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-        />
+        >
+          <Image
+            src={photo.urlLarge}
+            alt={photo.alt}
+            fill
+            sizes="100vw"
+            priority={idx === 0}
+            className="object-cover"
+          />
+        </div>
       ))}
 
       {/* Bottom-fade gradient — darkens top for Back/Share row and bottom for stats chips */}

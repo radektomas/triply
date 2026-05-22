@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useTransition, useState } from "react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { VibeTag } from "@/components/ui/VibeTag";
@@ -67,6 +68,36 @@ export function SavedDestinationCard({
 
   if (hidden) return null;
 
+  // Shared photo layer — identical whether or not the card is link-wrapped.
+  // Colored gradient is the fallback/while-loading background; the Pexels
+  // photo (next/image, optimized) covers it; a darkening overlay keeps the
+  // white country/title legible. Matches the DestinationCard treatment.
+  const photoLayer = (
+    <div
+      className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
+      style={{ background: gradient }}
+    >
+      {photoUrl && (
+        <>
+          <Image
+            src={photoUrl}
+            alt={`${destination.name}, ${destination.country}`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)",
+            }}
+          />
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="group bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-orange-200 h-full">
       <div className="h-40 relative shrink-0 overflow-hidden">
@@ -77,24 +108,10 @@ export function SavedDestinationCard({
             aria-label={`View ${destination.name} trip`}
             className="absolute inset-0 z-0"
           >
-            <span
-              className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-              style={{
-                background: photoUrl
-                  ? `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%), url('${photoUrl}') center/cover, ${gradient}`
-                  : gradient,
-              }}
-            />
+            {photoLayer}
           </Link>
         ) : (
-          <div
-            className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
-            style={{
-              background: photoUrl
-                ? `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%), url('${photoUrl}') center/cover, ${gradient}`
-                : gradient,
-            }}
-          />
+          photoLayer
         )}
 
         <button
