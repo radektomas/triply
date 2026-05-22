@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { fetchTripSuggestions, getCachedTripByInput, buildCacheKey } from "@/lib/n8n";
@@ -136,34 +136,36 @@ export async function POST(req: NextRequest) {
     }
 
     // If the request is from a signed-in user, append this generation to
-    // their personal history. Uses the cookie-bound server client so the
-    // row is written under the user's identity (RLS-friendly).
-    const tHist = Date.now();
-    try {
-      const userClient = await getServerSupabase();
-      const {
-        data: { user },
-      } = await userClient.auth.getUser();
-      if (user) {
-        const { error: histErr } = await userClient
-          .from("generation_history")
-          .insert({
-            user_id: user.id,
-            trip: {
-              tripId: trip.id,
-              input,
-              destinations: result.destinations ?? [],
-              searchSummary: result.searchSummary ?? null,
-            },
-          });
-        if (histErr) {
-          console.warn("[/api/trips] generation_history insert failed:", histErr.message);
+    // their personal history. Deferred via after() so it runs AFTER the
+    // response is sent — it never adds to TTFB, and the response doesn't
+    // depend on it. Uses the cookie-bound server client so the row is
+    // written under the user's identity (RLS-friendly).
+    after(async () => {
+      try {
+        const userClient = await getServerSupabase();
+        const {
+          data: { user },
+        } = await userClient.auth.getUser();
+        if (user) {
+          const { error: histErr } = await userClient
+            .from("generation_history")
+            .insert({
+              user_id: user.id,
+              trip: {
+                tripId: trip.id,
+                input,
+                destinations: result.destinations ?? [],
+                searchSummary: result.searchSummary ?? null,
+              },
+            });
+          if (histErr) {
+            console.warn("[/api/trips] generation_history insert failed:", histErr.message);
+          }
         }
+      } catch (histErr) {
+        console.warn("[/api/trips] generation_history write skipped:", histErr);
       }
-    } catch (histErr) {
-      console.warn("[/api/trips] generation_history write skipped:", histErr);
-    }
-    console.log(tag("generation_history", tHist));
+    });
 
     // Surface the destinations count + first slug so the caller can branch:
     //   count === 1 → deep-link to /trip/<id>?d=<slug> (detail page)
