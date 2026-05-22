@@ -99,6 +99,26 @@ export async function POST(req: NextRequest) {
       console.log("[api/trips] cache miss, calling n8n");
       result = await fetchTripSuggestions(input);
       console.log(tag("n8n response", tN8n));
+
+      // Populate the cross-user trip_cache so future requests with the same
+      // buildCacheKey() skip n8n entirely. Fire-and-forget upsert (same
+      // pattern as lib/photos.ts photo_cache) — the response doesn't depend
+      // on it. Read path: getCachedTripByInput, same table + same key.
+      supabase
+        .from("trip_cache")
+        .upsert(
+          {
+            cache_key: cacheKey,
+            result,
+            cached_at: new Date().toISOString(),
+          },
+          { onConflict: "cache_key" },
+        )
+        .then(({ error: cacheErr }) => {
+          if (cacheErr) {
+            console.warn("[api/trips] trip_cache write failed:", cacheErr.message);
+          }
+        });
     }
 
     // Create a new trips row — unique UUID per user session

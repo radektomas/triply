@@ -1,6 +1,7 @@
 // TODO(post-MVP): Add cache invalidation endpoint.
-// Currently cache lives for hours in Next.js layer + 72h in Supabase.
-// If OpenAI returns a bad response, users will see it cached for hours.
+// The Supabase `trip_cache` layer expires entries after 7 days (enforced in
+// getCachedTripByInput via the `cached_at` filter). If OpenAI returns a bad
+// response it can still serve for up to 7 days.
 // Options: admin route to clear by cacheKey, or auto-expire on low confidence.
 
 import type { TripInput, APITripResponse } from "@/lib/types";
@@ -66,12 +67,19 @@ export function buildCacheKey(input: TripInput): string {
     .replace(/\s+/g, "_");
 }
 
+// trip_cache entries older than this are treated as a miss — a stale or bad
+// AI response must not serve indefinitely. Kept in sync with the writer in
+// app/api/trips/route.ts (both use the `trip_cache` table + buildCacheKey).
+export const TRIP_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export async function getCachedTripByInput(input: TripInput): Promise<APITripResponse | null> {
   const cacheKey = buildCacheKey(input);
+  const freshAfter = new Date(Date.now() - TRIP_CACHE_TTL_MS).toISOString();
   const { data, error } = await supabase
     .from("trip_cache")
     .select("result")
     .eq("cache_key", cacheKey)
+    .gte("cached_at", freshAfter)
     .single();
 
   if (error || !data?.result) return null;
