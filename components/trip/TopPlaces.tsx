@@ -14,8 +14,8 @@ const CARD_SHADOW =
 const CARD_SHADOW_HOVER =
   "0 2px 4px rgba(0,0,0,0.05), 0 20px 40px -12px rgba(13,115,119,0.18)";
 
-// Three soft gradients matching the warm Triply palette. Cycled by index so
-// each card reads as visually distinct without needing a per-place vibe.
+// Three soft gradients matching the warm Triply palette. Used as the photo-
+// area fallback (cycled by index) when a place has no Pexels photo.
 const CARD_GRADIENTS = [
   "linear-gradient(135deg, #FFF4E8 0%, #FFE4CC 100%)", // peach
   "linear-gradient(135deg, #FCE8F3 0%, #F5D7E5 100%)", // rose
@@ -63,70 +63,109 @@ export function TopPlaces({ topPlaces, destinationName }: Props) {
         initial="hidden"
         animate="show"
       >
-        {topPlaces.map((place, idx) => (
-          <motion.div
-            key={place.id ?? `${place.name}-${idx}`}
-            variants={childVariants}
-            whileHover={{ y: -3, boxShadow: CARD_SHADOW_HOVER }}
-            className="relative overflow-hidden rounded-3xl min-h-[200px] flex flex-col p-6"
-            style={{
-              background: CARD_GRADIENTS[idx % CARD_GRADIENTS.length],
-              border: CARD_BORDER,
-              boxShadow: CARD_SHADOW,
-            }}
-          >
-            {/* Oversize emoji watermark behind the card content */}
-            <span
-              aria-hidden="true"
-              className="absolute -right-4 -bottom-6 text-[180px] leading-none select-none pointer-events-none"
-              style={{
-                opacity: 0.12,
-                transform: "rotate(-12deg)",
-                filter: "saturate(1.2)",
-              }}
+        {topPlaces.map((place, idx) => {
+          const fallbackGradient = CARD_GRADIENTS[idx % CARD_GRADIENTS.length];
+          return (
+            <motion.div
+              key={place.id ?? `${place.name}-${idx}`}
+              variants={childVariants}
+              whileHover={{ y: -3, boxShadow: CARD_SHADOW_HOVER }}
+              className="relative overflow-hidden rounded-3xl flex flex-col bg-white"
+              style={{ border: CARD_BORDER, boxShadow: CARD_SHADOW }}
             >
-              {place.emoji}
-            </span>
-
-            <div className="relative z-10 flex flex-col flex-1">
-              <div className="text-3xl leading-none drop-shadow-sm">
-                {place.emoji}
+              {/* Photo — fixed 4:3 box so there's no layout shift on load */}
+              <div className="relative aspect-[4/3] overflow-hidden shrink-0">
+                {place.photo ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={place.photo.url}
+                      alt={place.photo.alt || place.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Subtle bottom gradient — polish + keeps attribution legible */}
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background:
+                          "linear-gradient(to top, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.05) 45%, transparent 70%)",
+                      }}
+                    />
+                    {/* Pexels attribution — unobtrusive */}
+                    <a
+                      href={place.photo.photographerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute bottom-1.5 right-2.5 text-[10px] text-white/55 hover:text-white/90 transition-colors"
+                    >
+                      Photo: {place.photo.photographer}
+                    </a>
+                  </>
+                ) : (
+                  // No photo — gradient fallback with the emoji centered so the
+                  // card still looks intentional.
+                  <div
+                    className="w-full h-full flex items-center justify-center"
+                    style={{ background: fallbackGradient }}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="text-6xl leading-none drop-shadow-sm"
+                    >
+                      {place.emoji}
+                    </span>
+                  </div>
+                )}
               </div>
-              <h3 className="font-semibold text-lg text-[#1A1A1A] mt-3">
-                {place.name}
-              </h3>
-              <p className="text-sm text-[#1A1A1A]/70 mt-2 leading-relaxed">
-                {place.description}
-              </p>
-              {place.tip && (
-                <div className="mt-auto pt-4 flex items-start gap-2">
+
+              {/* Text area */}
+              <div className="flex flex-col flex-1 p-5">
+                <div className="flex items-center gap-2">
                   <span
                     aria-hidden="true"
-                    className="inline-flex items-center justify-center text-[#0D7377] shrink-0 mt-0.5"
+                    className="text-2xl leading-none shrink-0"
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M9 18h6" />
-                      <path d="M10 22h4" />
-                      <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z" />
-                    </svg>
+                    {place.emoji}
                   </span>
-                  <p className="text-[12px] italic text-[#1A1A1A]/60 leading-relaxed">
-                    {place.tip}
-                  </p>
+                  <h3 className="font-semibold text-lg text-[#1A1A1A]">
+                    {place.name}
+                  </h3>
                 </div>
-              )}
-            </div>
-          </motion.div>
-        ))}
+                <p className="text-sm text-[#1A1A1A]/70 mt-2 leading-relaxed">
+                  {place.description}
+                </p>
+                {place.tip && (
+                  <div className="mt-auto pt-4 flex items-start gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex items-center justify-center text-[#0D7377] shrink-0 mt-0.5"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M9 18h6" />
+                        <path d="M10 22h4" />
+                        <path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z" />
+                      </svg>
+                    </span>
+                    <p className="text-[12px] italic text-[#1A1A1A]/60 leading-relaxed">
+                      {place.tip}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
       </motion.div>
     </section>
   );

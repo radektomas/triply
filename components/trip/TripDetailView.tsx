@@ -5,6 +5,7 @@ import { TopPlaces } from "./TopPlaces";
 import { TipsList } from "./TipsList";
 import { BookingHub } from "./BookingHub";
 import { GradientMesh } from "@/components/landing/GradientMesh";
+import { getPlacePhoto } from "@/lib/photos";
 import type { TripDetail } from "@/lib/types/trip";
 import type { APIDestination, TripInput } from "@/lib/types";
 
@@ -20,7 +21,7 @@ interface Props {
   tripInput?: TripInput;
 }
 
-export function TripDetailView({
+export async function TripDetailView({
   detail,
   tips,
   confidence,
@@ -31,6 +32,17 @@ export function TripDetailView({
   tripId,
   tripInput,
 }: Props) {
+  // Enrich each top place with a Pexels photo, server-side, in parallel —
+  // hits the same Supabase photo_cache the hero carousel uses.
+  const topPlacesWithPhotos = detail.topPlaces
+    ? await Promise.all(
+        detail.topPlaces.map(async (place) => ({
+          ...place,
+          photo: await getPlacePhoto(place.name, detail.destination),
+        })),
+      )
+    : [];
+
   return (
     <>
     <GradientMesh variant="fixed" />
@@ -59,10 +71,10 @@ export function TripDetailView({
         </section>
       </FadeIn>
 
-      {detail.topPlaces && detail.topPlaces.length > 0 && (
+      {topPlacesWithPhotos.length > 0 && (
         <FadeIn delay={0.26} className="max-w-4xl mx-auto px-4 sm:px-6 pt-12">
           <TopPlaces
-            topPlaces={detail.topPlaces}
+            topPlaces={topPlacesWithPhotos}
             destinationName={detail.destination}
           />
         </FadeIn>

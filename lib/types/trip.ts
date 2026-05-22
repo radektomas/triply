@@ -1,3 +1,5 @@
+import type { CityPhoto } from "@/lib/photos";
+
 export type MustDoCategory =
   | "landmark"
   | "restaurant"
@@ -141,6 +143,9 @@ export type TopPlace = {
   name: string;       // real place name
   description: string;// 1 sentence
   tip?: string;       // optional 1 sentence
+  // Enriched server-side on the detail page via getPlacePhoto(); the n8n
+  // payload never includes it, hence optional.
+  photo?: CityPhoto | null;
 };
 
 export type LocalTip = {
