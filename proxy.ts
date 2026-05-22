@@ -1,33 +1,97 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const RATE_LIMITED_PATHS = ["/api/trips", "/api/feedback"];
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_WINDOW = 5;
+// Per-path rate-limit tiers (per IP). `perMinute` is a fixed 60s window;
+// `perDay` is an extra 24h cap applied only to the expensive AI-generation
+// route, since each /api/trips call costs money downstream (n8n + OpenAI).
+//
+// /api/game/city-photo gets a generous per-minute limit: the loading-screen
+// mini-game fires ~1 request per guess round, so a brisk player can
+// legitimately hit ~6–12/min. Responses are 24h-cached per query server-
+// side, so repeat cities don't reach Pexels.
+const RATE_LIMIT_TIERS: Record<
+  string,
+  { perMinute: number; perDay?: number }
+> = {
+  "/api/trips": { perMinute: 3, perDay: 40 },
+  "/api/feedback": { perMinute: 5 },
+  "/api/game/city-photo": { perMinute: 30 },
+};
 
-const ipRequestMap = new Map<string, { count: number; resetAt: number }>();
+const MINUTE_MS = 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+interface RateWindow {
+  count: number;
+  resetAt: number;
+}
+
+// In-memory windows keyed by `${ip}|${path}` so each path tracks its own
+// quota. NOTE: this is per serverless-instance state — on Vercel's Fluid
+// Compute multiple instances each keep a separate Map, so the effective
+// limit is (tier limit × live instance count). It throttles casual abuse
+// but is not a hard guarantee; a shared store (Redis/Upstash) would be
+// needed for that — deliberately deferred as a separate decision.
+const minuteWindows = new Map<string, RateWindow>();
+const dayWindows = new Map<string, RateWindow>();
+
+function isOverLimit(
+  map: Map<string, RateWindow>,
+  key: string,
+  limit: number,
+  now: number,
+): boolean {
+  const w = map.get(key);
+  if (!w || now > w.resetAt) return false;
+  return w.count >= limit;
+}
+
+function recordHit(
+  map: Map<string, RateWindow>,
+  key: string,
+  windowMs: number,
+  now: number,
+): void {
+  const w = map.get(key);
+  if (!w || now > w.resetAt) {
+    map.set(key, { count: 1, resetAt: now + windowMs });
+  } else {
+    w.count++;
+  }
+}
 
 function applyRateLimit(request: NextRequest): NextResponse | null {
-  if (!RATE_LIMITED_PATHS.includes(request.nextUrl.pathname)) return null;
+  const path = request.nextUrl.pathname;
+  const tier = RATE_LIMIT_TIERS[path];
+  if (!tier) return null;
 
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "unknown";
   const now = Date.now();
-  const entry = ipRequestMap.get(ip);
+  const key = `${ip}|${path}`;
 
-  if (!entry || now > entry.resetAt) {
-    ipRequestMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return null;
-  }
-  if (entry.count >= MAX_REQUESTS_PER_WINDOW) {
-    return NextResponse.json(
+  const tooMany = () =>
+    NextResponse.json(
       { error: "Too many requests. Please wait a moment and try again." },
       { status: 429 },
     );
+
+  // Check both windows first; only record the hit once both pass, so a
+  // request rejected by one window doesn't consume quota in the other.
+  if (
+    tier.perDay !== undefined &&
+    isOverLimit(dayWindows, key, tier.perDay, now)
+  ) {
+    return tooMany();
   }
-  entry.count++;
+  if (isOverLimit(minuteWindows, key, tier.perMinute, now)) {
+    return tooMany();
+  }
+
+  if (tier.perDay !== undefined) recordHit(dayWindows, key, DAY_MS, now);
+  recordHit(minuteWindows, key, MINUTE_MS, now);
   return null;
 }
 
