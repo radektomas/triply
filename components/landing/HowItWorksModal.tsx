@@ -6,7 +6,7 @@ import { GradientMesh } from "./GradientMesh";
 
 // ─── Inline icons ────────────────────────────────────────────────────────────
 // Follows the existing project convention (VibeIcons.tsx / AuthIcons.tsx):
-// small function components, currentColor or `color` prop, no lucide-react.
+// small function components, inline SVG, no lucide-react.
 
 interface IconProps {
   size?: number;
@@ -34,8 +34,7 @@ function CloseIcon({ size = 20 }: IconProps) {
   );
 }
 
-// Tab icons — recreated locally to match the destination toggles in TripForm
-// without importing from that heavy form component.
+// Tab icons — recreated locally to match the destination toggles in TripForm.
 function SurpriseIcon({ color, size = 18 }: TabIconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -76,66 +75,132 @@ function CrosshairIcon({ color, size = 18 }: TabIconProps) {
   );
 }
 
-// Step icons — consistent across tabs (steps share the same shape: params →
-// AI → review). Render with currentColor so the parent controls the tint.
-function SlidersIcon({ size = 18 }: IconProps) {
+// Step icons — large hero glyphs for the roadmap stops. Rendered in white
+// (currentColor) on top of the coral/teal circle backgrounds.
+
+function PlaneIcon({ size = 38 }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth="2"
+      viewBox="0 0 32 32"
       fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
       strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <circle cx="9" cy="6" r="2.5" fill="currentColor" stroke="none" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <circle cx="15" cy="12" r="2.5" fill="currentColor" stroke="none" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-      <circle cx="7" cy="18" r="2.5" fill="currentColor" stroke="none" />
+      {/* simple paper-plane silhouette: nose top-right, fuselage to bottom-left,
+          a tail flick, and a single wing fold */}
+      <path d="M28 5 L4 14 L13 18 L17 27 Z" fill="currentColor" fillOpacity="0.12" />
+      <path d="M28 5 L13 18 L17 27 L28 5 Z" fill="currentColor" fillOpacity="0.22" />
+      <path d="M28 5 L4 14 L13 18 L28 5" />
+      <path d="M13 18 L17 27 L28 5" />
     </svg>
   );
 }
 
-function SparklesIcon({ size = 18 }: IconProps) {
+function AiComputerIcon({ size = 38 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {/* monitor */}
+      <rect x="3" y="5" width="26" height="17" rx="3" />
+      {/* stand */}
+      <path d="M16 22 L16 27" />
+      <path d="M11 27 L21 27" />
+      {/* central sparkle — friendly 4-point star with rounded joins */}
+      <path
+        d="M16 9.5 C 16.6 12.3, 17.7 13.4, 20.5 14 C 17.7 14.6, 16.6 15.7, 16 18.5 C 15.4 15.7, 14.3 14.6, 11.5 14 C 14.3 13.4, 15.4 12.3, 16 9.5 Z"
+        fill="currentColor"
+      />
+      {/* tiny accent sparkle */}
+      <path
+        d="M23 9 C 23.2 10, 23.5 10.3, 24.5 10.5 C 23.5 10.7, 23.2 11, 23 12 C 22.8 11, 22.5 10.7, 21.5 10.5 C 22.5 10.3, 22.8 10, 23 9 Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function PalmTreeIcon({ size = 38 }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {/* curved trunk — single confident sweep */}
+      <path d="M16 13 C 14.5 18, 13 23, 12 29" />
+      {/* ground line — a tiny beach hint */}
+      <path d="M7 29 L20 29" opacity="0.55" />
+      {/* four rounded fronds arching out from the crown — each a soft teardrop */}
+      <path
+        d="M16 13 C 11 10, 6 11, 3 14 C 7 12, 12 12, 16 13 Z"
+        fill="currentColor"
+        fillOpacity="0.85"
+      />
+      <path
+        d="M16 13 C 13 8, 8 6, 4 7 C 9 7, 13 10, 16 13 Z"
+        fill="currentColor"
+        fillOpacity="0.85"
+      />
+      <path
+        d="M16 13 C 18 8, 23 5, 28 6 C 23 7, 19 10, 16 13 Z"
+        fill="currentColor"
+        fillOpacity="0.85"
+      />
+      <path
+        d="M16 13 C 20 11, 25 11, 29 14 C 25 12, 20 12, 16 13 Z"
+        fill="currentColor"
+        fillOpacity="0.85"
+      />
+      {/* coconut cluster at the crown */}
+      <circle cx="16" cy="13.2" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+// Tiny paper plane for the eyebrow — ties the modal back to the travel /
+// boarding-pass motif used in the hero.
+function PaperPlaneIcon({ size = 12 }: IconProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
       fill="currentColor"
-      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M12 3 L13.5 9 L19 10 L13.5 11 L12 17 L10.5 11 L5 10 L10.5 9 Z" />
-      <path d="M19 3 L19.5 5 L21 5.5 L19.5 6 L19 8 L18.5 6 L17 5.5 L18.5 5 Z" />
-      <path d="M5 16 L5.5 18 L7 18.5 L5.5 19 L5 21 L4.5 19 L3 18.5 L4.5 18 Z" />
+      <path d="M21.6 2.4a1 1 0 0 0-1.07-.22L2.83 9.1a1 1 0 0 0 .05 1.88l6.4 2.07 2.07 6.4a1 1 0 0 0 1.88.05l6.92-17.7a1 1 0 0 0-.55-1.4zM10.7 13.3l7.5-7.5-5.8 9.9-1.7-2.4z" />
     </svg>
   );
 }
 
-function ChecklistIcon({ size = 18 }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="4" y="4" width="16" height="16" rx="2" />
-      <path d="M8 10 L10.5 12.5 L14.5 8.5" />
-      <line x1="8" y1="16" x2="16" y2="16" />
-    </svg>
-  );
-}
+// Per-step tints. The icon itself is drawn in the brand color; the circle
+// behind it is just a faint same-color halo (~10% alpha) so the glyph reads
+// as the hero and the page stays airy. Coral bookends, teal in the middle.
+const STEP_TINTS: ReadonlyArray<{ icon: string; halo: string }> = [
+  { icon: "#FF6B4A", halo: "rgba(255, 107, 74, 0.10)" },
+  { icon: "#0D7377", halo: "rgba(13, 115, 119, 0.10)" },
+  { icon: "#FF6B4A", halo: "rgba(255, 107, 74, 0.10)" },
+];
 
 // ─── Tab data ────────────────────────────────────────────────────────────────
 
@@ -162,55 +227,55 @@ const STEPS_BY_TAB: Record<Tab, readonly [Step, Step, Step]> = {
     {
       title: "Set your trip basics",
       description: "Budget, month, nights, and who's traveling.",
-      Icon: SlidersIcon,
+      Icon: PlaneIcon,
     },
     {
       title: "Triply's AI surprises you",
       description:
         "Three destinations you'd never think of, picked for your vibe and budget.",
-      Icon: SparklesIcon,
+      Icon: AiComputerIcon,
     },
     {
       title: "Compare breakdowns & book",
       description:
         "Side-by-side flight, hotel and daily costs, with direct booking links.",
-      Icon: ChecklistIcon,
+      Icon: PalmTreeIcon,
     },
   ],
   specific: [
     {
       title: "Set your params & pick a region",
       description: "Same basics, plus a country or region you have in mind.",
-      Icon: SlidersIcon,
+      Icon: PlaneIcon,
     },
     {
       title: "AI finds the 3 best spots",
       description: "Cities within your region that fit your vibe and budget.",
-      Icon: SparklesIcon,
+      Icon: AiComputerIcon,
     },
     {
       title: "Compare breakdowns & book",
       description:
         "Side-by-side flight, hotel and daily costs, with direct booking links.",
-      Icon: ChecklistIcon,
+      Icon: PalmTreeIcon,
     },
   ],
   exact_city: [
     {
       title: "Set your params & enter your city",
       description: "Same basics, plus the exact city you want to visit.",
-      Icon: SlidersIcon,
+      Icon: PlaneIcon,
     },
     {
       title: "AI builds the full plan",
       description:
         "Day plan, top places to visit, and a real budget breakdown for that city.",
-      Icon: SparklesIcon,
+      Icon: AiComputerIcon,
     },
     {
       title: "Review the day plan & book",
       description: "Read the plan, follow the links, go.",
-      Icon: ChecklistIcon,
+      Icon: PalmTreeIcon,
     },
   ],
 };
@@ -279,14 +344,15 @@ function HowItWorksBody({ onClose }: { onClose: () => void }) {
           </button>
 
           <header className="text-center mb-6">
-            <p className="font-mono text-[11px] font-medium uppercase text-accent tracking-[0.18em] mb-1">
-              How it works
-            </p>
+            <div className="inline-flex items-center justify-center gap-1.5 font-mono text-[11px] font-medium uppercase text-accent tracking-[0.18em] mb-1">
+              <PaperPlaneIcon size={12} />
+              <span>How it works</span>
+            </div>
             <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-[#1A1A1A]">
               Three ways to plan with Triply
             </h2>
             <p className="text-sm text-muted mt-1.5 max-w-md mx-auto">
-              Pick your path — the three steps below show what happens at each
+              Pick your path. The three steps below show what happens at each
               stage.
             </p>
           </header>
@@ -295,7 +361,7 @@ function HowItWorksBody({ onClose }: { onClose: () => void }) {
           <div
             role="tablist"
             aria-label="How it works — choose a flow"
-            className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-7"
           >
             {TABS.map(({ value, label, Icon }) => {
               const isActive = tab === value;
@@ -322,43 +388,17 @@ function HowItWorksBody({ onClose }: { onClose: () => void }) {
             })}
           </div>
 
-          {/* Steps — keyed by tab so the fade-in re-fires on tab switch */}
+          {/* Roadmap — three stops laid out side-by-side on sm+ and stacked on
+              mobile. A dashed coral connector sits behind the icon row, so
+              each circle visually "punches through" the line. The icon is the
+              hero; the step number is a small chip overlapping its circle. */}
           <div
             key={tab}
             role="tabpanel"
             aria-label={TABS.find((t) => t.value === tab)?.label}
-            className="space-y-3 animate-fade-in-overlay"
+            className="relative"
           >
-            {steps.map((step, i) => {
-              const StepIcon = step.Icon;
-              return (
-                <div
-                  key={i}
-                  className="flex items-start gap-4 bg-white/80 backdrop-blur-sm border border-[#0D7377]/10 rounded-2xl p-4 sm:p-5"
-                >
-                  <span
-                    className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full bg-accent text-white font-bold text-sm"
-                    aria-hidden="true"
-                  >
-                    {i + 1}
-                  </span>
-                  <span
-                    className="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full bg-[#0D7377]/10 text-[#0D7377]"
-                    aria-hidden="true"
-                  >
-                    <StepIcon size={18} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-[#1A1A1A] text-base leading-snug">
-                      {step.title}
-                    </h3>
-                    <p className="text-sm text-muted leading-relaxed mt-1">
-                      {step.description}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+            <Roadmap steps={steps} />
           </div>
         </div>
       </div>
@@ -366,4 +406,74 @@ function HowItWorksBody({ onClose }: { onClose: () => void }) {
   );
 
   return createPortal(overlay, document.body);
+}
+
+// ─── Roadmap ─────────────────────────────────────────────────────────────────
+
+function Roadmap({ steps }: { steps: readonly [Step, Step, Step] }) {
+  return (
+    <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 sm:gap-3">
+      {/* Dashed connector — sits behind the icons. On desktop it runs
+          horizontally between icon centers; on mobile it runs vertically.
+          We inset the line so it spans roughly stop1 → stop3, not edge to
+          edge, and keep it low-z so the circles remain crisp on top. */}
+      <div
+        aria-hidden="true"
+        className="hidden sm:block pointer-events-none absolute top-[24px] left-[16.66%] right-[16.66%] border-t-2 border-dashed"
+        style={{ borderColor: "rgba(255,107,71,0.4)", zIndex: 0 }}
+      />
+      <div
+        aria-hidden="true"
+        className="sm:hidden pointer-events-none absolute left-[23px] top-[24px] bottom-[40px] border-l-2 border-dashed"
+        style={{ borderColor: "rgba(255,107,71,0.4)", zIndex: 0 }}
+      />
+
+      {steps.map((step, i) => (
+        <RoadmapStop key={i} step={step} index={i} />
+      ))}
+    </div>
+  );
+}
+
+function RoadmapStop({ step, index }: { step: Step; index: number }) {
+  const StepIcon = step.Icon;
+  const tint = STEP_TINTS[index] ?? STEP_TINTS[0];
+
+  return (
+    <div
+      className="relative flex sm:flex-col items-start sm:items-center gap-4 sm:gap-3 sm:flex-1 sm:min-w-0 animate-step-in"
+      style={{ animationDelay: `${index * 100}ms` }}
+    >
+      {/* Icon column — no halo, the glyph sits directly on the cream surface.
+          The icon is wrapped in a fixed 48px box so the number chip has a
+          stable anchor and the dashed connector lines up reliably. */}
+      <div className="relative shrink-0 z-10">
+        <span
+          className="inline-flex items-center justify-center w-12 h-12"
+          style={{ color: tint.icon }}
+          aria-hidden="true"
+        >
+          <StepIcon size={46} />
+        </span>
+        <span
+          className="absolute -top-1 -right-2 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[10px] font-bold text-white ring-2 ring-cream"
+          style={{ backgroundColor: tint.icon }}
+          aria-hidden="true"
+        >
+          {index + 1}
+        </span>
+      </div>
+
+      {/* Copy — left-aligned on mobile (next to the icon), center-aligned in
+          the desktop vertical stack */}
+      <div className="min-w-0 flex-1 sm:flex-none sm:text-center sm:px-1">
+        <h3 className="font-semibold text-[#1A1A1A] text-base leading-snug">
+          {step.title}
+        </h3>
+        <p className="text-sm text-muted leading-relaxed mt-1">
+          {step.description}
+        </p>
+      </div>
+    </div>
+  );
 }

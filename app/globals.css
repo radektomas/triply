@@ -248,6 +248,24 @@ input[type="range"]::-moz-range-thumb {
   .animate-slide-in-right, .animate-slide-in-left { animation: none; }
 }
 
+/* HowItWorks step entrance — small fade + lift, used with inline animationDelay
+   to stagger the three numbered steps in sequence on first open and on tab
+   switch. Respects prefers-reduced-motion. */
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-step-in {
+  animation: step-in 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-step-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Triply DayPicker — minimal CSS variable overrides only; visual states are inline */
 .rdp-root {
   --rdp-accent-color: #FF6B47;
