@@ -4,6 +4,7 @@ import { TicketButton } from "@/components/ui/TicketButton";
 import { PalmLeafCorner } from "./PalmLeafCorner";
 import { TriplyHeroPresence } from "@/components/triply/TriplyHeroPresence";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { HowItWorksTrigger } from "./HowItWorksTrigger";
 
 export function Hero() {
   return (
@@ -70,6 +71,13 @@ export function Hero() {
               <TriplyHeroPresence />
             </div>
           </div>
+        </div>
+
+        {/* Secondary CTA — opens the "How it works" modal. Stacked below the
+            boarding pass to keep TriplyHeroPresence's calibrated centering
+            intact, and to stay subtle vs. the primary CTA. */}
+        <div className="mt-4 flex justify-center">
+          <HowItWorksTrigger />
         </div>
 
         {/* Social proof */}
