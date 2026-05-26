@@ -20,10 +20,10 @@ export function Hero() {
             grounded lift on the cream/peach background. */}
         <div className="mb-12 md:mb-14 flex justify-center animate-logo-fade-in">
           <Image
-            src="/triply-logo.png"
+            src="/triply-logo-tropical.webp"
             alt="Triply"
-            width={320}
-            height={213}
+            width={936}
+            height={279}
             priority
             className="w-[260px] md:w-[340px] h-auto select-none"
             style={{

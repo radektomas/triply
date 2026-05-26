@@ -138,10 +138,10 @@ export function LoadingOverlay({
       <div className="relative z-10 max-w-2xl w-full mx-auto px-8 text-center">
         <div className="flex justify-center mb-12">
           <Image
-            src="/triply-logo.png"
+            src="/triply-logo-tropical.webp"
             alt="Triply"
-            width={320}
-            height={213}
+            width={936}
+            height={279}
             priority
             className="w-[140px] h-auto select-none"
           />

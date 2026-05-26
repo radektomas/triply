@@ -8,10 +8,10 @@ export function Footer() {
       <div className="max-w-6xl mx-auto px-6 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between text-sm text-muted">
         <div className="flex flex-col items-center sm:items-start gap-1">
           <Image
-            src="/triply-logo.png"
+            src="/triply-logo-tropical.webp"
             alt="Triply"
-            width={320}
-            height={213}
+            width={936}
+            height={279}
             className="w-[80px] h-auto select-none"
           />
           <p className="text-xs text-muted">AI trip planner</p>
