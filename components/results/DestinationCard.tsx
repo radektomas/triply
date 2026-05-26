@@ -5,7 +5,27 @@ import { getGradient } from "@/lib/utils/gradient";
 import { getCityPhoto } from "@/lib/photos";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import { SaveButton } from "@/components/auth/SaveButton";
+import { buildGygUrl } from "@/lib/gyg";
 import type { APIDestination } from "@/lib/types";
+
+function GygTicketIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" />
+      <path d="M9 7v10" strokeDasharray="2 2" />
+    </svg>
+  );
+}
 
 interface Props {
   destination: APIDestination;
@@ -220,6 +240,15 @@ export async function DestinationCard({
           >
             See full plan →
           </Link>
+          <a
+            href={buildGygUrl(`${destination.name} ${destination.country}`)}
+            target="_blank"
+            rel="sponsored noopener noreferrer"
+            className="mt-2.5 inline-flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-[#0D7377] transition-colors"
+          >
+            <GygTicketIcon size={12} />
+            <span>Things to do in {destination.name} →</span>
+          </a>
         </div>
       </div>
     </div>

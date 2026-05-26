@@ -1,7 +1,27 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { buildGygUrl } from "@/lib/gyg";
 import type { TopPlace } from "@/lib/types/trip";
+
+function GygTicketIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" />
+      <path d="M9 7v10" strokeDasharray="2 2" />
+    </svg>
+  );
+}
 
 interface Props {
   topPlaces: TopPlace[];
@@ -136,6 +156,15 @@ export function TopPlaces({ topPlaces, destinationName }: Props) {
                 <p className="text-sm text-[#1A1A1A]/70 mt-2 leading-relaxed">
                   {place.description}
                 </p>
+                <a
+                  href={buildGygUrl(`${place.name} ${destinationName}`)}
+                  target="_blank"
+                  rel="sponsored noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 self-start text-[12px] text-[#0D7377]/70 hover:text-[#FF6B4A] transition-colors"
+                >
+                  <GygTicketIcon size={12} />
+                  <span>Book on GetYourGuide →</span>
+                </a>
                 {place.tip && (
                   <div className="mt-auto pt-4 flex items-start gap-2">
                     <span

@@ -3,7 +3,6 @@ import { GradientMesh } from "./GradientMesh";
 import { TicketButton } from "@/components/ui/TicketButton";
 import { PalmLeafCorner } from "./PalmLeafCorner";
 import { TriplyHeroPresence } from "@/components/triply/TriplyHeroPresence";
-import { FadeIn } from "@/components/ui/FadeIn";
 import { HowItWorksTrigger } from "./HowItWorksTrigger";
 
 export function Hero() {
@@ -19,7 +18,7 @@ export function Hero() {
             Two layered drop-shadows trace the tag's actual silhouette
             (drop-shadow follows alpha, unlike box-shadow), giving a
             grounded lift on the cream/peach background. */}
-        <FadeIn className="mb-12 md:mb-14 flex justify-center">
+        <div className="mb-12 md:mb-14 flex justify-center animate-logo-fade-in">
           <Image
             src="/triply-logo.png"
             alt="Triply"
@@ -33,7 +32,7 @@ export function Hero() {
                 "drop-shadow(0 8px 14px rgba(56, 27, 8, 0.22)) drop-shadow(0 2px 4px rgba(56, 27, 8, 0.16))",
             }}
           />
-        </FadeIn>
+        </div>
 
         {/* Headline — the period sits INSIDE the highlight span so it can
             never wrap alone to the next line. */}
