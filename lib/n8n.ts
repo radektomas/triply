@@ -7,6 +7,19 @@ import type { TripInput, APITripResponse } from "@/lib/types";
 import { computeNights, monthName, isoWeekKey } from "@/lib/dates";
 import { travelersLabel, travelersFlavor } from "@/lib/travelers";
 
+// Thrown when we couldn't reach the n8n trip-planning service OR n8n returned
+// a non-2xx response. Distinct from generic Errors so the API route can return
+// a 503 + structured body for these — letting the client show a friendly
+// "planner is taking a moment" mascot screen rather than a generic 500.
+export class UpstreamUnavailableError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "UpstreamUnavailableError";
+    this.status = status;
+  }
+}
+
 export async function fetchTripSuggestions(input: TripInput): Promise<APITripResponse> {
   const url = process.env.N8N_WEBHOOK_URL;
   if (!url) {
@@ -39,12 +52,15 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Network error";
-    throw new Error(`Failed to reach trip planning service: ${message}`);
+    throw new UpstreamUnavailableError(
+      `Failed to reach trip planning service: ${message}`,
+    );
   }
 
   if (!response.ok) {
-    throw new Error(
-      `Trip planning service returned ${response.status}: ${response.statusText}`
+    throw new UpstreamUnavailableError(
+      `Trip planning service returned ${response.status}: ${response.statusText}`,
+      response.status,
     );
   }
 

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getServerSupabase } from "@/lib/supabase/server";
-import { fetchTripSuggestions, buildCacheKey } from "@/lib/n8n";
+import {
+  fetchTripSuggestions,
+  buildCacheKey,
+  UpstreamUnavailableError,
+} from "@/lib/n8n";
 import { computeNights } from "@/lib/dates";
 import type { TripInput } from "@/lib/types";
 
@@ -107,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     if (error || !trip) {
       console.error("[/api/trips] Supabase insert failed:", error);
-      return NextResponse.json({ error: "Internal error" }, { status: 500 });
+      return NextResponse.json({ error: "internal_error" }, { status: 500 });
     }
 
     // If the request is from a signed-in user, append this generation to
@@ -156,7 +160,20 @@ export async function POST(req: NextRequest) {
       destinationCount,
     });
   } catch (err: unknown) {
+    if (err instanceof UpstreamUnavailableError) {
+      console.error("[/api/trips] Upstream unavailable:", {
+        message: err.message,
+        status: err.status,
+      });
+      return NextResponse.json(
+        {
+          error: "upstream_unavailable",
+          message: "Trip planner is taking a moment.",
+        },
+        { status: 503, headers: { "Retry-After": "30" } },
+      );
+    }
     console.error("[/api/trips] Failed:", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }
