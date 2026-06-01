@@ -9,6 +9,7 @@ interface Props {
   total: number;
   range: { min: number; max: number };
   breakdown: BudgetCategory[];
+  travelers?: number;
 }
 
 const CATEGORY_DEFAULTS: Record<string, { typical?: string; tips?: string[] }> = {
@@ -44,7 +45,7 @@ function getCategoryDefaults(cat: BudgetCategory) {
   return CATEGORY_DEFAULTS[cat.label] ?? {};
 }
 
-export function BudgetBreakdown({ total, range, breakdown }: Props) {
+export function BudgetBreakdown({ total, range, breakdown, travelers }: Props) {
   const [active, setActive] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(barRef, { once: true });
@@ -68,9 +69,12 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
     .join(", ")} — total ${fmt(total)}`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Hero number */}
       <div className="text-center sm:text-left">
+        <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-[#0D7377] mb-1.5">
+          Per person
+        </p>
         <p
           className="font-bold text-[#FF6B47] leading-none"
           style={{ fontSize: "clamp(2.5rem, 10vw, 4.5rem)" }}
@@ -78,7 +82,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
           {fmt(total)}
         </p>
         <p className="text-[#0D7377] text-xs font-bold uppercase tracking-widest mt-2">
-          Total Trip · {fmt(range.min)}–{fmt(range.max)} range
+          Range · {fmt(range.min)}–{fmt(range.max)} per person
         </p>
       </div>
 
@@ -144,58 +148,76 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
         </div>
       </div>
 
-      {/* Legend row */}
-      <div className="flex flex-wrap gap-x-1 gap-y-1 pt-1">
-        {breakdown.map((cat) => {
-          const pct = Math.round((cat.amount / sum) * 100);
-          const isActive = active === cat.label;
-          return (
-            <button
-              key={cat.label}
-              type="button"
-              onClick={() => setActive((a) => (a === cat.label ? null : cat.label))}
-              aria-expanded={isActive}
-              aria-label={`${cat.label} — ${fmt(cat.amount)}, ${pct}% of total`}
-              className="flex items-center gap-2 min-h-[44px] px-2 py-1.5 rounded-lg transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47]/50 focus-visible:ring-offset-1 hover:bg-[rgba(13,115,119,0.04)]"
-              style={{
-                opacity: active && !isActive ? 0.5 : 1,
-                transition: "opacity 200ms, background-color 150ms",
-                backgroundColor: isActive ? "rgba(13,115,119,0.04)" : undefined,
-              }}
-            >
-              <span
-                className="w-2 h-2 rounded-full flex-shrink-0"
-                style={{ backgroundColor: cat.color }}
-              />
-              <span className="text-left">
-                <span className="text-sm font-medium text-[#1A1A1A]">
-                  {cat.icon} {cat.label}
-                </span>
-                <span className="text-xs text-[#0D7377] ml-1.5">
-                  {fmt(cat.amount)} · {pct}%
-                </span>
-              </span>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#0D7377"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                className="flex-shrink-0 ml-0.5 transition-transform duration-200"
+      {/* Legend section — single-column stacked list, preceded by an eyebrow
+          that makes the unit unambiguous (these are TOTALS for the trip,
+          contrasted with the PER PERSON hero number above). */}
+      <div className="pt-1">
+        <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-[#0D7377] mb-2.5">
+          Breakdown ·{" "}
+          {travelers
+            ? `total for ${travelers} ${travelers === 1 ? "traveler" : "travelers"}`
+            : "total for trip"}
+        </p>
+        <div className="flex flex-col">
+          {breakdown.map((cat) => {
+            const pct = Math.round((cat.amount / sum) * 100);
+            const isActive = active === cat.label;
+            return (
+              <button
+                key={cat.label}
+                type="button"
+                onClick={() => setActive((a) => (a === cat.label ? null : cat.label))}
+                aria-expanded={isActive}
+                aria-label={`${cat.label} — ${fmt(cat.amount)}, ${pct}% of total`}
+                className="flex items-center justify-between gap-3 min-h-[44px] px-2 py-2 rounded-lg w-full text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47]/50 focus-visible:ring-offset-1 hover:bg-[rgba(13,115,119,0.04)]"
                 style={{
-                  opacity: isActive ? 0.7 : 0.4,
-                  transform: isActive ? "rotate(90deg)" : "rotate(0deg)",
+                  opacity: active && !isActive ? 0.5 : 1,
+                  transition: "opacity 200ms, background-color 150ms",
+                  backgroundColor: isActive ? "rgba(13,115,119,0.04)" : undefined,
                 }}
               >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          );
-        })}
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: cat.color }}
+                  />
+                  <span aria-hidden="true" className="text-base leading-none">
+                    {cat.icon}
+                  </span>
+                  <span className="text-sm font-medium text-[#1A1A1A] truncate">
+                    {cat.label}
+                  </span>
+                </span>
+                <span className="flex items-center gap-3 flex-shrink-0">
+                  <span className="text-sm font-semibold text-[#1A1A1A] tabular-nums">
+                    {fmt(cat.amount)}
+                  </span>
+                  <span className="text-xs text-[#0D7377] tabular-nums w-9 text-right">
+                    {pct}%
+                  </span>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#0D7377"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="flex-shrink-0 transition-transform duration-200"
+                    style={{
+                      opacity: isActive ? 0.7 : 0.4,
+                      transform: isActive ? "rotate(90deg)" : "rotate(0deg)",
+                    }}
+                  >
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Expanded detail card */}

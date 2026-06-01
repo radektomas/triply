@@ -58,7 +58,7 @@ export async function TripDetailView({
         />
       </FadeIn>
 
-      <FadeIn delay={0.18} className="max-w-2xl mx-auto px-4 sm:px-6 pt-10">
+      <FadeIn delay={0.18} className="max-w-3xl mx-auto px-4 sm:px-6 pt-10">
         <section>
           <h2 className="text-xl font-bold text-[#1A1A1A] mb-4">Budget Breakdown</h2>
           <div className="bg-white rounded-2xl border border-border p-6 sm:p-10 shadow-sm">
@@ -66,13 +66,14 @@ export async function TripDetailView({
               total={detail.budget.total}
               range={detail.budget.range}
               breakdown={detail.budget.breakdown}
+              travelers={detail.budget.travelers}
             />
           </div>
         </section>
       </FadeIn>
 
       {topPlacesWithPhotos.length > 0 && (
-        <FadeIn delay={0.26} className="max-w-4xl mx-auto px-4 sm:px-6 pt-12">
+        <FadeIn delay={0.26} className="max-w-5xl mx-auto px-4 sm:px-6 pt-12">
           <TopPlaces
             topPlaces={topPlacesWithPhotos}
             destinationName={detail.destination}
@@ -80,7 +81,7 @@ export async function TripDetailView({
         </FadeIn>
       )}
 
-      <FadeIn delay={0.34} className="max-w-2xl mx-auto px-4 sm:px-6 pt-12 space-y-12">
+      <FadeIn delay={0.34} className="max-w-3xl mx-auto px-4 sm:px-6 pt-12 space-y-12">
         <TipsList tips={tips} />
 
         {(confidence === "low" || confidence === "medium") && (

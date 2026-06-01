@@ -27,6 +27,10 @@ interface Props {
 export function BookingHub({ detail }: Props) {
   const { booking, destination, checkIn, checkOut, budget } = detail;
   const travelers = budget.travelers || 1;
+  // Flights/Activities amounts come from budget.breakdown — same source as the
+  // Budget widget, which labels them as totals for the trip. Reuse the same
+  // phrasing here so units stay consistent.
+  const travelersTotalLabel = `total · ${travelers} ${travelers === 1 ? "traveler" : "travelers"}`;
   const dateRange = checkIn && checkOut ? formatRange(checkIn, checkOut) : undefined;
   const { selectedCurrency, format } = useCurrency();
   const fmt = (eur: number) => format(eur, { rounded: true });
@@ -74,14 +78,14 @@ export function BookingHub({ detail }: Props) {
             icon="✈️"
             title="Flights"
             estimate={flightEstimate ? `from ${fmt(flightEstimate)}` : undefined}
-            estimateLabel="per person"
+            estimateLabel={travelersTotalLabel}
             providers={booking.flights}
           />
           <BookingCTACard
             icon="🎭"
             title="Activities"
             estimate={activitiesEstimate ? `from ${fmt(activitiesEstimate)}` : undefined}
-            estimateLabel="per person"
+            estimateLabel={travelersTotalLabel}
             providers={booking.activities}
           />
         </div>
@@ -151,10 +155,12 @@ function BookingCTACard({
       </div>
 
       {estimate && (
-        <div className="mb-6 flex items-baseline">
-          <span className="font-semibold text-2xl text-[#1A1A1A]">{estimate}</span>
+        <div className="mb-6">
+          <p className="font-semibold text-2xl text-[#1A1A1A] whitespace-nowrap">
+            {estimate}
+          </p>
           {estimateLabel && (
-            <span className="text-sm text-[#1A1A1A]/55 ml-1.5">{estimateLabel}</span>
+            <p className="text-sm text-[#1A1A1A]/55 mt-0.5">{estimateLabel}</p>
           )}
         </div>
       )}

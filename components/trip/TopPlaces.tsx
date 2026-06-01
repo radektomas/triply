@@ -78,7 +78,7 @@ export function TopPlaces({ topPlaces, destinationName }: Props) {
       </div>
 
       <motion.div
-        className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5"
+        className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-7"
         variants={parentVariants}
         initial="hidden"
         animate="show"
