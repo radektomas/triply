@@ -398,20 +398,6 @@ export function TripForm() {
     return () => setLoading(false);
   }, []);
 
-  // DEV PREVIEW — remove before launch.
-  // Lets ?previewError=upstream or ?previewError=generic render the
-  // ErrorOverlay on mount so the screen can be reviewed without taking n8n
-  // down. Stripped in production builds.
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-    const preview = new URLSearchParams(window.location.search).get(
-      "previewError",
-    );
-    if (preview === "upstream" || preview === "generic") {
-      setSubmitError(preview);
-    }
-  }, []);
-
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Enter") return;
@@ -448,9 +434,9 @@ export function TripForm() {
     region: CitySelection | null,
     city: CitySelection | null,
   ) {
-    // Null-safe — `r` can be undefined when a retry fires before the user
-    // has picked dates (e.g. the dev `?previewError=` path), or in any edge
-    // case where state is stale. Without `?.` the `.from` deref crashes.
+    // Null-safe — `r` can be undefined if a retry fires before the user has
+    // picked dates or any other edge case where state is stale. Without `?.`
+    // the `.from` deref crashes.
     if (!r?.from || !r?.to) return;
     // Both autocomplete modes require a picked selection.
     if (m === "specific" && !region) return;
