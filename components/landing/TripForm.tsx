@@ -398,6 +398,20 @@ export function TripForm() {
     return () => setLoading(false);
   }, []);
 
+  // DEV PREVIEW — remove before launch.
+  // Lets ?previewError=upstream or ?previewError=generic render the
+  // ErrorOverlay on mount so the screen can be reviewed without taking n8n
+  // down. Stripped in production builds.
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const preview = new URLSearchParams(window.location.search).get(
+      "previewError",
+    );
+    if (preview === "upstream" || preview === "generic") {
+      setSubmitError(preview);
+    }
+  }, []);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Enter") return;
