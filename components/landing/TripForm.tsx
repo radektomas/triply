@@ -9,6 +9,7 @@ import { addDays, differenceInDays } from "date-fns";
 import { Button } from "@/components/ui/Button";
 import { TagButton } from "@/components/ui/TagButton";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
+import { ErrorOverlay } from "@/components/landing/ErrorOverlay";
 import { formatShort } from "@/lib/dates";
 import { SoloBubble, CoupleBubble, FamilyBubble, GroupBubble } from "@/components/landing/TravelerBubbles";
 import {
@@ -333,6 +334,9 @@ export function TripForm() {
     setExactCityExpanded(false);
   }, [destinationMode]);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<"upstream" | "generic" | null>(
+    null,
+  );
   const [nightsWarning, setNightsWarning] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [today, setToday] = useState<Date | undefined>(undefined);
@@ -434,6 +438,9 @@ export function TripForm() {
     // Both autocomplete modes require a picked selection.
     if (m === "specific" && !region) return;
     if (m === "exact_city" && !city) return;
+    // Clear any prior error so a retry cleanly shows the loading overlay
+    // again instead of overlapping the error screen.
+    setSubmitError(null);
     setLoading(true);
     try {
       // Build the wire-level `destinationInput` string from the picked
@@ -480,9 +487,13 @@ export function TripForm() {
           status: res.status,
           error: errBody.error,
         });
-        throw new Error(
-          errBody.error ?? `Failed to create trip (${res.status})`,
-        );
+        const kind: "upstream" | "generic" =
+          errBody.error === "upstream_unavailable" || res.status === 503
+            ? "upstream"
+            : "generic";
+        setSubmitError(kind);
+        setLoading(false);
+        return;
       }
       const { tripId, firstDestinationId, destinationCount } =
         (await res.json()) as {
@@ -504,6 +515,10 @@ export function TripForm() {
       setPendingRedirect(target);
     } catch (err) {
       console.error("[TripForm] submit error:", err);
+      // A thrown fetch() = network failure reaching our own API. Treat it the
+      // same as upstream-unavailable from the user's perspective: "give it
+      // another shot in a moment" reads correctly in both cases.
+      setSubmitError("upstream");
       setLoading(false);
     }
   }
@@ -998,6 +1013,25 @@ export function TripForm() {
           onReady={() => {
             if (pendingRedirect) router.push(pendingRedirect);
           }}
+        />
+      )}
+
+      {submitError && (
+        <ErrorOverlay
+          variant={submitError}
+          onRetry={() =>
+            handleSubmit(
+              budget,
+              range!,
+              travelers,
+              vibe,
+              originCity,
+              destinationMode,
+              regionSelection,
+              exactCity,
+            )
+          }
+          onDismiss={() => setSubmitError(null)}
         />
       )}
     </>
