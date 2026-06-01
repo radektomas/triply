@@ -424,7 +424,7 @@ export function TripForm() {
       } else {
         handleSubmit(
           s.budget,
-          s.range!,
+          s.range,
           s.travelers,
           s.vibe,
           s.originCity,
@@ -440,7 +440,7 @@ export function TripForm() {
 
   async function handleSubmit(
     b: number,
-    r: DateRange,
+    r: DateRange | undefined,
     t: number,
     v: string,
     o: string,
@@ -448,7 +448,10 @@ export function TripForm() {
     region: CitySelection | null,
     city: CitySelection | null,
   ) {
-    if (!r.from || !r.to) return;
+    // Null-safe — `r` can be undefined when a retry fires before the user
+    // has picked dates (e.g. the dev `?previewError=` path), or in any edge
+    // case where state is stale. Without `?.` the `.from` deref crashes.
+    if (!r?.from || !r?.to) return;
     // Both autocomplete modes require a picked selection.
     if (m === "specific" && !region) return;
     if (m === "exact_city" && !city) return;
@@ -989,7 +992,7 @@ export function TripForm() {
                   onClick={() =>
                     handleSubmit(
                       budget,
-                      range!,
+                      range,
                       travelers,
                       vibe,
                       originCity,
@@ -1036,7 +1039,7 @@ export function TripForm() {
           onRetry={() =>
             handleSubmit(
               budget,
-              range!,
+              range,
               travelers,
               vibe,
               originCity,
