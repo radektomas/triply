@@ -9,6 +9,38 @@ import {
 import { computeNights } from "@/lib/dates";
 import type { TripInput } from "@/lib/types";
 
+// Discriminated error stages. The client (TripForm) branches on `stage` to
+// decide whether to show an inline message (validation) or the full-screen
+// ErrorOverlay (upstream_*), and to compose the user-facing copy. Keep
+// stages in sync with TripForm's stage handler.
+type FailureStage =
+  | "validation"
+  | "upstream_unreachable"
+  | "upstream_error"
+  | "upstream_timeout"
+  | "parse"
+  | "internal";
+
+interface FailureBody {
+  error: string;
+  stage: FailureStage;
+  status: number;
+  /** Free-form server-side context — safe for the user to see, never sensitive. */
+  detail?: string;
+  /** Upstream HTTP status when stage === "upstream_error". */
+  upstreamStatus?: number;
+}
+
+function failure(
+  body: FailureBody,
+  init?: { headers?: Record<string, string> },
+): NextResponse {
+  return NextResponse.json(body, {
+    status: body.status,
+    headers: init?.headers,
+  });
+}
+
 const ALLOWED_VIBES = [
   "beach",
   "city",
@@ -32,7 +64,10 @@ const ALLOWED_VIBES = [
 ];
 
 function normalizeInput(raw: Record<string, unknown>): TripInput {
-  const budget = Math.min(Math.max(Number(raw.budget) || 500, 50), 10000);
+  // Per-person, in EUR. Keep [100, 2000] in sync with the TripForm budget
+  // control (components/landing/TripForm.tsx BUDGET_MIN/BUDGET_MAX) so the
+  // server enforces the same envelope the UI advertises.
+  const budget = Math.min(Math.max(Number(raw.budget) || 500, 100), 2000);
   const travelers = Math.min(
     Math.max(Math.round(Number(raw.travelers) || 1), 1),
     10,
@@ -79,16 +114,37 @@ export async function POST(req: NextRequest) {
   const t0 = Date.now();
   const tag = (label: string, since: number) =>
     `[api/trips] +${(Date.now() - since).toString().padStart(5)}ms ${label}`;
+  let input: TripInput;
   try {
     const body = (await req.json()) as Record<string, unknown>;
-    const input = normalizeInput(body);
+    input = normalizeInput(body);
+  } catch (err) {
+    console.error("[/api/trips] Request parse failed:", err);
+    return failure({
+      error: "invalid_request_body",
+      stage: "parse",
+      status: 400,
+      detail: err instanceof Error ? err.message : "Could not parse request body.",
+    });
+  }
 
+  try {
     if (!input.checkIn || !input.checkOut || !input.originCity) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return failure({
+        error: "missing_fields",
+        stage: "validation",
+        status: 400,
+        detail: "Missing required fields: check-in, check-out, or origin city.",
+      });
     }
 
     if (computeNights(input.checkIn, input.checkOut) < 1) {
-      return NextResponse.json({ error: "Check-out must be after check-in" }, { status: 400 });
+      return failure({
+        error: "invalid_dates",
+        stage: "validation",
+        status: 400,
+        detail: "Check-out must be after check-in.",
+      });
     }
 
     const cacheKey = buildCacheKey(input);
@@ -97,7 +153,40 @@ export async function POST(req: NextRequest) {
     // to Cache nodes against trip_cache). We just call the webhook — it
     // returns either a cached or a freshly generated result.
     const tN8n = Date.now();
-    const result = await fetchTripSuggestions(input);
+    // TEMP DIAGNOSTIC — remove once n8n call confirmed healthy.
+    // Logs the resolved webhook URL host+path (no query/secret) and the
+    // outcome of the upstream call so failures are visible in the dev
+    // server terminal even when the browser overlay swallows the body.
+    {
+      const rawUrl = process.env.N8N_WEBHOOK_URL ?? "";
+      let safeUrl = rawUrl;
+      try {
+        const u = new URL(rawUrl);
+        safeUrl = `${u.origin}${u.pathname}`;
+      } catch {
+        safeUrl = "(unparseable URL)";
+      }
+      console.log("[trips route] calling n8n:", safeUrl);
+    }
+    let result;
+    try {
+      result = await fetchTripSuggestions(input);
+      console.log("[trips route] n8n responded: ok");
+    } catch (n8nErr) {
+      const name = n8nErr instanceof Error ? n8nErr.name : typeof n8nErr;
+      const message = n8nErr instanceof Error ? n8nErr.message : String(n8nErr);
+      const kind =
+        n8nErr instanceof UpstreamUnavailableError ? n8nErr.kind : undefined;
+      const upstreamStatus =
+        n8nErr instanceof UpstreamUnavailableError ? n8nErr.status : undefined;
+      console.error("[trips route] n8n fetch threw:", {
+        name,
+        kind,
+        upstreamStatus,
+        message,
+      });
+      throw n8nErr;
+    }
     console.log(tag("n8n response", tN8n));
 
     // Create a new trips row — unique UUID per user session
@@ -111,7 +200,12 @@ export async function POST(req: NextRequest) {
 
     if (error || !trip) {
       console.error("[/api/trips] Supabase insert failed:", error);
-      return NextResponse.json({ error: "internal_error" }, { status: 500 });
+      return failure({
+        error: "trip_persist_failed",
+        stage: "internal",
+        status: 500,
+        detail: error?.message ?? "Could not save the generated trip.",
+      });
     }
 
     // If the request is from a signed-in user, append this generation to
@@ -161,19 +255,38 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     if (err instanceof UpstreamUnavailableError) {
-      console.error("[/api/trips] Upstream unavailable:", {
+      // 504 for timeout (semantically "we timed out waiting on upstream"),
+      // 503 for unreachable / non-2xx ("upstream not currently available").
+      // Both carry Retry-After so well-behaved clients back off.
+      const stage: FailureStage =
+        err.kind === "timeout"
+          ? "upstream_timeout"
+          : err.kind === "error"
+            ? "upstream_error"
+            : "upstream_unreachable";
+      const status = err.kind === "timeout" ? 504 : 503;
+      console.error("[/api/trips] Upstream failure:", {
+        stage,
         message: err.message,
-        status: err.status,
+        upstreamStatus: err.status,
       });
-      return NextResponse.json(
+      return failure(
         {
-          error: "upstream_unavailable",
-          message: "Trip planner is taking a moment.",
+          error: stage,
+          stage,
+          status,
+          detail: err.message,
+          upstreamStatus: err.status,
         },
-        { status: 503, headers: { "Retry-After": "30" } },
+        { headers: { "Retry-After": "30" } },
       );
     }
     console.error("[/api/trips] Failed:", err);
-    return NextResponse.json({ error: "internal_error" }, { status: 500 });
+    return failure({
+      error: "internal_error",
+      stage: "internal",
+      status: 500,
+      detail: err instanceof Error ? err.message : String(err),
+    });
   }
 }

@@ -3,7 +3,10 @@
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
 
 interface Props {
-  variant: "upstream" | "generic";
+  /** Headline shown next to the lost mascot. Caller composes per-case copy. */
+  heading: string;
+  /** Sub-line below the headline. */
+  sub: string;
   onRetry: () => void;
   onDismiss: () => void;
 }
@@ -13,17 +16,12 @@ interface Props {
 // the same surface, not a different screen. The mascot's `lost` state ignores
 // bubbleText, so the copy is rendered beside the mascot — same pattern as the
 // 404 page.
-export function ErrorOverlay({ variant, onRetry, onDismiss }: Props) {
-  const copy =
-    variant === "upstream"
-      ? {
-          heading: "Our trip planner is taking a moment",
-          sub: "Give it another try in a sec.",
-        }
-      : {
-          heading: "Something glitched",
-          sub: "Give it another shot.",
-        };
+//
+// Copy is supplied by the caller (TripForm) so we can speak specifically to
+// each failure stage (timeout vs unreachable vs non-2xx vs generic) without
+// the overlay growing a variant enum that has to be kept in sync.
+export function ErrorOverlay({ heading, sub, onRetry, onDismiss }: Props) {
+  const copy = { heading, sub };
 
   return (
     <div

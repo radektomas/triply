@@ -190,6 +190,18 @@ export function CityAutocomplete({
     warmupPhoton();
   }, []);
 
+  // Sync the visible input when `value` is replaced externally (e.g. when
+  // VibeSearch pre-fills the destination on the landing page). useState's
+  // initializer only runs on first mount, so without this effect the input
+  // stays empty even though the controlled `value` is set. We compare
+  // labels first so this is a no-op for the common case where the user just
+  // picked from our own dropdown (pick() already set query in sync).
+  useEffect(() => {
+    if (!value) return;
+    const label = suggestionLabel(value);
+    setQuery((prev) => (prev === label ? prev : label));
+  }, [value]);
+
   // Defer the value used by the search effect so a fast typer's keystrokes
   // are never blocked by the side-effects below. The input itself stays
   // bound to `query` (synchronous) — only the fetch trigger is deferred.

@@ -7,18 +7,30 @@ import type { TripInput, APITripResponse } from "@/lib/types";
 import { computeNights, monthName, isoWeekKey } from "@/lib/dates";
 import { travelersLabel, travelersFlavor } from "@/lib/travelers";
 
-// Thrown when we couldn't reach the n8n trip-planning service OR n8n returned
-// a non-2xx response. Distinct from generic Errors so the API route can return
-// a 503 + structured body for these — letting the client show a friendly
-// "planner is taking a moment" mascot screen rather than a generic 500.
+// Thrown when the n8n trip-planning call fails. `kind` lets the route handler
+// (and ultimately the client) tell a 60s timeout apart from a network/DNS
+// failure apart from a non-2xx upstream response — three quite different
+// failure modes that all used to look the same.
+//
+//   - "unreachable": fetch threw (DNS, TLS, network) before any response.
+//   - "timeout":     our AbortController fired the 60s timeout.
+//   - "error":       upstream responded non-2xx (or returned non-JSON we
+//                    couldn't parse). `status` is set for non-2xx; absent
+//                    for parse failures.
+export type UpstreamFailureKind = "unreachable" | "timeout" | "error";
+
 export class UpstreamUnavailableError extends Error {
+  kind: UpstreamFailureKind;
   status?: number;
-  constructor(message: string, status?: number) {
+  constructor(kind: UpstreamFailureKind, message: string, status?: number) {
     super(message);
     this.name = "UpstreamUnavailableError";
+    this.kind = kind;
     this.status = status;
   }
 }
+
+const N8N_TIMEOUT_MS = 60_000;
 
 export async function fetchTripSuggestions(input: TripInput): Promise<APITripResponse> {
   const url = process.env.N8N_WEBHOOK_URL;
@@ -31,6 +43,14 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
   // single-destination intent via `mode: "single", count: 1` so the n8n
   // workflow can branch on it and return a 1-element destinations array.
   const isSingle = input.destinationMode === "specific";
+
+  // Explicit AbortController (rather than AbortSignal.timeout) so we can:
+  //   1. clear the timer on fast responses (no zombie timer after success)
+  //   2. distinguish OUR timeout abort from a network/DNS failure in catch
+  //      via `signal.aborted` — AbortError from a manual abort is the only
+  //      way to land in catch with `controller.signal.aborted === true`.
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), N8N_TIMEOUT_MS);
 
   let response: Response;
   try {
@@ -48,23 +68,46 @@ export async function fetchTripSuggestions(input: TripInput): Promise<APITripRes
         mode: isSingle ? "single" : "multi",
         count: isSingle ? 1 : 3,
       }),
-      signal: AbortSignal.timeout(60_000),
+      signal: controller.signal,
     });
   } catch (err) {
+    if (controller.signal.aborted) {
+      throw new UpstreamUnavailableError(
+        "timeout",
+        `Trip planning service did not respond within ${N8N_TIMEOUT_MS / 1000}s`,
+      );
+    }
     const message = err instanceof Error ? err.message : "Network error";
     throw new UpstreamUnavailableError(
+      "unreachable",
       `Failed to reach trip planning service: ${message}`,
     );
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   if (!response.ok) {
+    // Try to include a short slice of the upstream body in the detail so
+    // failures aren't completely opaque in server logs.
+    const detail = await response.text().catch(() => "");
+    const tail = detail ? ` — ${detail.slice(0, 200)}` : "";
     throw new UpstreamUnavailableError(
-      `Trip planning service returned ${response.status}: ${response.statusText}`,
+      "error",
+      `Trip planning service returned ${response.status} ${response.statusText}${tail}`,
       response.status,
     );
   }
 
-  return response.json() as Promise<APITripResponse>;
+  try {
+    return (await response.json()) as APITripResponse;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new UpstreamUnavailableError(
+      "error",
+      `Trip planning service returned non-JSON: ${message}`,
+      response.status,
+    );
+  }
 }
 
 export function buildCacheKey(input: TripInput): string {

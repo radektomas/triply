@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DayPicker, DayButton, getDefaultClassNames, type DayButtonProps } from "react-day-picker";
 import type { DateRange } from "react-day-picker";
@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/Button";
 import { TagButton } from "@/components/ui/TagButton";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
 import { ErrorOverlay } from "@/components/landing/ErrorOverlay";
+import { CheckIcon, CloseIcon } from "@/components/landing/VibeIcons";
+import { deriveTripFormVibe } from "@/lib/vibeDestinations";
+import { PREFILL_EVENT, type PrefillPayload } from "@/lib/prefill";
 import { formatShort } from "@/lib/dates";
 import { SoloBubble, CoupleBubble, FamilyBubble, GroupBubble } from "@/components/landing/TravelerBubbles";
 import {
@@ -36,6 +39,18 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 const DEFAULT_AIRPORT = AIRPORTS.find((a) => a.iata === "PRG");
 
 const MAX_NIGHTS = 14;
+
+// ── Budget control ──────────────────────────────────────────────────────────
+// Per-person, in EUR (the app's canonical currency — display formatter
+// converts at render time). Keep min/max/step in sync with the server
+// clamp in app/api/trips/route.ts and any prefill sources (showcase tiers,
+// VibeSearch). BUDGET_PRESETS match the BudgetShowcase tiers.
+const BUDGET_MIN = 100;
+const BUDGET_MAX = 2000;
+const BUDGET_STEP = 10;
+const BUDGET_PRESETS = [500, 1000, 2000] as const;
+const BUDGET_SNAP_THRESHOLD = 75; // ± euros within which the slider snaps on release.
+const BUDGET_RANGE_MSG = "Enter a budget between €100 and €2000.";
 
 interface ModeIconProps {
   color: string;
@@ -302,10 +317,65 @@ function ProgressDots({
 
 export function TripForm() {
   const router = useRouter();
-  const { selectedCurrency, format } = useCurrency();
+  const {
+    selectedCurrency,
+    format,
+    convert,
+    rates,
+    loading: ratesLoading,
+  } = useCurrency();
+  // When the user picks a non-EUR currency but we have no rate for it
+  // (either rates haven't loaded yet, or the FX fetch failed and we fell
+  // back to {EUR:1}), the budget input would silently treat typed values as
+  // identity — e.g. "1000 CZK" submitted as €1000 instead of intended €40.
+  // Block submission and surface a short notice; switching back to EUR
+  // (or waiting a second for rates to load) clears it.
+  const fxWarning = useMemo<string | null>(() => {
+    if (selectedCurrency === "EUR") return null;
+    if (ratesLoading) return "Loading exchange rates…";
+    if (!rates || rates[selectedCurrency] === undefined) {
+      return "Exchange rates unavailable — switch back to EUR to plan accurately.";
+    }
+    return null;
+  }, [selectedCurrency, ratesLoading, rates]);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [budget, setBudget] = useState(500);
+  // Mirror of `budget` for the editable big-number input. Shows the EUR
+  // canonical value CONVERTED to the user's selected currency (so €500 reads
+  // as "12500" when CZK is active). Decoupled so transient typed values can
+  // show the inline error without us clobbering keystrokes — `budget` only
+  // updates when the typed value parses + converts back into the EUR range.
+  const [budgetInput, setBudgetInput] = useState<string>("500");
+  const [budgetError, setBudgetError] = useState<string | null>(null);
+  // While true (input focused), external state changes (slider drag, chip
+  // click, prefill, currency switch) do NOT overwrite the input string.
+  // On blur this flips back to false and the sync useEffect re-renders.
+  const [editingBudget, setEditingBudget] = useState(false);
+
+  // Inverse of convertEUR — used to map a typed display-currency amount back
+  // to the EUR canonical value (since `budget` and the n8n payload are EUR).
+  // Falls back to identity when rates aren't loaded yet, mirroring how
+  // convertEUR degrades gracefully.
+  const displayToEur = useCallback(
+    (displayValue: number): number => {
+      if (selectedCurrency === "EUR") return displayValue;
+      const rate = rates?.[selectedCurrency];
+      if (!rate || rate === 0) return displayValue;
+      return displayValue / rate;
+    },
+    [selectedCurrency, rates],
+  );
+
+  // Currency symbol for the big-number prefix. Derived from `format(0)` so
+  // it always matches the locale `format` is using internally — avoids the
+  // CurrencySelector showing "Kč" while the big number shows "CZK" or vice
+  // versa. Strips digits/commas/decimals/whitespace from the sample output.
+  const currencySymbol = useMemo(() => {
+    const sample = format(0, { decimals: 0 });
+    const stripped = sample.replace(/[\d.,\s ]+/g, "").trim();
+    return stripped || selectedCurrency;
+  }, [format, selectedCurrency]);
   const [travelers, setTravelers] = useState(2);
   const [vibe, setVibe] = useState("beach");
   const [originCity, setOriginCity] = useState("Prague");
@@ -334,9 +404,24 @@ export function TripForm() {
     setExactCityExpanded(false);
   }, [destinationMode]);
   const [loading, setLoading] = useState(false);
-  const [submitError, setSubmitError] = useState<"upstream" | "generic" | null>(
+  // submitError drives the full-screen ErrorOverlay (used for upstream /
+  // internal failures where the form is unactionable until the user retries).
+  // inlineSubmitError drives a small message under the submit button (used
+  // for validation rejections — the user can fix the field and retry).
+  const [submitError, setSubmitError] = useState<
+    { heading: string; sub: string } | null
+  >(null);
+  const [inlineSubmitError, setInlineSubmitError] = useState<string | null>(
     null,
   );
+  // Confirmation banner when VibeSearch pre-selected a destination. The
+  // name + kind together are the "anchor" we compare against to decide
+  // auto-dismissal: if the user later changes mode or edits the selection
+  // away from this value, the banner + highlight clear themselves.
+  const [prefilled, setPrefilled] = useState<
+    { name: string; kind: "city" | "region" } | null
+  >(null);
+  const [prefillHighlight, setPrefillHighlight] = useState(false);
   const [nightsWarning, setNightsWarning] = useState(false);
   const [range, setRange] = useState<DateRange | undefined>(undefined);
   const [today, setToday] = useState<Date | undefined>(undefined);
@@ -398,6 +483,153 @@ export function TripForm() {
     return () => setLoading(false);
   }, []);
 
+  // Sync the editable number-input mirror with the EUR canonical state,
+  // converted into the user's selected currency. Re-runs when:
+  //   - `budget` changes (slider drag, chip click, prefill from showcase)
+  //   - `convert` identity changes (currency switch or rates load → user
+  //     toggled the CurrencySelector and we need to re-render the big number
+  //     in the new currency immediately).
+  // Skipped while the input is focused so we never clobber a user's keystrokes.
+  useEffect(() => {
+    if (editingBudget) return;
+    setBudgetInput(String(Math.round(convert(budget))));
+    setBudgetError(null);
+  }, [budget, convert, editingBudget]);
+
+  function handleNumberFocus() {
+    setEditingBudget(true);
+  }
+
+  function handleNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value;
+    setBudgetInput(raw);
+    // Strip currency symbols, thousands separators, whitespace before parsing
+    // — the user might paste "12,500" or "$1,200" from elsewhere.
+    const trimmed = raw.replace(/[^\d.]/g, "");
+    if (trimmed === "") {
+      setBudgetError(null);
+      return;
+    }
+    const n = parseFloat(trimmed);
+    if (!Number.isFinite(n)) {
+      setBudgetError(null);
+      return;
+    }
+    // Typed value is in the DISPLAY currency. Convert back to EUR before
+    // validating against the canonical [BUDGET_MIN, BUDGET_MAX] range.
+    const eur = displayToEur(n);
+    if (eur < BUDGET_MIN || eur > BUDGET_MAX) {
+      setBudgetError(BUDGET_RANGE_MSG);
+      return;
+    }
+    setBudgetError(null);
+    setBudget(Math.round(eur));
+  }
+
+  function handleNumberBlur() {
+    setEditingBudget(false);
+    const trimmed = budgetInput.replace(/[^\d.]/g, "");
+    const n = parseFloat(trimmed);
+    if (!Number.isFinite(n) || trimmed === "") {
+      // Empty or unparseable on blur — restore the display from current budget.
+      setBudgetInput(String(Math.round(convert(budget))));
+      setBudgetError(null);
+      return;
+    }
+    const eurRaw = displayToEur(n);
+    const eurClamped = Math.max(
+      BUDGET_MIN,
+      Math.min(BUDGET_MAX, Math.round(eurRaw)),
+    );
+    setBudget(eurClamped);
+    // Explicit input re-sync covers the case where eurClamped === budget
+    // (e.g. user typed something that clamped to the same EUR value); the
+    // sync useEffect wouldn't fire because `budget` didn't change, but the
+    // input string still needs to snap from the typed text to the canonical.
+    setBudgetInput(String(Math.round(convert(eurClamped))));
+    setBudgetError(null);
+  }
+
+  // Magnetic snap on slider release: if the dragged value is within ±SNAP_PX
+  // of a preset, snap exactly to it. Outside the threshold, keep the exact
+  // dragged value — the slider stays continuous, not locked to presets.
+  function handleSliderRelease() {
+    let nearest = BUDGET_PRESETS[0];
+    for (const p of BUDGET_PRESETS) {
+      if (Math.abs(p - budget) < Math.abs(nearest - budget)) nearest = p;
+    }
+    if (Math.abs(nearest - budget) <= BUDGET_SNAP_THRESHOLD) {
+      setBudget(nearest);
+    }
+  }
+
+  // Prefill from the VibeSearch hero section. Listening on `window` lets the
+  // two components stay decoupled — VibeSearch doesn't need a ref or a
+  // context to reach into this form. We never auto-submit: the user still
+  // walks through the wizard, just with some fields pre-set.
+  useEffect(() => {
+    function handler(e: Event) {
+      const detail = (e as CustomEvent<PrefillPayload>).detail;
+      if (!detail) return;
+      if (detail.vibeQuery) {
+        const mapped = deriveTripFormVibe(detail.vibeQuery);
+        if (mapped) setVibe(mapped);
+      }
+      if (typeof detail.budget === "number") {
+        setBudget(detail.budget);
+      }
+      if (detail.city) {
+        const selection: CitySelection = {
+          cityName: detail.city.cityName,
+          countryName: detail.city.countryName,
+          countryCode: detail.city.countryCode,
+          lat: detail.city.lat,
+          lng: detail.city.lng,
+        };
+        if (detail.city.kind === "region") {
+          setDestinationMode("specific");
+          setRegionSelection(selection);
+        } else {
+          setDestinationMode("exact_city");
+          setExactCity(selection);
+        }
+        // Light up the confirmation cue. The banner persists until the user
+        // edits/clears the destination; the highlight ring auto-fades 1.5s
+        // after the user reaches step 3.
+        setPrefilled({ name: detail.city.cityName, kind: detail.city.kind });
+        setPrefillHighlight(true);
+      }
+    }
+    window.addEventListener(PREFILL_EVENT, handler);
+    return () => window.removeEventListener(PREFILL_EVENT, handler);
+  }, []);
+
+  // Highlight ring lifecycle: when the user actually reaches step 3 with a
+  // live prefill, fade the ring after 1.5s so it's a momentary "look here"
+  // rather than a permanent decoration. If the highlight gets cleared
+  // earlier (by an edit, see below), this effect is a no-op.
+  useEffect(() => {
+    if (currentStep !== 3 || !prefillHighlight) return;
+    const t = window.setTimeout(() => setPrefillHighlight(false), 1500);
+    return () => window.clearTimeout(t);
+  }, [currentStep, prefillHighlight]);
+
+  // Auto-dismiss the banner + highlight when the user edits the destination
+  // away from the pre-filled state. The cue is only for the initial arrival
+  // — once they've engaged, we get out of the way.
+  useEffect(() => {
+    if (!prefilled) return;
+    const sourceMode = prefilled.kind === "region" ? "specific" : "exact_city";
+    const sourceValue =
+      prefilled.kind === "region" ? regionSelection : exactCity;
+    const stillValid =
+      destinationMode === sourceMode && sourceValue?.cityName === prefilled.name;
+    if (!stillValid) {
+      setPrefilled(null);
+      setPrefillHighlight(false);
+    }
+  }, [destinationMode, exactCity, regionSelection, prefilled]);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Enter") return;
@@ -444,6 +676,7 @@ export function TripForm() {
     // Clear any prior error so a retry cleanly shows the loading overlay
     // again instead of overlapping the error screen.
     setSubmitError(null);
+    setInlineSubmitError(null);
     setLoading(true);
     try {
       // Build the wire-level `destinationInput` string from the picked
@@ -482,20 +715,75 @@ export function TripForm() {
         body: JSON.stringify(requestBody),
       });
       if (!res.ok) {
-        const errBody = (await res
-          .clone()
-          .json()
-          .catch(() => ({}))) as { error?: string };
+        // Read the raw text first so we can log it even when JSON.parse
+        // fails. The previous logger discarded everything except `error`,
+        // so a body like `{error:"...",message:"...",stage:"...",detail:"..."}`
+        // showed up in console as `{status: …, error: undefined}` once any
+        // field name shifted.
+        const rawText = await res.clone().text().catch(() => "");
+        let body: {
+          error?: string;
+          stage?: string;
+          detail?: string;
+          message?: string;
+          upstreamStatus?: number;
+        } = {};
+        try {
+          body = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          // leave body empty; rawText preserved for the log
+        }
         console.error("[TripForm] Trip create failed:", {
           status: res.status,
-          error: errBody.error,
+          statusText: res.statusText,
+          body,
+          // Only include raw text when parsing failed, so JSON responses
+          // don't double-log.
+          rawBody: Object.keys(body).length === 0 ? rawText : undefined,
         });
-        const kind: "upstream" | "generic" =
-          errBody.error === "upstream_unavailable" || res.status === 503
-            ? "upstream"
-            : "generic";
-        setSubmitError(kind);
+
         setLoading(false);
+
+        // Validation rejections: inline message, user can fix and retry.
+        // The form is still usable.
+        if (body.stage === "validation" || body.stage === "parse") {
+          setInlineSubmitError(
+            body.detail ||
+              body.message ||
+              "Please check your inputs and try again.",
+          );
+          return;
+        }
+
+        // Upstream timeout — we waited 60s and n8n didn't answer.
+        if (body.stage === "upstream_timeout" || res.status === 504) {
+          setSubmitError({
+            heading: "The trip planner timed out",
+            sub: "It didn't respond in time. Please try again in a moment.",
+          });
+          return;
+        }
+
+        // Upstream unreachable or non-2xx — covers DNS, network, n8n 5xx,
+        // and the legacy 503 from earlier versions of the route.
+        if (
+          body.stage === "upstream_unreachable" ||
+          body.stage === "upstream_error" ||
+          res.status === 503 ||
+          body.error === "upstream_unavailable"
+        ) {
+          setSubmitError({
+            heading: "Our trip planner didn't respond",
+            sub: "Couldn't reach the planner service right now. Please try again in a moment.",
+          });
+          return;
+        }
+
+        // Anything else (internal / unknown) — generic mascot screen.
+        setSubmitError({
+          heading: "Something glitched",
+          sub: body.detail || "Give it another shot in a moment.",
+        });
         return;
       }
       const { tripId, firstDestinationId, destinationCount } =
@@ -518,10 +806,12 @@ export function TripForm() {
       setPendingRedirect(target);
     } catch (err) {
       console.error("[TripForm] submit error:", err);
-      // A thrown fetch() = network failure reaching our own API. Treat it the
-      // same as upstream-unavailable from the user's perspective: "give it
-      // another shot in a moment" reads correctly in both cases.
-      setSubmitError("upstream");
+      // A thrown fetch() = network failure reaching our own API (offline,
+      // CORS, request aborted). Same user-facing copy as upstream-down.
+      setSubmitError({
+        heading: "Our trip planner didn't respond",
+        sub: "Couldn't reach the planner service right now. Please try again in a moment.",
+      });
       setLoading(false);
     }
   }
@@ -577,6 +867,16 @@ export function TripForm() {
           loading={loading}
         />
 
+        {prefilled && (
+          <PrefillBanner
+            cityName={prefilled.name}
+            onDismiss={() => {
+              setPrefilled(null);
+              setPrefillHighlight(false);
+            }}
+          />
+        )}
+
         <div key={currentStep} className={animClass}>
           {/* Step 1 — Budget */}
           {currentStep === 1 && (
@@ -584,7 +884,7 @@ export function TripForm() {
               {/* Heading */}
               <div className="text-center">
                 <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
-                  What&apos;s your budget?
+                  What&apos;s your budget per person?
                 </h2>
               </div>
 
@@ -594,35 +894,124 @@ export function TripForm() {
                 <CurrencySelector />
               </div>
 
-              {/* Hero: big formatted amount + "per person" subtitle */}
+              {/* Hero: editable big number. Acts as both display and the
+                  exact-amount entry field. The number shown reflects the
+                  user's selected currency (EUR canonical state ×
+                  exchange rate); typed values are parsed in the selected
+                  currency and converted back to EUR for the canonical
+                  state. Symbol sits in a sibling span so it always matches
+                  the locale `format()` is using internally. */}
               <div className="text-center py-4">
-                <span className="text-7xl md:text-8xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight">
-                  {format(budget, { rounded: true })}
-                </span>
-                <p className="text-sm text-[#1a1a1a]/50 mt-2 font-medium">per person</p>
+                <div className="inline-flex items-baseline justify-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="text-3xl md:text-5xl font-bold text-[#FF6B47]/55 tabular-nums leading-none"
+                  >
+                    {currencySymbol}
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={budgetInput}
+                    onFocus={handleNumberFocus}
+                    onChange={handleNumberChange}
+                    onBlur={handleNumberBlur}
+                    // `size` drives the input's intrinsic width — without it,
+                    // an <input type=text> defaults to size=20 (~20ch wide at
+                    // current font-size), which at text-8xl renders a ~960px
+                    // box. text-center then centers the digits inside that
+                    // giant box and the value escapes the card to the right.
+                    // Sizing to the value length makes the input hug its
+                    // content so it sits flush next to the € prefix.
+                    size={Math.max(budgetInput.length, 1)}
+                    aria-label={`Budget per person in ${selectedCurrency}`}
+                    aria-invalid={budgetError ? "true" : undefined}
+                    aria-describedby={budgetError ? "budget-error" : undefined}
+                    className="budget-input text-7xl md:text-8xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight bg-transparent border-0 text-center focus:outline-none"
+                  />
+                </div>
+                <p className="text-sm text-[#1a1a1a]/50 mt-2 font-medium">
+                  per person
+                </p>
+                {budgetError && (
+                  <p
+                    id="budget-error"
+                    role="alert"
+                    className="text-sm text-rose-600 mt-3 font-medium"
+                  >
+                    {budgetError}
+                  </p>
+                )}
               </div>
 
-              {/* Slider */}
+              {/* Slider with magnetic snap on release */}
               <div className="px-2">
                 <input
                   type="range"
-                  min={100}
-                  max={1000}
-                  step={50}
+                  min={BUDGET_MIN}
+                  max={BUDGET_MAX}
+                  step={BUDGET_STEP}
                   value={budget}
                   onChange={(e) => setBudget(Number(e.target.value))}
+                  onPointerUp={handleSliderRelease}
+                  onTouchEnd={handleSliderRelease}
                   className="triply-slider w-full"
-                  aria-label={`Budget in ${selectedCurrency}`}
+                  aria-label={`Budget per person in ${selectedCurrency}`}
+                  aria-valuemin={BUDGET_MIN}
+                  aria-valuemax={BUDGET_MAX}
+                  aria-valuenow={budget}
                   style={{
-                    background: `linear-gradient(to right, #FF6B47 0%, #FF6B47 ${((budget - 100) / 900) * 100}%, rgba(26,26,26,0.1) ${((budget - 100) / 900) * 100}%, rgba(26,26,26,0.1) 100%)`,
+                    background: `linear-gradient(to right, #FF6B47 0%, #FF6B47 ${((budget - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100}%, rgba(26,26,26,0.1) ${((budget - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100}%, rgba(26,26,26,0.1) 100%)`,
                   }}
                 />
-                <div className="flex justify-between mt-3 text-xs text-[#1a1a1a]/40 font-medium">
-                  <span>{format(100, { rounded: true })}</span>
-                  <span>{format(1000, { rounded: true })}</span>
+                {/* Tick marks at presets — purely visual cue. Sit just below
+                    the track so they don't crowd the thumb. */}
+                <div
+                  aria-hidden="true"
+                  className="relative h-2 mt-1"
+                >
+                  {BUDGET_PRESETS.map((p) => {
+                    const leftPct =
+                      ((p - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100;
+                    return (
+                      <div
+                        key={p}
+                        className="absolute -translate-x-1/2 w-0.5 h-2 rounded-sm bg-[#1a1a1a]/25"
+                        style={{ left: `${leftPct}%` }}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between mt-2 text-xs text-[#1a1a1a]/40 font-medium">
+                  <span>{format(BUDGET_MIN, { rounded: true })}</span>
+                  <span>{format(BUDGET_MAX, { rounded: true })}</span>
                 </div>
               </div>
 
+              {/* Preset chips — exact-match the showcase tiers */}
+              <div className="flex justify-center gap-2">
+                {BUDGET_PRESETS.map((p) => {
+                  const isActive = budget === p;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setBudget(p)}
+                      aria-pressed={isActive}
+                      className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
+                        isActive
+                          ? "bg-[#0D7377] text-white shadow-md scale-[1.02]"
+                          : "bg-[#F5F5F5] text-[#1a1a1a] hover:bg-[#0D7377]/10"
+                      }`}
+                    >
+                      {format(p, { rounded: true })}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Total helper — same wording, swept along by the new range */}
               {budget > 0 && (
                 <div className="text-center">
                   <p className="text-sm text-[#1a1a1a]/55 font-medium">
@@ -639,8 +1028,21 @@ export function TripForm() {
                 </div>
               )}
 
+              {fxWarning && (
+                <p
+                  role="status"
+                  className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-center font-medium"
+                >
+                  {fxWarning}
+                </p>
+              )}
+
               <div className="flex justify-end">
-                <Button onClick={handleNext} className="sm:min-w-[160px] text-lg py-4">
+                <Button
+                  onClick={handleNext}
+                  className="sm:min-w-[160px] text-lg py-4"
+                  disabled={!!budgetError || !!fxWarning}
+                >
                   Next →
                 </Button>
               </div>
@@ -865,7 +1267,13 @@ export function TripForm() {
                         : "overflow-hidden"
                     }
                   >
-                    <div className="mt-3">
+                    <div
+                      className={`mt-3 rounded-2xl transition-shadow duration-500 ${
+                        prefillHighlight && prefilled?.kind === "region"
+                          ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
+                          : ""
+                      }`}
+                    >
                       <CityAutocomplete
                         mode="region"
                         value={regionSelection}
@@ -903,7 +1311,13 @@ export function TripForm() {
                         : "overflow-hidden"
                     }
                   >
-                    <div className="mt-3">
+                    <div
+                      className={`mt-3 rounded-2xl transition-shadow duration-500 ${
+                        prefillHighlight && prefilled?.kind === "city"
+                          ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
+                          : ""
+                      }`}
+                    >
                       <CityAutocomplete
                         value={exactCity}
                         onChange={setExactCity}
@@ -991,6 +1405,7 @@ export function TripForm() {
                     loading ||
                     !range?.from ||
                     !range?.to ||
+                    !!fxWarning ||
                     (destinationMode === "specific" && !regionSelection) ||
                     (destinationMode === "exact_city" && !exactCity)
                   }
@@ -1005,6 +1420,19 @@ export function TripForm() {
                     : "Find my trip →"}
                 </TagButton>
               </div>
+
+              {/* Inline validation rejection — small message under the
+                  submit row so the user can fix the field without dismissing
+                  a full-screen overlay. Upstream failures use ErrorOverlay
+                  instead (mounted below). */}
+              {inlineSubmitError && (
+                <p
+                  role="alert"
+                  className="text-sm text-rose-600 mt-3 text-center sm:text-right font-medium"
+                >
+                  {inlineSubmitError}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -1021,7 +1449,8 @@ export function TripForm() {
 
       {submitError && (
         <ErrorOverlay
-          variant={submitError}
+          heading={submitError.heading}
+          sub={submitError.sub}
           onRetry={() =>
             handleSubmit(
               budget,
@@ -1038,5 +1467,40 @@ export function TripForm() {
         />
       )}
     </>
+  );
+}
+
+function PrefillBanner({
+  cityName,
+  onDismiss,
+}: {
+  cityName: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="mb-6 flex items-center gap-3 rounded-2xl border border-[#0D7377]/15 bg-[#0D7377]/[0.06] px-4 py-3"
+    >
+      <span
+        className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0D7377] text-white"
+        aria-hidden="true"
+      >
+        <CheckIcon color="currentColor" size={15} />
+      </span>
+      <p className="flex-1 text-sm text-[#1A1A1A] leading-snug">
+        <span className="font-semibold">{cityName}</span> is locked in — set
+        your budget and dates below, then plan.
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-full text-[#0D7377]/70 hover:text-[#0D7377] hover:bg-[#0D7377]/10 transition-colors"
+      >
+        <CloseIcon color="currentColor" size={14} />
+      </button>
+    </div>
   );
 }

@@ -67,6 +67,18 @@ input[type="range"]::-moz-range-thumb {
   border: none;
 }
 
+/* TripForm Step 1 budget input — hide native spinner buttons so the
+   editable big-number control reads as display text, not a form field. */
+.budget-input::-webkit-outer-spin-button,
+.budget-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.budget-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* Month picker grid — explicit CSS to guarantee responsive columns */
 .month-grid {
   display: grid;

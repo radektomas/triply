@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         hostname: "images.pexels.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
     ],
   },
   async redirects() {
@@ -27,7 +32,8 @@ const nextConfig: NextConfig = {
     //               'unsafe-inline' required by Next's hydration scripts.
     //   style-src   'unsafe-inline' — the app uses inline style={{}} +
     //               gradient strings throughout, plus leaflet/react-day-picker.
-    //   img-src     images.pexels.com (city photos), *.basemaps.cartocdn.com
+    //   img-src     images.pexels.com (city photos), images.unsplash.com
+    //               (VibeSearch suggestion thumbnails), *.basemaps.cartocdn.com
     //               (leaflet map tiles), *.googleusercontent.com (Google OAuth
     //               avatars), data: (inline SVG noise in GradientMesh).
     //   connect-src *.supabase.co (auth + DB browser client),
@@ -40,7 +46,7 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://images.pexels.com https://*.basemaps.cartocdn.com https://*.googleusercontent.com",
+      "img-src 'self' data: blob: https://images.pexels.com https://images.unsplash.com https://*.basemaps.cartocdn.com https://*.googleusercontent.com",
       "font-src 'self'",
       "connect-src 'self' https://*.supabase.co https://photon.komoot.io https://open.er-api.com https://va.vercel-scripts.com",
       "frame-ancestors 'none'",

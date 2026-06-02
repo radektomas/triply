@@ -134,6 +134,69 @@ export function UnderratedIcon({ color, size = 32 }: VibeIconProps) {
   );
 }
 
+export function SparkleIcon({ color, size = 22 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M16 4 L 17.5 12 L 25 14 L 17.5 16 L 16 24 L 14.5 16 L 7 14 L 14.5 12 Z"
+        fill={color}
+      />
+      <path d="M25 5 L 25.8 7.5 L 28 8.3 L 25.8 9 L 25 11.5 L 24.2 9 L 22 8.3 L 24.2 7.5 Z" fill={color} opacity="0.7" />
+      <path d="M6 22 L 6.6 24 L 8.5 24.5 L 6.6 25 L 6 27 L 5.4 25 L 3.5 24.5 L 5.4 24 Z" fill={color} opacity="0.55" />
+    </svg>
+  );
+}
+
+export function ArrowUpIcon({ color, size = 18 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="19" x2="12" y2="5" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <polyline points="6 11 12 5 18 11" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ color, size = 16 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polyline points="5 12 10 17 19 7" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ color, size = 14 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="6" y1="6" x2="18" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <line x1="18" y1="6" x2="6" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function HeartIcon({ color, size = 18 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 21s-7-4.35-9.5-9.05A5.5 5.5 0 0 1 12 6.5a5.5 5.5 0 0 1 9.5 5.45C19 16.65 12 21 12 21z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ color, size = 14 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <polyline points="13 6 19 12 13 18" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
 // Quick Picks vibe enum → icon component.
 // Free-form vibe strings from n8n should NOT use this — those go through
 // substring matching elsewhere. This is for the fixed Quick Picks enum.
