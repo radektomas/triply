@@ -3,10 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { GUESS_CITIES, type GuessCity } from "@/lib/game/cities";
 import {
-  CORRECT_QUOTES,
   MID_QUOTES,
   PERFECT_QUOTES,
-  WRONG_QUOTES,
   ZERO_QUOTES,
   getRandomQuote,
 } from "@/lib/quotes";
@@ -30,6 +28,25 @@ interface PhotoState {
 const REVEAL_DELAY_MS = 4000;       // how long the reveal/fact stays before next round
 const SUMMARY_DELAY_MS = 1500;      // how long the final summary card sits before redirect
 const MAX_PHOTO_RETRIES = 3;        // skip-to-next-city attempts before giving up on photo
+
+// Short reaction lines spoken by the mascot in a speech bubble on reveal.
+// Pulled from these local pools (not /lib/quotes) — kept terse so they fit
+// in the small bubble next to the mascot without wrapping aggressively.
+const HAPPY_REACTIONS = [
+  "Nailed it.",
+  "I knew you'd get it.",
+  "Easy.",
+  "Travel brain activated.",
+  "You're hired.",
+];
+
+const SAD_REACTIONS = [
+  "We don't talk about that one.",
+  "I was rooting for you.",
+  "Awkward.",
+  "Let's pretend that didn't happen.",
+  "Tough one.",
+];
 
 // ISO-3166-1 alpha-2 → regional indicator symbols (flag emoji).
 function flagEmoji(countryCode: string): string {
@@ -177,7 +194,7 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
     setSelected(choice);
     setRevealing(true);
     const correct = choice.id === target.id;
-    setRevealQuote(getRandomQuote(correct ? CORRECT_QUOTES : WRONG_QUOTES));
+    setRevealQuote(getRandomQuote(correct ? HAPPY_REACTIONS : SAD_REACTIONS));
     if (correct) setScore((s) => s + 1);
     setTotalAnswered((n) => n + 1);
 

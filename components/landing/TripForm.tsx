@@ -554,7 +554,10 @@ export function TripForm() {
   // of a preset, snap exactly to it. Outside the threshold, keep the exact
   // dragged value — the slider stays continuous, not locked to presets.
   function handleSliderRelease() {
-    let nearest = BUDGET_PRESETS[0];
+    // Annotated against the tuple element union so `nearest = p` doesn't
+    // collide with the literal type inferred from `BUDGET_PRESETS[0]`
+    // (which would otherwise narrow `nearest` to `500`).
+    let nearest: (typeof BUDGET_PRESETS)[number] = BUDGET_PRESETS[0];
     for (const p of BUDGET_PRESETS) {
       if (Math.abs(p - budget) < Math.abs(nearest - budget)) nearest = p;
     }
