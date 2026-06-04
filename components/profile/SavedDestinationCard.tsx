@@ -32,13 +32,30 @@ interface SavedRow {
   resolvedTripId: string | null;
 }
 
+interface Props {
+  row: SavedRow;
+  onRemoved?: (id: string) => void;
+  /**
+   * Showcase mode — used by the landing-page "Create a profile" teaser.
+   * Hides the trash button, makes the heart a non-interactive decoration,
+   * and replaces the "View trip" Link + the photo Link with buttons that
+   * call `onCtaClick`. The card looks identical to a real saved-row card
+   * so the teaser previews what the user will see post-sign-up.
+   */
+  showcase?: boolean;
+  /**
+   * Click handler used in showcase mode for the photo wrapper and the
+   * "View trip" button. Ignored when `showcase` is false.
+   */
+  onCtaClick?: () => void;
+}
+
 export function SavedDestinationCard({
   row,
   onRemoved,
-}: {
-  row: SavedRow;
-  onRemoved: (id: string) => void;
-}) {
+  showcase = false,
+  onCtaClick,
+}: Props) {
   const [busy, startTransition] = useTransition();
   const [hidden, setHidden] = useState(false);
   const { destination, photoUrl, resolvedTripId } = row;
@@ -61,7 +78,7 @@ export function SavedDestinationCard({
         .eq("id", row.id);
       if (!error) {
         setHidden(true);
-        onRemoved(row.id);
+        onRemoved?.(row.id);
       }
     });
   }
@@ -101,7 +118,18 @@ export function SavedDestinationCard({
   return (
     <div className="group bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-orange-200 h-full">
       <div className="h-40 relative shrink-0 overflow-hidden">
-        {primaryHref ? (
+        {showcase ? (
+          // Whole photo area triggers the sign-up CTA — feels natural that
+          // tapping a "saved" card prompts the user to create an account.
+          <button
+            type="button"
+            onClick={onCtaClick}
+            aria-label={`Create a profile to save ${destination.name}`}
+            className="absolute inset-0 z-0 cursor-pointer"
+          >
+            {photoLayer}
+          </button>
+        ) : primaryHref ? (
           <Link
             href={primaryHref}
             prefetch
@@ -114,25 +142,39 @@ export function SavedDestinationCard({
           photoLayer
         )}
 
-        <button
-          type="button"
-          onClick={remove}
-          disabled={busy}
-          aria-label="Remove from saved"
-          title="Remove"
-          className="absolute top-3 left-3 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-rose-500 hover:text-rose-600 transition cursor-pointer disabled:opacity-50"
-        >
-          <HeartIcon filled size={18} />
-        </button>
-        <button
-          type="button"
-          onClick={remove}
-          disabled={busy}
-          aria-label="Remove from saved"
-          className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-slate-600 hover:text-rose-600 transition cursor-pointer disabled:opacity-50"
-        >
-          <TrashIcon size={15} />
-        </button>
+        {showcase ? (
+          // Decorative — reads as "favorited" without offering a real
+          // toggle. Trash button is omitted entirely; there is nothing
+          // to delete on the landing teaser.
+          <span
+            aria-hidden="true"
+            className="absolute top-3 left-3 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-rose-500"
+          >
+            <HeartIcon filled size={18} />
+          </span>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={busy}
+              aria-label="Remove from saved"
+              title="Remove"
+              className="absolute top-3 left-3 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-rose-500 hover:text-rose-600 transition cursor-pointer disabled:opacity-50"
+            >
+              <HeartIcon filled size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={busy}
+              aria-label="Remove from saved"
+              className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-slate-600 hover:text-rose-600 transition cursor-pointer disabled:opacity-50"
+            >
+              <TrashIcon size={15} />
+            </button>
+          </>
+        )}
 
         <div className="absolute bottom-0 left-0 right-0 z-[1] p-4 pointer-events-none">
           <p className="text-white/75 text-xs font-semibold uppercase tracking-widest mb-0.5">
@@ -162,7 +204,16 @@ export function SavedDestinationCard({
               <FormattedPrice eur={destination.estimates.totalEstimate.typical} />
             </p>
           </div>
-          {primaryHref ? (
+          {showcase ? (
+            <button
+              type="button"
+              onClick={onCtaClick}
+              className="inline-flex items-center gap-1 shrink-0 px-3.5 py-2 rounded-full bg-[#0D7377] hover:bg-[#0A5D60] text-white text-xs font-semibold transition-colors shadow-sm cursor-pointer"
+            >
+              View trip
+              <span aria-hidden="true">→</span>
+            </button>
+          ) : primaryHref ? (
             <Link
               href={primaryHref}
               prefetch

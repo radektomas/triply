@@ -20,9 +20,9 @@ export function DestinationSelector({ trip }: Props) {
   return (
     <main className="flex-1 relative overflow-hidden">
       <GradientMesh variant="absolute-tall" />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <ResultsHeader budget={budget} dateRange={dateRange} nights={nights} />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
           {destinations.map((destination, index) => (
             <AnimatedCard key={destination.id} index={index}>
               <DestinationCard

@@ -81,7 +81,7 @@ export async function DestinationCard({
     <div className="group bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-orange-200">
 
       {/* Fix 5 — image zoom on hover via inner div scale */}
-      <div className="h-44 relative shrink-0 overflow-hidden">
+      <div className="h-64 sm:h-72 lg:h-80 relative shrink-0 overflow-hidden">
         <div
           className="absolute inset-0 transition-transform duration-500 group-hover:scale-105"
           style={{ background: gradient }}
@@ -92,7 +92,9 @@ export async function DestinationCard({
                 src={photoUrl}
                 alt={`${destination.name}, ${destination.country}`}
                 fill
-                sizes="(max-width: 768px) 100vw, 33vw"
+                // Tracks the responsive grid: 1-up <md, 2-up md, 3-up lg+
+                // so next/image picks the right source width per breakpoint.
+                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 className="object-cover"
               />
               {/* Darkening overlay — keeps the white country/title legible */}
@@ -133,7 +135,7 @@ export async function DestinationCard({
           <p className="text-white/75 text-xs font-semibold uppercase tracking-widest mb-0.5">
             {destination.country}
           </p>
-          <h2 className="text-white text-2xl font-bold leading-tight">
+          <h2 className="text-white text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">
             {destination.name}
           </h2>
         </div>
