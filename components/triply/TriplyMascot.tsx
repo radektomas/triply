@@ -21,7 +21,32 @@ interface TriplyMascotProps {
    *  the mascot when state is happy/sad/smug. Ignored for other states —
    *  the sleepy "z"s are a separate accessory keyed off `state` itself. */
   bubbleText?: string;
+  /** When true, overrides the per-state float with a slow, low-amplitude
+   *  breathe — used by ambient/decorative placements (landing teasers,
+   *  marketing surfaces) where the celebratory per-state bounce would
+   *  read as distracting. State-specific face/arms/colors are unaffected. */
+  calm?: boolean;
+  /** Override the SIZE_MAP width in CSS px when the discrete tiers (sm
+   *  80 / md 140 / lg 220 / xl 320) don't fit a placement. Height stays
+   *  `pxSize * 1.2` so the ticket-body aspect ratio is preserved. When
+   *  set, drives the compact-bubble threshold too (treated as compact at
+   *  ≤140px, matching the `md` cutoff). */
+  pxSize?: number;
+  /** Where the speech bubble sits relative to the mascot.
+   *  - "right" (default): tail on bubble's left edge, bubble pokes
+   *    up-and-right from the mascot's upper-right corner.
+   *  - "above": tail on bubble's bottom edge, bubble sits centered
+   *    directly above the mascot's head. Used when the right-pointing
+   *    bubble would overflow into adjacent layout (e.g. the showcase
+   *    section's neighboring card grid). */
+  bubblePosition?: "right" | "above";
 }
+
+// Ambient float used when `calm` is set, regardless of state. ~⅓ the y
+// travel of the happy state and ~3.5× slower — reads as a slow hover,
+// not a bounce.
+const CALM_FLOAT = { y: [0, -6, 0], rotate: [-0.5, 0.5, -0.5] };
+const CALM_DURATION = 4.2;
 
 const BUBBLE_STATES: ReadonlySet<TriplyState> = new Set(["happy", "sad", "smug"]);
 
@@ -89,12 +114,21 @@ export function TriplyMascot({
   size = "md",
   className = "",
   bubbleText,
+  calm = false,
+  pxSize,
+  bubblePosition = "right",
 }: TriplyMascotProps) {
-  const px = SIZE_MAP[size];
+  // pxSize wins when provided; otherwise fall back to the discrete tier.
+  const px = pxSize ?? SIZE_MAP[size];
   const showBubble = !!bubbleText && BUBBLE_STATES.has(state);
-  // Mobile mascots are ~80–140px wide; the bubble gets a tighter footprint at
-  // those sizes so it doesn't crowd the photo card next to it.
-  const isCompact = size === "sm" || size === "md";
+  // calm overrides the per-state float; everything else (face, arms,
+  // bubble visibility) is still driven by `state`.
+  const floatAnim = calm ? CALM_FLOAT : FLOAT_ANIMATIONS[state];
+  const floatDuration = calm ? CALM_DURATION : FLOAT_DURATIONS[state];
+  // Treated as "compact" once the rendered width drops to the md tier or
+  // smaller — bubble gets a tighter footprint at those sizes so it
+  // doesn't crowd whatever sits next to the mascot.
+  const isCompact = px <= 140;
 
   return (
     <motion.div
@@ -105,9 +139,9 @@ export function TriplyMascot({
         display: "inline-block",
         position: "relative",
       }}
-      animate={FLOAT_ANIMATIONS[state]}
+      animate={floatAnim}
       transition={{
-        duration: FLOAT_DURATIONS[state],
+        duration: floatDuration,
         repeat: Infinity,
         ease: "easeInOut",
       }}
@@ -262,25 +296,47 @@ export function TriplyMascot({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="absolute pointer-events-none"
-            style={{
-              top: "-6%",
-              left: "78%",
-              // `width: max-content` bypasses the CSS shrink-to-fit clamp on
-              // absolutely-positioned boxes with `left` set and `right: auto`.
-              // Without this the wrapper collapses to (container_width - left)
-              // available space (~31px at md), which forced the bubble inside
-              // to wrap one word per line. With max-content the wrapper sizes
-              // to the bubble's own max-w-[150px] / max-w-[200px].
-              width: "max-content",
-            }}
+            style={
+              bubblePosition === "above"
+                ? {
+                    // Centered above the mascot's head. `bottom: 100%` parks
+                    // the wrapper's bottom edge at the mascot's top edge;
+                    // marginBottom adds a small visible gap so the tail
+                    // doesn't graze the head. left:50% + translateX(-50%)
+                    // centers the bubble horizontally on the mascot.
+                    bottom: "100%",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    marginBottom: "8px",
+                    width: "max-content",
+                  }
+                : {
+                    top: "-6%",
+                    left: "78%",
+                    // `width: max-content` bypasses the CSS shrink-to-fit
+                    // clamp on absolutely-positioned boxes with `left`
+                    // set and `right: auto`. Without this the wrapper
+                    // collapses to (container_width - left) available
+                    // space (~31px at md), which forced the bubble inside
+                    // to wrap one word per line. With max-content the
+                    // wrapper sizes to the bubble's own max-w cap.
+                    width: "max-content",
+                  }
+            }
           >
             <TriplyBubble
               text={bubbleText!}
-              side="left"
+              // tail-bottom = bubble reads as above the speaker; tail-left =
+              // bubble reads as right-of-the-speaker (existing default).
+              side={bubblePosition === "above" ? "bottom" : "left"}
               className={
-                isCompact
-                  ? "text-xs px-3 py-1.5 max-w-[150px] whitespace-normal leading-snug"
-                  : "text-sm px-4 py-2 max-w-[200px] whitespace-normal leading-snug"
+                bubblePosition === "above"
+                  ? // Wider cap for the above placement so the text wraps to
+                    // a comfortable 2 lines instead of a tall 3-line stack.
+                    "text-sm px-4 py-2 max-w-[240px] whitespace-normal leading-snug text-center"
+                  : isCompact
+                    ? "text-xs px-3 py-1.5 max-w-[150px] whitespace-normal leading-snug"
+                    : "text-sm px-4 py-2 max-w-[200px] whitespace-normal leading-snug"
               }
             />
           </motion.div>

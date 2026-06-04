@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
 import { SavedDestinationCard } from "@/components/profile/SavedDestinationCard";
@@ -33,40 +34,59 @@ export function CreateProfileShowcaseInner({ rows }: Props) {
             the 2×2 card stack on the right has room to grow downward without
             shoving the mascot to a vertical middle of empty space. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-center lg:items-start">
-          {/* LEFT — mascot + tropical backdrop + nudge CTA */}
+          {/* LEFT — mascot (on top of decorative palm) + nudge CTA. */}
           <div className="text-center lg:text-left">
-            {/* Mascot block: w-fit so the rounded backdrop hugs the mascot
-                (320px xl + padding) rather than stretching the full column
-                width. The speech bubble at left:78% pokes out to the right,
-                which is fine — only the backdrop is overflow-hidden, not the
-                wrapper, so the bubble keeps its bounds. */}
-            <div className="relative mb-8 mx-auto lg:mx-0 w-fit px-10 py-6">
-              <TropicalBackdrop />
-              <div className="relative flex justify-center lg:justify-start">
-                <TriplyMascot
-                  state="happy"
-                  size="xl"
-                  bubbleText="Save the trips you love — create a free profile!"
-                />
+            {/* SCENE STAGE — palm + mascot share one positioning context so
+                they stay locked relative to each other regardless of how
+                their children render. Fixed per-breakpoint dimensions (no
+                `min-h`, no shrink-to-fit) keep the composition stable.
+                Both children are absolutely positioned INSIDE the stage:
+                the palm is anchored bottom-left so the trunk/waves sit
+                lower-left and the fronds spread up-and-right; the mascot
+                stands in the lower-right of the stage with feet roughly on
+                the palm's wave baseline, in the open space to the right of
+                the trunk so it doesn't cover any fronds. The stage sits at
+                the top of the left column with `mb-6` to the text below —
+                one cohesive column, no large vertical gap. */}
+            <div className="relative mx-auto mb-6 w-[340px] h-[340px] sm:w-[400px] sm:h-[380px] lg:w-[460px] lg:h-[420px]">
+              <Image
+                src="/landing/triply-palm.png"
+                alt=""
+                aria-hidden="true"
+                width={614}
+                height={733}
+                sizes="(max-width: 640px) 380px, (max-width: 1024px) 460px, 560px"
+                className="absolute bottom-0 left-0 w-[380px] sm:w-[460px] lg:w-[560px] h-auto opacity-70 pointer-events-none select-none z-0"
+              />
+              {/* `state="smug"` is the chill variant — face wears the black
+                  sunglasses (TriplyFace smug branch) and the default arm
+                  set holds the coconut + straw (used by idle/sleepy/smug).
+                  No `bubbleText` → no speech bubble; the mascot just
+                  chills silent beside the palm. Other TriplyMascot
+                  usages elsewhere in the app are untouched. */}
+              <div className="absolute bottom-[10px] right-[30px] z-10">
+                <TriplyMascot state="smug" pxSize={152} calm />
               </div>
             </div>
 
-            <div className="h-0.5 w-8 bg-accent mb-3 mx-auto lg:mx-0" />
-            <p className="font-serif uppercase tracking-[0.2em] font-medium text-accent text-xs mb-3">
-              Your profile
-            </p>
+            {/* Heading + subtext — eyebrow + accent rule removed so the
+                column leads with the heading itself. Heading uses the
+                shared Tailwind v4 `text-accent` token (resolves to
+                --color-accent #FF6B47 in app/globals.css) — same coral the
+                eyebrow used to use, the highlighted "3 trips for €X"
+                price, accent pills, etc. — so it stays consistent if the
+                theme moves. Subtext switched to near-black #1A1A1A to
+                match the site's primary body color (same hex the trip
+                form labels use). */}
             <h2
-              className="font-semibold text-[#1A1A1A] leading-tight mb-2"
-              style={{ fontSize: "clamp(1.5rem, 3vw, 2.25rem)" }}
+              className="font-semibold text-accent leading-tight mb-2"
+              style={{ fontSize: "clamp(1.75rem, 4vw, 2.5rem)" }}
             >
               Your trips, saved in one place.
             </h2>
-            <p
-              className="text-[15px] sm:text-base mb-6"
-              style={{ color: "rgba(13,115,119,0.7)" }}
-            >
-              Heart the destinations that catch your eye — they&apos;ll be here
-              next time.
+            <p className="text-[15px] sm:text-base mb-6 text-[#1A1A1A]">
+              Heart the destinations that catch your eye, they&apos;ll be
+              here next time.
             </p>
             <button
               type="button"
@@ -100,99 +120,3 @@ export function CreateProfileShowcaseInner({ rows }: Props) {
   );
 }
 
-// Decorative tropical ambience behind the mascot. All layers are
-// aria-hidden + pointer-events-none — purely visual. Lives in the same
-// file as the section because it has no reuse story and the inline
-// markup is easier to scan than a separate component for ~80 lines of
-// SVG. Palette stays on-brand: coral (#FF6B47) + accent teal (#0D7377)
-// + cream, all at low opacity so the mascot's animation reads clearly.
-function TropicalBackdrop() {
-  return (
-    <div
-      aria-hidden="true"
-      className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2.5rem]"
-    >
-      {/* Warm peach radial — top-left, fades out toward bottom-right.
-          Gives the mascot a sunset-tile feel without darkening the area. */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse at 25% 25%, rgba(255,176,136,0.42) 0%, rgba(255,176,136,0.10) 45%, transparent 70%)",
-        }}
-      />
-      {/* Cool teal radial — opposite corner, very subtle. Adds depth so
-          the backdrop doesn't read as a single flat peach wash. */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(circle at 85% 80%, rgba(13,115,119,0.18) 0%, transparent 55%)",
-        }}
-      />
-
-      {/* Sun — top-right corner. Filled disc + 8 rays. opacity-40 keeps
-          it as an ambient cue, not a foreground element. */}
-      <svg
-        viewBox="0 0 64 64"
-        className="absolute top-3 right-4 w-12 h-12 opacity-40"
-        fill="none"
-      >
-        <circle cx="32" cy="32" r="9" fill="#FF6B47" />
-        <g stroke="#FF6B47" strokeWidth="2.2" strokeLinecap="round">
-          <line x1="32" y1="6" x2="32" y2="14" />
-          <line x1="32" y1="50" x2="32" y2="58" />
-          <line x1="6" y1="32" x2="14" y2="32" />
-          <line x1="50" y1="32" x2="58" y2="32" />
-          <line x1="13" y1="13" x2="19" y2="19" />
-          <line x1="45" y1="45" x2="51" y2="51" />
-          <line x1="51" y1="13" x2="45" y2="19" />
-          <line x1="13" y1="51" x2="19" y2="45" />
-        </g>
-      </svg>
-
-      {/* Palm leaf — bottom-left. Single tapered silhouette with a central
-          rib. Two stacked at slight rotations so it reads as a frond, not
-          a single blob. */}
-      <svg
-        viewBox="0 0 64 96"
-        className="absolute -bottom-2 -left-2 w-24 h-32 opacity-30"
-        fill="none"
-        style={{ transform: "rotate(-12deg)" }}
-      >
-        <path
-          d="M32 92 C 6 70, 4 36, 32 6 C 60 36, 58 70, 32 92 Z"
-          fill="#0D7377"
-          opacity="0.55"
-        />
-        <path
-          d="M32 88 Q 32 48, 32 10"
-          stroke="#0A5D60"
-          strokeWidth="1.2"
-          fill="none"
-        />
-      </svg>
-
-      {/* Palm leaf — bottom-right. Smaller, rotated the other way so the
-          two leaves balance the composition. */}
-      <svg
-        viewBox="0 0 64 96"
-        className="absolute -bottom-3 -right-3 w-20 h-28 opacity-25"
-        fill="none"
-        style={{ transform: "rotate(18deg)" }}
-      >
-        <path
-          d="M32 92 C 6 70, 4 36, 32 6 C 60 36, 58 70, 32 92 Z"
-          fill="#0D7377"
-          opacity="0.55"
-        />
-        <path
-          d="M32 88 Q 32 48, 32 10"
-          stroke="#0A5D60"
-          strokeWidth="1.2"
-          fill="none"
-        />
-      </svg>
-    </div>
-  );
-}
