@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
+import { MascotSpeechBubble } from "./MascotSpeechBubble";
 import { SavedDestinationCard } from "@/components/profile/SavedDestinationCard";
 import type { APIDestination } from "@/lib/types";
 
@@ -61,11 +62,16 @@ export function CreateProfileShowcaseInner({ rows }: Props) {
               {/* `state="smug"` is the chill variant — face wears the black
                   sunglasses (TriplyFace smug branch) and the default arm
                   set holds the coconut + straw (used by idle/sleepy/smug).
-                  No `bubbleText` → no speech bubble; the mascot just
-                  chills silent beside the palm. Other TriplyMascot
+                  No built-in `bubbleText` — the rotating playful CTA bubble
+                  is mounted alongside via <MascotSpeechBubble/>, which
+                  positions itself absolute relative to the inner wrapper
+                  here (hence the extra `relative` div). Other TriplyMascot
                   usages elsewhere in the app are untouched. */}
               <div className="absolute bottom-[10px] right-[30px] z-10">
-                <TriplyMascot state="smug" pxSize={152} calm />
+                <div className="relative">
+                  <TriplyMascot state="smug" pxSize={152} calm />
+                  <MascotSpeechBubble />
+                </div>
               </div>
             </div>
 
