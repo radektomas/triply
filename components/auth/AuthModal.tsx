@@ -245,7 +245,7 @@ async function ensureProfileRow(displayName: string) {
   await supabase
     .from("profiles")
     .upsert(
-      { id: user.id, display_name: displayName },
+      { id: user.id, email: user.email ?? null, display_name: displayName },
       { onConflict: "id", ignoreDuplicates: false },
     );
 }

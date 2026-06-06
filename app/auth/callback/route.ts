@@ -27,7 +27,12 @@ export async function GET(request: NextRequest) {
         await supabase
           .from("profiles")
           .upsert(
-            { id: user.id, display_name: displayName, avatar_url: avatar },
+            {
+              id: user.id,
+              email: user.email ?? null,
+              display_name: displayName,
+              avatar_url: avatar,
+            },
             { onConflict: "id" },
           );
       }
