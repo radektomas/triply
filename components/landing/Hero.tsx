@@ -86,17 +86,17 @@ export function Hero() {
           </div>
           <div className="flex items-center justify-center gap-6 sm:gap-10">
             <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">200+</div>
+              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">300+</div>
               <div className="text-[11px] font-medium tracking-[0.15em] uppercase text-[#0D7377]/70 mt-1">travelers</div>
             </div>
             <div className="w-px h-8 bg-[#0D7377]/20" />
             <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">20+</div>
+              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">40+</div>
               <div className="text-[11px] font-medium tracking-[0.15em] uppercase text-[#0D7377]/70 mt-1">countries</div>
             </div>
             <div className="w-px h-8 bg-[#0D7377]/20" />
             <div className="text-center">
-              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">70+</div>
+              <div className="text-2xl sm:text-3xl font-semibold text-[#0D3B2E]">100+</div>
               <div className="text-[11px] font-medium tracking-[0.15em] uppercase text-[#0D7377]/70 mt-1">trips generated</div>
             </div>
           </div>
