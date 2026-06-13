@@ -4,6 +4,10 @@ import { motion } from "framer-motion";
 import type { TripDetail, BookingLink } from "@/lib/types/trip";
 import { formatRange } from "@/lib/dates";
 import { isAffiliateActive } from "@/lib/affiliate";
+import {
+  buildBookingAffiliateLink,
+  isBookingAffiliateActive,
+} from "@/lib/affiliates/booking";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { TriplyBookingSignoff } from "./TriplyBookingSignoff";
 
@@ -35,12 +39,37 @@ export function BookingHub({ detail }: Props) {
   const { selectedCurrency, format } = useCurrency();
   const fmt = (eur: number) => format(eur, { rounded: true });
 
-  // Hotel providers get Booking.com `selected_currency` injection. Other
-  // category providers (flights, activities) pass through unchanged.
-  const hotelProviders = booking.hotels.map((p) => ({
-    ...p,
-    url: withBookingCurrency(p.url, selectedCurrency),
-  }));
+  // The Booking.com hotel provider's href is rebuilt here as a CJ affiliate
+  // deep link (destination + adults; no dates — Triply doesn't capture exact
+  // dates, so Booking prompts for them). This is the single chokepoint every
+  // hotel card flows through, so both AI-generated and quick-pick trips get the
+  // affiliate link. Currency is passed through (skipping EUR, matching the
+  // legacy `withBookingCurrency` behaviour) so it lands on the INNER Booking
+  // URL. Non-Booking hotel providers keep the existing Booking.com
+  // `selected_currency` injection (a no-op for non-booking.com URLs). Flights
+  // and activities pass through untouched.
+  const hotelProviders = booking.hotels.map((p) =>
+    p.provider.toLowerCase().includes("booking")
+      ? {
+          ...p,
+          url: buildBookingAffiliateLink({
+            destination,
+            adults: travelers,
+            currency: selectedCurrency === "EUR" ? undefined : selectedCurrency,
+          }),
+        }
+      : { ...p, url: withBookingCurrency(p.url, selectedCurrency) },
+  );
+
+  // Whether a live CJ Booking.com affiliate card is actually rendered. The CJ
+  // link is always earning-capable (static tracking URL), so the commission
+  // disclosure must show when such a card is present — independent of the
+  // env-gated AWIN path. ORed with isAffiliateActive() so the existing AWIN
+  // disclosure is never weakened.
+  const hasBookingAffiliateCard =
+    isBookingAffiliateActive() &&
+    booking.hotels.some((p) => p.provider.toLowerCase().includes("booking"));
+  const showAffiliateDisclosure = isAffiliateActive() || hasBookingAffiliateCard;
 
   const findCost = (key: string) =>
     budget.breakdown.find((c) => c.label.toLowerCase().includes(key))?.amount;
@@ -73,6 +102,7 @@ export function BookingHub({ detail }: Props) {
             estimate={hotelEstimate ? `~${fmt(hotelEstimate)}` : undefined}
             estimateLabel="total stay"
             providers={hotelProviders}
+            forceDisclosure={hasBookingAffiliateCard}
           />
           <BookingCTACard
             icon="✈️"
@@ -107,7 +137,7 @@ export function BookingHub({ detail }: Props) {
         </div>
       </div>
 
-      {isAffiliateActive() && (
+      {showAffiliateDisclosure && (
         <p className="text-xs text-[#1a1a1a]/50 mt-8 text-center leading-relaxed">
           Triply may earn a commission when you book through our partner links, at no extra cost to you.
         </p>
@@ -122,12 +152,19 @@ function BookingCTACard({
   estimate,
   estimateLabel,
   providers,
+  forceDisclosure = false,
 }: {
   icon: string;
   title: string;
   estimate?: string;
   estimateLabel?: string;
   providers: BookingLink[];
+  /**
+   * Force the per-card "Partner link" disclosure even when the env-gated AWIN
+   * path is inactive — used by the Hotels card to cover the always-live CJ
+   * Booking.com affiliate link.
+   */
+  forceDisclosure?: boolean;
 }) {
   if (providers.length === 0) return null;
 
@@ -202,7 +239,7 @@ function BookingCTACard({
         </svg>
       </motion.a>
 
-      {isAffiliateActive() && (
+      {(isAffiliateActive() || forceDisclosure) && (
         <p className="text-[11px] text-[#1A1A1A]/45 mt-2 text-center leading-snug">
           Partner link — at no extra cost to you.
         </p>
