@@ -55,6 +55,8 @@ export function BookingHub({ detail }: Props) {
           url: buildBookingAffiliateLink({
             destination,
             adults: travelers,
+            checkIn,
+            checkOut,
             currency: selectedCurrency === "EUR" ? undefined : selectedCurrency,
           }),
         }

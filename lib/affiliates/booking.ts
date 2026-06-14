@@ -10,20 +10,26 @@
  * Format:
  *   https://www.tkqlhce.com/click-101732813-15735418?url=<ENCODED>&sid=<source>
  *
- * Triply captures month + nights + travelers, NOT exact calendar dates, so we
- * deliberately omit checkin/checkout and let Booking.com prompt the user for
- * dates on arrival. We DO pass the destination (`ss`) and adult count
- * (`group_adults`). When a `currency` is supplied it is added as
- * `selected_currency` to the INNER Booking URL (before encoding), so the user's
- * chosen currency carries through to Booking's results page.
+ * Triply's form captures concrete calendar dates (a range picker → checkIn /
+ * checkOut as YYYY-MM-DD). When supplied, those are set as `checkin`/`checkout`
+ * on the INNER Booking URL (before encoding) so Booking lands on the user's
+ * actual dates instead of prompting. Likewise a `currency` is added as
+ * `selected_currency`. The destination (`ss`) and adult count (`group_adults`)
+ * are always passed. All of these live on the inner Booking URL — never on the
+ * outer CJ (tkqlhce.com) URL, which would ignore them.
  *
  * @example
  * buildBookingAffiliateLink({ destination: "Valencia" });
  * // https://www.tkqlhce.com/click-101732813-15735418?url=https%3A%2F%2Fwww.booking.com%2Fsearchresults.html%3Fss%3DValencia%26group_adults%3D2%26no_rooms%3D1&sid=triply_web
  *
  * @example
- * buildBookingAffiliateLink({ destination: "Valencia", currency: "CZK" });
- * // ...url=...%3Fss%3DValencia%26group_adults%3D2%26no_rooms%3D1%26selected_currency%3DCZK&sid=triply_web
+ * buildBookingAffiliateLink({
+ *   destination: "Valencia",
+ *   checkIn: "2026-07-10",
+ *   checkOut: "2026-07-14",
+ *   currency: "CZK",
+ * });
+ * // ...url=...%3Fss%3DValencia%26group_adults%3D2%26no_rooms%3D1%26checkin%3D2026-07-10%26checkout%3D2026-07-14%26selected_currency%3DCZK&sid=triply_web
  */
 
 /** CJ (Commission Junction) click-tracking base for the Booking.com program. */
@@ -33,11 +39,25 @@ const CJ_BOOKING_CLICK_BASE =
 /** Default CJ `sid` source tag used when a caller doesn't pass one. */
 const DEFAULT_SID = "triply_web";
 
+/** Strict YYYY-MM-DD shape check, used to gate date params. */
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+function isYmd(value: string | undefined): value is string {
+  return typeof value === "string" && YMD_RE.test(value);
+}
+
 export interface BookingLinkParams {
   /** City / destination name searched on Booking.com, e.g. "Valencia". */
   destination: string;
   /** Number of adults in the room. Defaults to 2. */
   adults?: number;
+  /**
+   * Optional check-in date, YYYY-MM-DD. When a well-formed value is supplied
+   * it's set as `checkin` on the inner Booking URL so Booking lands on the
+   * user's chosen date. Malformed/missing values are omitted (no empty param).
+   */
+  checkIn?: string;
+  /** Optional check-out date, YYYY-MM-DD. Same handling as {@link checkIn}. */
+  checkOut?: string;
   /**
    * Optional ISO currency code (e.g. "CZK"). When provided, added as
    * `selected_currency` to the inner Booking URL so the user's currency
@@ -55,18 +75,22 @@ export interface BookingLinkParams {
 export function buildBookingAffiliateLink({
   destination,
   adults = 2,
+  checkIn,
+  checkOut,
   currency,
   source = DEFAULT_SID,
 }: BookingLinkParams): string {
-  // Inner Booking.com search URL. No checkin/checkout on purpose — Triply
-  // doesn't capture exact dates, so Booking prompts the user for them.
+  // Inner Booking.com search URL.
   const params = new URLSearchParams({
     ss: destination,
     group_adults: String(adults),
     no_rooms: "1",
   });
-  // selected_currency goes on the INNER Booking URL (before encoding) so
-  // Booking — not CJ — reads it.
+  // checkin/checkout, selected_currency all go on the INNER Booking URL
+  // (before encoding) so Booking — not CJ — reads them. Dates are only set
+  // when well-formed YYYY-MM-DD so we never emit an empty `checkin=`.
+  if (isYmd(checkIn)) params.set("checkin", checkIn);
+  if (isYmd(checkOut)) params.set("checkout", checkOut);
   if (currency) params.set("selected_currency", currency);
   const bookingUrl = `https://www.booking.com/searchresults.html?${params.toString()}`;
 
