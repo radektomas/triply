@@ -1,6 +1,12 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { useRef } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useInView,
+  useReducedMotion,
+} from "framer-motion";
 import { TriplyBubble } from "./TriplyBubble";
 
 export type TriplyState =
@@ -40,6 +46,11 @@ interface TriplyMascotProps {
    *    bubble would overflow into adjacent layout (e.g. the showcase
    *    section's neighboring card grid). */
   bubblePosition?: "right" | "above";
+  /** External pause for the looping animations (e.g. while the LoadingOverlay
+   *  covers the screen during trip generation). When true, every loop is held
+   *  static regardless of visibility. Reduced-motion and off-screen visibility
+   *  pause the loops automatically; this is the additional manual override. */
+  paused?: boolean;
 }
 
 // Ambient float used when `calm` is set, regardless of state. ~⅓ the y
@@ -117,7 +128,20 @@ export function TriplyMascot({
   calm = false,
   pxSize,
   bubblePosition = "right",
+  paused = false,
 }: TriplyMascotProps) {
+  // Loops run only while the mascot is on-screen, motion is allowed, and the
+  // caller hasn't paused it. `margin: "200px"` starts the loop just before the
+  // mascot scrolls into view so it never appears frozen on the edge. When
+  // inactive the mascot renders its static base pose (no `repeat: Infinity`
+  // timers) — the dominant mobile CPU/battery saving, with zero visual change.
+  // Note: a `display:none` mascot (e.g. the hidden LoadingOverlay breakpoints)
+  // reports not-in-view, so its loops pause automatically here.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(wrapperRef, { margin: "200px" });
+  const reduceMotion = useReducedMotion();
+  const active = inView && !reduceMotion && !paused;
+
   // pxSize wins when provided; otherwise fall back to the discrete tier.
   const px = pxSize ?? SIZE_MAP[size];
   const showBubble = !!bubbleText && BUBBLE_STATES.has(state);
@@ -132,6 +156,7 @@ export function TriplyMascot({
 
   return (
     <motion.div
+      ref={wrapperRef}
       className={className}
       style={{
         width: px,
@@ -139,12 +164,12 @@ export function TriplyMascot({
         display: "inline-block",
         position: "relative",
       }}
-      animate={floatAnim}
-      transition={{
-        duration: floatDuration,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
+      animate={active ? floatAnim : undefined}
+      transition={
+        active
+          ? { duration: floatDuration, repeat: Infinity, ease: "easeInOut" }
+          : undefined
+      }
     >
       <svg
         viewBox="0 0 400 480"
@@ -208,10 +233,10 @@ export function TriplyMascot({
         <rect x="148" y="156" width="70" height="5" rx="1" fill="#2a8866" opacity="0.5" />
 
         {/* FACE — state-specific */}
-        <TriplyFace state={state} />
+        <TriplyFace state={state} active={active} />
 
         {/* ARMS — state-specific */}
-        <TriplyArms state={state} />
+        <TriplyArms state={state} active={active} />
 
         {/* LEGS — standing pose has feet planted; sitting pose has legs
             dangling straight down at a slight outward angle (left swings out
@@ -346,7 +371,13 @@ export function TriplyMascot({
   );
 }
 
-function TriplyFace({ state }: { state: TriplyState }) {
+function TriplyFace({
+  state,
+  active,
+}: {
+  state: TriplyState;
+  active: boolean;
+}) {
   if (state === "smug") {
     return (
       <g>
@@ -496,13 +527,12 @@ function TriplyFace({ state }: { state: TriplyState }) {
           ry="4"
           fill="#7dd9b0"
           opacity="0.85"
-          animate={{ cy: [222, 260, 260], opacity: [0, 0.9, 0] }}
-          transition={{
-            duration: 2.5,
-            repeat: Infinity,
-            repeatDelay: 1.5,
-            ease: "easeIn",
-          }}
+          animate={active ? { cy: [222, 260, 260], opacity: [0, 0.9, 0] } : undefined}
+          transition={
+            active
+              ? { duration: 2.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeIn" }
+              : undefined
+          }
         />
         <path
           d="M 175 260 Q 200 245 225 260"
@@ -558,8 +588,12 @@ function TriplyFace({ state }: { state: TriplyState }) {
           fill="#7dd9b0"
           fontWeight="600"
           fontFamily="system-ui"
-          animate={{ y: [80, 62, 80], opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+          animate={active ? { y: [80, 62, 80], opacity: [0.4, 1, 0.4] } : undefined}
+          transition={
+            active
+              ? { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+              : undefined
+          }
         >
           ?
         </motion.text>
@@ -570,13 +604,12 @@ function TriplyFace({ state }: { state: TriplyState }) {
           fill="#7dd9b0"
           fontWeight="600"
           fontFamily="system-ui"
-          animate={{ y: [58, 42, 58], opacity: [0.2, 0.8, 0.2] }}
-          transition={{
-            duration: 2.6,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 0.9,
-          }}
+          animate={active ? { y: [58, 42, 58], opacity: [0.2, 0.8, 0.2] } : undefined}
+          transition={
+            active
+              ? { duration: 2.6, repeat: Infinity, ease: "easeInOut", delay: 0.9 }
+              : undefined
+          }
         >
           ?
         </motion.text>
@@ -633,8 +666,8 @@ function TriplyFace({ state }: { state: TriplyState }) {
           fontSize="22"
           fill="#7dd9b0"
           fontWeight="500"
-          animate={{ y: [80, 60, 80], opacity: [0, 1, 0] }}
-          transition={{ duration: 2.5, repeat: Infinity }}
+          animate={active ? { y: [80, 60, 80], opacity: [0, 1, 0] } : undefined}
+          transition={active ? { duration: 2.5, repeat: Infinity } : undefined}
         >
           z
         </motion.text>
@@ -644,8 +677,10 @@ function TriplyFace({ state }: { state: TriplyState }) {
           fontSize="16"
           fill="#7dd9b0"
           fontWeight="500"
-          animate={{ y: [60, 40, 60], opacity: [0, 1, 0] }}
-          transition={{ duration: 2.5, repeat: Infinity, delay: 0.8 }}
+          animate={active ? { y: [60, 40, 60], opacity: [0, 1, 0] } : undefined}
+          transition={
+            active ? { duration: 2.5, repeat: Infinity, delay: 0.8 } : undefined
+          }
         >
           z
         </motion.text>
@@ -672,8 +707,10 @@ function TriplyFace({ state }: { state: TriplyState }) {
         strokeLinecap="round"
       />
       <motion.g
-        animate={{ scaleY: [1, 0.1, 1] }}
-        transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 4 }}
+        animate={active ? { scaleY: [1, 0.1, 1] } : undefined}
+        transition={
+          active ? { duration: 0.2, repeat: Infinity, repeatDelay: 4 } : undefined
+        }
         style={{ transformOrigin: "180px 210px" }}
       >
         <circle cx="180" cy="210" r="9" fill="#fff" />
@@ -682,18 +719,24 @@ function TriplyFace({ state }: { state: TriplyState }) {
           cy="213"
           r="5"
           fill="#0d3b2e"
-          animate={{ cx: [180, 178, 180, 182, 180] }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            repeatDelay: 4,
-            times: [0, 0.1, 0.5, 0.6, 1],
-          }}
+          animate={active ? { cx: [180, 178, 180, 182, 180] } : undefined}
+          transition={
+            active
+              ? {
+                  duration: 8,
+                  repeat: Infinity,
+                  repeatDelay: 4,
+                  times: [0, 0.1, 0.5, 0.6, 1],
+                }
+              : undefined
+          }
         />
       </motion.g>
       <motion.g
-        animate={{ scaleY: [1, 0.1, 1] }}
-        transition={{ duration: 0.2, repeat: Infinity, repeatDelay: 4 }}
+        animate={active ? { scaleY: [1, 0.1, 1] } : undefined}
+        transition={
+          active ? { duration: 0.2, repeat: Infinity, repeatDelay: 4 } : undefined
+        }
         style={{ transformOrigin: "220px 210px" }}
       >
         <circle cx="220" cy="210" r="9" fill="#fff" />
@@ -702,13 +745,17 @@ function TriplyFace({ state }: { state: TriplyState }) {
           cy="213"
           r="5"
           fill="#0d3b2e"
-          animate={{ cx: [220, 218, 220, 222, 220] }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            repeatDelay: 4,
-            times: [0, 0.1, 0.5, 0.6, 1],
-          }}
+          animate={active ? { cx: [220, 218, 220, 222, 220] } : undefined}
+          transition={
+            active
+              ? {
+                  duration: 8,
+                  repeat: Infinity,
+                  repeatDelay: 4,
+                  times: [0, 0.1, 0.5, 0.6, 1],
+                }
+              : undefined
+          }
         />
       </motion.g>
       <path
@@ -722,7 +769,13 @@ function TriplyFace({ state }: { state: TriplyState }) {
   );
 }
 
-function TriplyArms({ state }: { state: TriplyState }) {
+function TriplyArms({
+  state,
+  active,
+}: {
+  state: TriplyState;
+  active: boolean;
+}) {
   // Right arm holds coconut on idle/sleepy/smug, raised on happy, droopy on sad.
   if (state === "happy") {
     return (
@@ -832,8 +885,10 @@ function TriplyArms({ state }: { state: TriplyState }) {
       />
       {/* Coconut + straw + leaf — gentle sway around the hand pivot. */}
       <motion.g
-        animate={{ rotate: [-1, 1, -1] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        animate={active ? { rotate: [-1, 1, -1] } : undefined}
+        transition={
+          active ? { duration: 3, repeat: Infinity, ease: "easeInOut" } : undefined
+        }
         style={{ transformOrigin: "335px 245px" }}
       >
         <circle cx="345" cy="265" r="22" fill="#5a3520" stroke="#3d2415" strokeWidth="2" />

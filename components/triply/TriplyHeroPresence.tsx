@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import {
+  motion,
+  useInView,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import { TriplyMascot } from "./TriplyMascot";
 import { TriplyBubble } from "./TriplyBubble";
+import { useGenerationActive } from "./useGenerationActive";
 import { HERO_QUOTES, getNextQuote } from "@/lib/quotes";
 
 const QUOTE_ROTATION_MS = 6000;
@@ -24,6 +31,15 @@ export function TriplyHeroPresence() {
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [currentQuote, setCurrentQuote] = useState(HERO_QUOTES[0]);
 
+  // Pause the ambient x-drift when scrolled out of view, when the user prefers
+  // reduced motion, or while a trip is generating (the LoadingOverlay covers
+  // the screen — no point animating a covered hero).
+  const driftRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(driftRef, { margin: "200px" });
+  const reduceMotion = useReducedMotion();
+  const generating = useGenerationActive();
+  const drift = inView && !reduceMotion && !generating;
+
   useEffect(() => {
     const interval = setInterval(() => {
       const { quote, nextIndex } = getNextQuote(HERO_QUOTES, quoteIndex);
@@ -38,6 +54,7 @@ export function TriplyHeroPresence() {
     // meant for the adjacent CTA. The bubble re-enables pointer events for
     // itself so users can still select the quote text.
     <motion.div
+      ref={driftRef}
       // willChange promotes the wrapper to its own compositor layer so the
       // simultaneous transforms (scroll-driven y/scale, drift x) don't force
       // paint/layout recalcs on surrounding hero content during scroll.
@@ -46,11 +63,13 @@ export function TriplyHeroPresence() {
       aria-hidden="true"
       // Subtle sinusoidal x-drift, slower and smaller-amplitude than before
       // so it doesn't compound visually with the bubble's fade transitions.
-      animate={{ x: [0, 4, -2, 3, 0] }}
-      transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      animate={drift ? { x: [0, 4, -2, 3, 0] } : undefined}
+      transition={
+        drift ? { duration: 12, repeat: Infinity, ease: "easeInOut" } : undefined
+      }
     >
       {/* Mascot is the layout anchor — defines the wrapper's bounding box. */}
-      <TriplyMascot state="idle" size="lg" />
+      <TriplyMascot state="idle" size="lg" paused={generating} />
 
       {/* Ambient quote bubble — sits to the left of the mascot, hidden below
           the lg breakpoint so smaller viewports just get Triply alone. Fixed

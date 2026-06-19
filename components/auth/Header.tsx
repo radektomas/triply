@@ -26,7 +26,6 @@ export function Header() {
               alt="Triply"
               width={936}
               height={279}
-              priority
               className="w-[88px] h-auto select-none"
             />
           </Link>

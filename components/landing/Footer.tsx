@@ -35,7 +35,7 @@ export function Footer() {
             Terms
           </Link>
           <a
-            href="mailto:hello@flytriply.eu"
+            href="mailto:radektygrtomas@gmail.com"
             className="text-muted hover:text-[#1a1a1a] transition-colors"
           >
             Contact

@@ -11,6 +11,7 @@ import { TagButton } from "@/components/ui/TagButton";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
 import { ErrorOverlay } from "@/components/landing/ErrorOverlay";
 import { CheckIcon, CloseIcon } from "@/components/landing/VibeIcons";
+import { setGenerationActive } from "@/components/triply/useGenerationActive";
 import { deriveTripFormVibe } from "@/lib/vibeDestinations";
 import { PREFILL_EVENT, type PrefillPayload } from "@/lib/prefill";
 import { formatShort } from "@/lib/dates";
@@ -404,6 +405,14 @@ export function TripForm() {
     setExactCityExpanded(false);
   }, [destinationMode]);
   const [loading, setLoading] = useState(false);
+  // Broadcast generation on/off so the ambient HERO mascot (in a separate part
+  // of the tree, with no access to this state) can pause its loops while the
+  // LoadingOverlay covers the screen. The form's own mascots use the `loading`
+  // prop directly. Cleanup resets the flag if the form unmounts mid-request.
+  useEffect(() => {
+    setGenerationActive(loading);
+    return () => setGenerationActive(false);
+  }, [loading]);
   // submitError drives the full-screen ErrorOverlay (used for upstream /
   // internal failures where the form is unactionable until the user retries).
   // inlineSubmitError drives a small message under the submit button (used

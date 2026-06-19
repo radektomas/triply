@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { buildGygUrl } from "@/lib/gyg";
 import type { TopPlace } from "@/lib/types/trip";
@@ -97,12 +98,12 @@ export function TopPlaces({ topPlaces, destinationName }: Props) {
               <div className="relative aspect-[4/3] overflow-hidden shrink-0">
                 {place.photo ? (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={place.photo.url}
                       alt={place.photo.alt || place.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="(min-width: 768px) 300px, 100vw"
+                      className="object-cover"
                     />
                     {/* Subtle bottom gradient — polish + keeps attribution legible */}
                     <div

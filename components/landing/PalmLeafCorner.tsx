@@ -66,13 +66,12 @@ export function PalmLeafCorner() {
     <>
       {/* Top-left — original watercolor monstera, larger and more opaque */}
       <CornerLeaf
-        src="/illustrations/tropical-leaf.png"
+        src="/illustrations/tropical-leaf.webp"
         intrinsic={2000}
         positionClass="top-[-50px] md:top-[-100px] left-[-50px] md:left-[-100px]"
         widthClass="w-[180px] md:w-[320px]"
         rotation={215}
         opacity={0.9}
-        priority
         sizes="(min-width: 768px) 320px, 180px"
       />
 
@@ -80,7 +79,7 @@ export function PalmLeafCorner() {
           and more translucent so it reads as the same plant viewed from another
           angle rather than a second species. */}
       <CornerLeaf
-        src="/illustrations/tropical-leaf.png"
+        src="/illustrations/tropical-leaf.webp"
         intrinsic={2000}
         positionClass="top-[-60px] md:top-[-120px] right-[-30px] md:right-[-60px]"
         widthClass="w-[160px] md:w-[280px]"

@@ -330,6 +330,7 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
                     ? `Photo of ${target.name}`
                     : "Mystery city photo"
                 }
+                loading="lazy"
                 className="w-full h-full object-cover"
               />
               {photo.photographer && (

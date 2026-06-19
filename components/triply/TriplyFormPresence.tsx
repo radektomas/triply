@@ -1,6 +1,13 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
+import {
+  motion,
+  useInView,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import { TriplyMascot } from "./TriplyMascot";
 import { TriplyBubble } from "./TriplyBubble";
 import {
@@ -24,8 +31,16 @@ export function TriplyFormPresence(props: TriplyFormPresenceProps) {
   const formOpacity = useTransform(scrollY, [400, 750], [0, 1]);
   const formY = useTransform(scrollY, [400, 750], [30, 0]);
 
+  // Pause the drift when scrolled out of view, on reduced-motion, or while the
+  // form is submitting (the LoadingOverlay covers the form tree underneath).
+  const driftRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(driftRef, { margin: "200px" });
+  const reduceMotion = useReducedMotion();
+  const drift = inView && !reduceMotion && !props.loading;
+
   return (
     <motion.div
+      ref={driftRef}
       className="absolute pointer-events-none z-20 hidden md:block"
       style={{
         top: "20%",
@@ -34,12 +49,14 @@ export function TriplyFormPresence(props: TriplyFormPresenceProps) {
         opacity: formOpacity,
         y: formY,
       }}
-      animate={{ x: [0, 4, -2, 3, 0] }}
-      transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      animate={drift ? { x: [0, 4, -2, 3, 0] } : undefined}
+      transition={
+        drift ? { duration: 12, repeat: Infinity, ease: "easeInOut" } : undefined
+      }
       aria-hidden="true"
     >
       <div className="relative">
-        <TriplyMascot state={triplyState} size="lg" />
+        <TriplyMascot state={triplyState} size="lg" paused={props.loading} />
         <div
           className="absolute pointer-events-auto"
           style={{
@@ -65,13 +82,21 @@ export function TriplyFormPresenceMobile(
 ) {
   const { triplyState, quote } = useTriplyFormReaction(props);
 
+  const floatRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(floatRef, { margin: "200px" });
+  const reduceMotion = useReducedMotion();
+  const float = inView && !reduceMotion && !props.loading;
+
   return (
     <div className="md:hidden flex items-end justify-center gap-3 mb-6 mt-2">
       <motion.div
-        animate={{ y: [0, -3, 0] }}
-        transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+        ref={floatRef}
+        animate={float ? { y: [0, -3, 0] } : undefined}
+        transition={
+          float ? { duration: 3.5, repeat: Infinity, ease: "easeInOut" } : undefined
+        }
       >
-        <TriplyMascot state={triplyState} size="sm" />
+        <TriplyMascot state={triplyState} size="sm" paused={props.loading} />
       </motion.div>
       <div className="mb-4 max-w-[60%]">
         <TriplyBubble text={quote} side="left" />
