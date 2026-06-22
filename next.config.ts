@@ -15,6 +15,21 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+    // Destination photos never change, so once optimized keep them cached for a
+    // year — avoids re-fetching the Pexels source and re-encoding on later hits.
+    // (Only applies to images optimized AFTER deploy; already-cached entries
+    // keep the TTL they were stored with.)
+    minimumCacheTTL: 31536000,
+    // Explicit AVIF-first (smaller) with WebP fallback. Next's default is
+    // WebP-only — AVIF is opt-in — so this actually enables AVIF. First-encode
+    // is a bit slower, but the 1-year cache above amortizes it.
+    formats: ["image/avif", "image/webp"],
+    // Pexels sources top out at ~1880px (large2x); the default deviceSizes go
+    // up to 2048/3840, which can never carry more detail than the source yet
+    // each spawns its own encode + cache entry. Trim the top two so wide/high-
+    // DPR clients reuse the 1920 variant instead of generating wasteful ones.
+    // imageSizes (small fixed-width srcset, e.g. avatars/thumbs) keeps defaults.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
   },
   async redirects() {
     return [
