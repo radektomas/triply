@@ -7,6 +7,7 @@ import {
   UpstreamUnavailableError,
 } from "@/lib/n8n";
 import { computeNights } from "@/lib/dates";
+import { incrementGenerationCount } from "@/lib/generationLimits";
 import type { TripInput } from "@/lib/types";
 
 // Discriminated error stages. The client (TripForm) branches on `stage` to
@@ -234,6 +235,12 @@ export async function POST(req: NextRequest) {
           if (histErr) {
             console.warn("[/api/trips] generation_history insert failed:", histErr.message);
           }
+
+          // Count this successful generation against the user's daily limit.
+          // Runs in the same success-only after() seam (failed/errored
+          // generations return before after() is registered), so only real
+          // result sets increment. Reuses the cookie-bound client for RLS.
+          await incrementGenerationCount(userClient);
         }
       } catch (histErr) {
         console.warn("[/api/trips] generation_history write skipped:", histErr);
