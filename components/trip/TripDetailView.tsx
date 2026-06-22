@@ -45,8 +45,13 @@ export async function TripDetailView({
 
   return (
     <>
-    <GradientMesh variant="fixed" />
-    <main className="flex-1 pb-16">
+    {/* `absolute-tall` (not `fixed`): the mesh scrolls WITH the page instead of
+        compositing under it during scroll. `relative` on <main> scopes the
+        mesh's `absolute inset-0` to the full page height; the mesh wrapper
+        clips its own blobs, so no overflow-hidden is needed here (which would
+        break any sticky descendants). */}
+    <main className="flex-1 pb-16 relative">
+      <GradientMesh variant="absolute-tall" />
       <FadeIn>
         <TripHero
           trip={detail}

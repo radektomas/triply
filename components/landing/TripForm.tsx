@@ -2,10 +2,25 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DayPicker, DayButton, getDefaultClassNames, type DayButtonProps } from "react-day-picker";
+import dynamic from "next/dynamic";
 import type { DateRange } from "react-day-picker";
-import "react-day-picker/style.css";
 import { addDays, differenceInDays } from "date-fns";
+
+// The calendar pulls in react-day-picker + its stylesheet — only needed once
+// the user reaches the date step, so load it on demand (ssr:false) to keep it
+// out of the initial landing bundle. A light skeleton holds the space while
+// the chunk loads.
+const TripCalendar = dynamic(
+  () => import("./TripCalendar").then((m) => m.TripCalendar),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-[300px] w-full">
+        <div className="h-7 w-7 rounded-full border-2 border-[#FF6B47]/30 border-t-[#FF6B47] animate-spin" />
+      </div>
+    ),
+  },
+);
 import { Button } from "@/components/ui/Button";
 import { TagButton } from "@/components/ui/TagButton";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
@@ -170,101 +185,6 @@ const STEP_LABELS = ["Budget", "When", "Vibe"];
 
 function toIso(date: Date): string {
   return date.toISOString().slice(0, 10);
-}
-
-function TriplyDayButton({ day, modifiers, ...buttonProps }: DayButtonProps) {
-  const isRangeStart = !!modifiers.range_start;
-  const isRangeEnd = !!modifiers.range_end;
-  const isRangeMiddle = !!modifiers.range_middle;
-  const isSelected = !!modifiers.selected;
-  const isToday = !!modifiers.today;
-  const isDisabled = !!modifiers.disabled;
-  const isOutside = !!modifiers.outside;
-  const isSingleDay = isRangeStart && isRangeEnd;
-
-  const containerStyle: React.CSSProperties = {
-    position: "relative",
-    width: "100%",
-    height: "40px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor:
-      !isSingleDay && (isRangeStart || isRangeEnd || isRangeMiddle)
-        ? "rgba(255, 107, 71, 0.15)"
-        : "transparent",
-    borderTopLeftRadius: isRangeStart && !isSingleDay ? "9999px" : isRangeMiddle || isRangeEnd ? "0" : "9999px",
-    borderBottomLeftRadius: isRangeStart && !isSingleDay ? "9999px" : isRangeMiddle || isRangeEnd ? "0" : "9999px",
-    borderTopRightRadius: isRangeEnd && !isSingleDay ? "9999px" : isRangeMiddle || isRangeStart ? "0" : "9999px",
-    borderBottomRightRadius: isRangeEnd && !isSingleDay ? "9999px" : isRangeMiddle || isRangeStart ? "0" : "9999px",
-  };
-
-  const isEndpoint = isRangeStart || isRangeEnd || (isSelected && !isRangeMiddle);
-
-  const buttonStyle: React.CSSProperties = {
-    width: "36px",
-    height: "36px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "9999px",
-    fontWeight: isEndpoint ? 600 : isToday ? 700 : 500,
-    cursor: isDisabled ? "not-allowed" : "pointer",
-    transition: "background-color 150ms, color 150ms",
-    border: isToday && !isEndpoint ? "2px solid rgba(13, 115, 119, 0.5)" : "none",
-    backgroundColor: isEndpoint ? "#FF6B47" : "transparent",
-    color: isEndpoint ? "#ffffff" : isToday && !isEndpoint ? "#0D7377" : "#1a1a1a",
-    opacity: isDisabled || isOutside ? 0.3 : 1,
-    position: "relative",
-    flexShrink: 0,
-  };
-
-  const showTooltip = (isSelected || isRangeStart || isRangeEnd || isRangeMiddle) && !isDisabled;
-
-  return (
-    <div style={containerStyle}>
-      <button
-        {...buttonProps}
-        style={buttonStyle}
-        onMouseEnter={(e) => {
-          if (!isEndpoint && !isDisabled) {
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(13, 115, 119, 0.1)";
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isEndpoint && !isDisabled) {
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
-          }
-        }}
-      >
-        {day.date.getDate()}
-      </button>
-      {showTooltip && (
-        <span
-          className="triply-tooltip"
-          style={{
-            position: "absolute",
-            bottom: "calc(100% + 6px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "#1a1a1a",
-            color: "white",
-            padding: "4px 8px",
-            borderRadius: "6px",
-            fontSize: "10px",
-            fontWeight: 500,
-            whiteSpace: "nowrap",
-            opacity: 0,
-            pointerEvents: "none",
-            transition: "opacity 150ms",
-            zIndex: 50,
-          }}
-        >
-          Double-click to clear
-        </span>
-      )}
-    </div>
-  );
 }
 
 function ProgressDots({
@@ -458,8 +378,6 @@ export function TripForm() {
     setNightsWarning(false);
     setRange(newRange);
   }
-
-  const rdp = getDefaultClassNames();
 
   const stateRef = useRef({
     currentStep,
@@ -1096,40 +1014,12 @@ export function TripForm() {
                 <div className="flex justify-center">
                   {today && (
                     <div className="rounded-2xl bg-[#FF6B47]/5 border border-[#FF6B47]/15 p-5 shadow-sm">
-                    <DayPicker
-                      mode="range"
+                    <TripCalendar
                       selected={range}
                       onSelect={handleRangeSelect}
-                      numberOfMonths={1}
-                      weekStartsOn={1}
-                      disabled={{ before: today }}
-                      startMonth={today}
-                      endMonth={maxDate}
-                      showOutsideDays={false}
-                      defaultMonth={range?.from ?? today}
-                      classNames={{
-                        root: rdp.root,
-                        month: `${rdp.month} w-full`,
-                        month_caption: `${rdp.month_caption} pb-3 flex justify-center`,
-                        caption_label: `${rdp.caption_label} text-[#1a1a1a] font-bold text-base`,
-                        button_previous: rdp.button_previous,
-                        button_next: rdp.button_next,
-                        chevron: rdp.chevron,
-                        weekday: `${rdp.weekday} text-[#1a1a1a]/40 text-xs font-semibold uppercase pb-2`,
-                        day: rdp.day,
-                      }}
-                      components={{
-                        DayButton: (props) => (
-                          <TriplyDayButton
-                            {...props}
-                            onDoubleClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setRange(undefined);
-                            }}
-                          />
-                        ),
-                      }}
+                      today={today}
+                      maxDate={maxDate}
+                      onClear={() => setRange(undefined)}
                     />
                     </div>
                   )}

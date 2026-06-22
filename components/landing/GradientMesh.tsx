@@ -15,28 +15,24 @@ export function GradientMesh({ variant = "contained" }: { variant?: Variant }) {
     <div className={wrapperClass[variant]}>
       <div className="absolute inset-0 bg-cream" />
 
+      {/* Two soft blobs (down from 3–4) at blur-2xl/40px (down from blur-3xl/
+          64px) to slash per-frame compositing cost. The radial gradients fade
+          to transparent at 70%, so a smaller blur looks nearly identical but is
+          far cheaper. `will-change: transform` (set on the animate-mesh-*
+          classes) keeps them on their own GPU layer so they aren't repainted
+          during scroll; the drift is translate-only and is disabled on mobile +
+          reduced-motion via globals.css. On tall pages the second blob drops
+          lower to keep the long page covered with only two blobs. */}
       <div
-        className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] rounded-full opacity-70 blur-3xl animate-mesh-1"
+        className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] rounded-full opacity-70 blur-2xl animate-mesh-1"
         style={{ background: "radial-gradient(circle, #FF6B4A 0%, transparent 70%)" }}
       />
       <div
-        className="absolute top-[30%] right-[-15%] w-[60%] h-[60%] rounded-full opacity-60 blur-3xl animate-mesh-2"
+        className={`absolute rounded-full opacity-60 blur-2xl animate-mesh-2 right-[-15%] ${
+          isTall ? "top-[45%] w-[65%] h-[70%]" : "top-[30%] w-[60%] h-[60%]"
+        }`}
         style={{ background: "radial-gradient(circle, #FFB088 0%, transparent 70%)" }}
       />
-      <div
-        className={`absolute rounded-full blur-3xl animate-mesh-3 ${
-          isTall
-            ? "bottom-[20%] left-[20%] w-[55%] h-[55%] opacity-40"
-            : "bottom-[-10%] left-[30%] w-[50%] h-[50%] opacity-50"
-        }`}
-        style={{ background: "radial-gradient(circle, #FF8E5E 0%, transparent 70%)" }}
-      />
-      {isTall && (
-        <div
-          className="absolute bottom-[-5%] right-[10%] w-[45%] h-[45%] rounded-full opacity-40 blur-3xl animate-mesh-2"
-          style={{ background: "radial-gradient(circle, #FFB088 0%, transparent 70%)" }}
-        />
-      )}
 
       <div
         className="absolute inset-0 opacity-[0.015] mix-blend-multiply"

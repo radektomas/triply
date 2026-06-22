@@ -14,6 +14,15 @@ interface Props {
 export function PhotoCarousel({ photos, fallbackGradient }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  // Only mount image layers we've reached (+ the next one, so the crossfade is
+  // instant). Avoids downloading all ~5 large2x heroes on first paint. The
+  // outer layer divs always render (gradient + opacity), so the transition
+  // looks identical; the <Image> inside mounts lazily.
+  const [mounted, setMounted] = useState<Set<number>>(() => {
+    const s = new Set<number>([0]);
+    if (photos.length > 1) s.add(1);
+    return s;
+  });
 
   useEffect(() => {
     if (photos.length <= 1 || isPaused) return;
@@ -22,6 +31,20 @@ export function PhotoCarousel({ photos, fallbackGradient }: Props) {
     }, 5000);
     return () => clearInterval(timer);
   }, [photos.length, isPaused]);
+
+  // Whenever the active layer changes, ensure it and the next layer are mounted
+  // ahead of their crossfade.
+  useEffect(() => {
+    if (photos.length === 0) return;
+    setMounted((prev) => {
+      const next = (activeIndex + 1) % photos.length;
+      if (prev.has(activeIndex) && prev.has(next)) return prev;
+      const s = new Set(prev);
+      s.add(activeIndex);
+      s.add(next);
+      return s;
+    });
+  }, [activeIndex, photos.length]);
 
   if (photos.length === 0) {
     return <div className="absolute inset-0" style={{ background: fallbackGradient }} />;
@@ -41,14 +64,16 @@ export function PhotoCarousel({ photos, fallbackGradient }: Props) {
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
-          <Image
-            src={photo.urlLarge}
-            alt={photo.alt}
-            fill
-            sizes="100vw"
-            priority={idx === 0}
-            className="object-cover"
-          />
+          {mounted.has(idx) && (
+            <Image
+              src={photo.urlLarge}
+              alt={photo.alt}
+              fill
+              sizes="100vw"
+              priority={idx === 0}
+              className="object-cover"
+            />
+          )}
         </div>
       ))}
 
