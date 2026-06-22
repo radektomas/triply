@@ -158,9 +158,12 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
 
   async function fetchPhoto(city: GuessCity) {
     try {
+      // No client-side force-cache: the server route already caches each query
+      // for 24h (next.revalidate), and force-cache here would pin any transient
+      // failure response in the browser HTTP cache — leaving the game stuck on
+      // "Loading photo…" forever even after the underlying issue is gone.
       const res = await fetch(
         `/api/game/city-photo?q=${encodeURIComponent(city.pexelsQuery)}`,
-        { cache: "force-cache" },
       );
       if (!res.ok) throw new Error(`photo ${res.status}`);
       const data = (await res.json()) as {
@@ -330,7 +333,7 @@ export function GuessTheCity({ loadingComplete, onGameEnd }: Props) {
                     ? `Photo of ${target.name}`
                     : "Mystery city photo"
                 }
-                loading="lazy"
+                loading="eager"
                 className="w-full h-full object-cover"
               />
               {photo.photographer && (

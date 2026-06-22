@@ -2,15 +2,17 @@ import { ResultsHeader } from "@/components/results/ResultsHeader";
 import { DestinationCard } from "@/components/results/DestinationCard";
 import { AnimatedCard } from "@/components/results/AnimatedCard";
 import { GradientMesh } from "@/components/landing/GradientMesh";
-import { CustomCityPicker } from "@/components/CustomCityPicker";
+import { GenerateMore } from "@/components/trip/GenerateMore";
 import { computeNights, formatRange } from "@/lib/dates";
 import type { TripRecord } from "@/lib/data/getTripById";
+import type { GenerationLimitStatus } from "@/lib/generationLimits";
 
 interface Props {
   trip: TripRecord;
+  limitStatus: GenerationLimitStatus;
 }
 
-export function DestinationSelector({ trip }: Props) {
+export function DestinationSelector({ trip, limitStatus }: Props) {
   const { input, result } = trip;
   const { budget, checkIn, checkOut, vibe, originCity, travelers } = input;
   const destinations = result?.destinations ?? [];
@@ -39,16 +41,17 @@ export function DestinationSelector({ trip }: Props) {
           ))}
         </div>
 
-        <CustomCityPicker
+        <GenerateMore
           tripParams={{
             budget,
-            nights,
             travelers,
             vibe,
             originCity,
             checkIn,
             checkOut,
           }}
+          limitStatus={limitStatus}
+          shownDestinations={destinations.map((d) => d.name)}
         />
 
         <div className="mt-10 text-center">

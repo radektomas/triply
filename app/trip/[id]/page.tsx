@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTripById } from "@/lib/data/getTripById";
 import { adaptAPIDestination } from "@/lib/data/getTripDetail";
 import { computeNights } from "@/lib/dates";
+import { checkGenerationLimit } from "@/lib/generationLimits";
 import { DestinationSelector } from "@/components/trip/DestinationSelector";
 import { TripDetailView } from "@/components/trip/TripDetailView";
 
@@ -75,14 +76,18 @@ export default async function TripPage({
   const trip = await getTripById(tripId);
   if (!trip) notFound();
 
-  // No destination chosen → show 3-card selector
+  // No destination chosen → show 3-card selector. The selector's "Generate 3
+  // more" control needs the user's daily limit, computed server-side so the
+  // logged-in state is correct at first paint (no button-then-upsell flash).
   if (!destId) {
-    return <DestinationSelector trip={trip} />;
+    const limitStatus = await checkGenerationLimit();
+    return <DestinationSelector trip={trip} limitStatus={limitStatus} />;
   }
 
   const dest = trip.result?.destinations?.find((d) => d.id === destId);
   if (!dest) {
-    return <DestinationSelector trip={trip} />;
+    const limitStatus = await checkGenerationLimit();
+    return <DestinationSelector trip={trip} limitStatus={limitStatus} />;
   }
 
   const detail = adaptAPIDestination(dest, trip.input);
