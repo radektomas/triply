@@ -9,7 +9,30 @@ import {
   isBookingAffiliateActive,
 } from "@/lib/affiliates/booking";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { track } from "@/lib/analytics";
 import { TriplyBookingSignoff } from "./TriplyBookingSignoff";
+
+// Normalize a provider name into the affiliate partner key the funnel
+// dashboard breaks down on. The three target partners are matched by
+// substring; any other provider (Kiwi, Hostelworld, Viator…) gets a slug so it
+// still records distinctly without polluting the booking/skyscanner/getyourguide
+// counts.
+function affiliatePartner(provider: string): string {
+  const p = provider.toLowerCase();
+  if (p.includes("booking")) return "booking";
+  if (p.includes("skyscanner")) return "skyscanner";
+  if (p.includes("getyourguide") || p.includes("gyg")) return "getyourguide";
+  return p.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "other";
+}
+
+// Fire-and-forget on affiliate link click. track() never throws or awaits, so
+// the browser's default navigation to the affiliate URL proceeds uninterrupted.
+function trackAffiliateClick(provider: string, destination: string): void {
+  track("affiliate_clicked", {
+    partner: affiliatePartner(provider),
+    destination,
+  });
+}
 
 // Booking.com supports a `selected_currency` URL param that pre-selects the
 // currency on their search results page. We inject the user's currently
@@ -104,6 +127,7 @@ export function BookingHub({ detail }: Props) {
             estimate={hotelEstimate ? `~${fmt(hotelEstimate)}` : undefined}
             estimateLabel="total stay"
             providers={hotelProviders}
+            destination={destination}
             forceDisclosure={hasBookingAffiliateCard}
           />
           <BookingCTACard
@@ -112,6 +136,7 @@ export function BookingHub({ detail }: Props) {
             estimate={flightEstimate ? `from ${fmt(flightEstimate)}` : undefined}
             estimateLabel={travelersTotalLabel}
             providers={booking.flights}
+            destination={destination}
           />
           <BookingCTACard
             icon="🎭"
@@ -119,6 +144,7 @@ export function BookingHub({ detail }: Props) {
             estimate={activitiesEstimate ? `from ${fmt(activitiesEstimate)}` : undefined}
             estimateLabel={travelersTotalLabel}
             providers={booking.activities}
+            destination={destination}
           />
         </div>
 
@@ -154,6 +180,7 @@ function BookingCTACard({
   estimate,
   estimateLabel,
   providers,
+  destination,
   forceDisclosure = false,
 }: {
   icon: string;
@@ -161,6 +188,7 @@ function BookingCTACard({
   estimate?: string;
   estimateLabel?: string;
   providers: BookingLink[];
+  destination: string;
   /**
    * Force the per-card "Partner link" disclosure even when the env-gated AWIN
    * path is inactive — used by the Hotels card to cover the always-live CJ
@@ -208,6 +236,7 @@ function BookingCTACard({
         href={primary.url}
         target="_blank"
         rel="noopener noreferrer sponsored"
+        onClick={() => trackAffiliateClick(primary.provider, destination)}
         whileHover={{
           y: -1,
           background: "#0A5D60",
@@ -255,6 +284,7 @@ function BookingCTACard({
               href={s.url}
               target="_blank"
               rel="noopener noreferrer sponsored"
+              onClick={() => trackAffiliateClick(s.provider, destination)}
               className="text-[12px] text-[#0D7377]/55 hover:text-[#0D7377]/80 transition-colors underline-offset-2 hover:underline"
             >
               or try {s.provider}

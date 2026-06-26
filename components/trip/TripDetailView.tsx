@@ -4,6 +4,7 @@ import { BudgetBreakdown } from "./BudgetBreakdown";
 import { TopPlaces } from "./TopPlaces";
 import { TipsList } from "./TipsList";
 import { BookingHub } from "./BookingHub";
+import { TripDetailViewed } from "@/components/analytics/TripDetailViewed";
 import { GradientMesh } from "@/components/landing/GradientMesh";
 import { getPlacePhoto } from "@/lib/photos";
 import type { TripDetail } from "@/lib/types/trip";
@@ -51,6 +52,8 @@ export async function TripDetailView({
         clips its own blobs, so no overflow-hidden is needed here (which would
         break any sticky descendants). */}
     <main className="flex-1 pb-16 relative">
+      {/* Fires trip_detail_viewed once per destination view (client-side). */}
+      <TripDetailViewed destination={detail.destination} vibe={tripInput?.vibe} />
       <GradientMesh variant="absolute-tall" />
       <FadeIn>
         <TripHero
