@@ -7,15 +7,16 @@ import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
 import { track } from "@/lib/analytics";
 import type { GenerationLimitStatus } from "@/lib/generationLimits";
+import { DAILY_GENERATION_LIMIT_ANON } from "@/lib/generationLimits.config";
 
 // Replaces the old "Pick your own city" picker below the 3 result cards.
 // Lets the user generate a fresh set of 3 destinations with the SAME search
 // params, gated by the daily generation limit:
 //   • logged-in  → server-counted limit (limitStatus from checkGenerationLimit)
-//   • anonymous  → 1/day tracked in localStorage (backend doesn't count anon)
+//   • anonymous  → tracked in localStorage (backend doesn't count anon)
 // Viewing trips and affiliate clicks remain free — only NEW generations count.
 
-const ANON_DAILY_LIMIT = 1;
+const ANON_DAILY_LIMIT = DAILY_GENERATION_LIMIT_ANON;
 const ANON_KEY = "triply_anon_gen_date";
 // Cosmetic dedupe only (not security): remembers that this browser already
 // joined the Triply Plus waitlist so we don't re-show the button after a
@@ -237,8 +238,8 @@ export function GenerateMore({
             Want more destinations?
           </h2>
           <p className="text-sm text-muted mt-1 mb-5">
-            You&apos;ve used your free search for today. Sign in to get 3
-            searches a day, free.
+            You&apos;ve used all your free searches for today. Sign in to save
+            your trips and pick up again tomorrow.
           </p>
           <button
             type="button"

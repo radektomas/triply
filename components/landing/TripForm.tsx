@@ -55,7 +55,10 @@ import { track } from "@/lib/analytics";
 
 const DEFAULT_AIRPORT = AIRPORTS.find((a) => a.iata === "PRG");
 
-const MAX_NIGHTS = 14;
+// Maximum trip duration. The date-range picker clamps any longer selection
+// back to this, and the "X nights" display / warning both read from it — so
+// this is the single knob for the cap.
+const MAX_NIGHTS = 30;
 
 // ── Budget control ──────────────────────────────────────────────────────────
 // Per-person, in EUR (the app's canonical currency — display formatter

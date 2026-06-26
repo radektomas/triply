@@ -1,9 +1,11 @@
 import "server-only";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { DAILY_GENERATION_LIMIT_USER } from "@/lib/generationLimits.config";
 
 // Daily limit for logged-in users. 1 generation = 1 result set (the first
-// search counts too). Named constant so the cap is trivial to change.
-export const DAILY_GENERATION_LIMIT = 3;
+// search counts too). Sourced from the shared config so anon + user caps live
+// in one tunable place.
+export const DAILY_GENERATION_LIMIT = DAILY_GENERATION_LIMIT_USER;
 
 type ServerClient = Awaited<ReturnType<typeof getServerSupabase>>;
 
