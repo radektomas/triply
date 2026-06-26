@@ -51,6 +51,7 @@ import {
 } from "@/components/triply/TriplyFormPresence";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { track } from "@/lib/analytics";
 
 const DEFAULT_AIRPORT = AIRPORTS.find((a) => a.iata === "PRG");
 
@@ -238,6 +239,17 @@ function ProgressDots({
 
 export function TripForm() {
   const router = useRouter();
+  // Fires `trip_form_started` exactly once, on the user's first meaningful
+  // interaction with the wizard (first budget edit or first step advance).
+  // Ref-guarded so repeated interactions don't re-fire. A hoisted function
+  // declaration (not useCallback) so referencing it inside the `[]`-dep keydown
+  // effect doesn't trip exhaustive-deps, matching handleSubmit/handleNext.
+  const formStartedRef = useRef(false);
+  function markFormStarted() {
+    if (formStartedRef.current) return;
+    formStartedRef.current = true;
+    track("trip_form_started");
+  }
   const {
     selectedCurrency,
     format,
@@ -390,6 +402,10 @@ export function TripForm() {
     regionSelection,
     exactCity,
     loading,
+    // Mirror the selected currency here too so handleSubmit can stamp the
+    // trip_generated event without closing over the reactive value directly
+    // (keeps the keyboard-shortcut effect's empty dep array honest).
+    selectedCurrency,
   });
   useEffect(() => {
     stateRef.current = {
@@ -403,6 +419,7 @@ export function TripForm() {
       regionSelection,
       exactCity,
       loading,
+      selectedCurrency,
     };
   });
 
@@ -428,6 +445,7 @@ export function TripForm() {
   }
 
   function handleNumberChange(e: React.ChangeEvent<HTMLInputElement>) {
+    markFormStarted();
     const raw = e.target.value;
     setBudgetInput(raw);
     // Strip currency symbols, thousands separators, whitespace before parsing
@@ -596,6 +614,16 @@ export function TripForm() {
     region: CitySelection | null,
     city: CitySelection | null,
   ) {
+    // Submitting is itself a meaningful interaction — guarantees
+    // trip_form_started precedes trip_generated even on the keyboard-only
+    // (Enter-to-advance) path that bypasses the field handlers. Inlined (rather
+    // than calling markFormStarted) so handleSubmit doesn't close over a
+    // component-scope function, which would make the keyboard-shortcut effect's
+    // empty dep array noisy. No-op if already fired.
+    if (!formStartedRef.current) {
+      formStartedRef.current = true;
+      track("trip_form_started");
+    }
     // Null-safe — `r` can be undefined if a retry fires before the user has
     // picked dates or any other edge case where state is stale. Without `?.`
     // the `.from` deref crashes.
@@ -730,6 +758,17 @@ export function TripForm() {
         destinationCount === 1 && firstDestinationId
           ? `/trip/${tripId}?d=${firstDestinationId}`
           : `/trip/${tripId}`;
+      // Activation funnel: the n8n response came back OK and we have a trip to
+      // render — this is the `trip_generated` conversion point. Fire-and-forget.
+      track("trip_generated", {
+        vibe: v,
+        budget: b,
+        nights: r?.from && r?.to ? computeNights(r.from, r.to) : null,
+        travelers: t,
+        origin: o,
+        destination: destinationInput ?? null,
+        currency: stateRef.current.selectedCurrency,
+      });
       // Defer the actual navigation: hand the URL to the LoadingOverlay,
       // which fires `onReady` immediately in default-quote mode or after
       // the Pack-the-Suitcase reveal sequence when the user opted in.
@@ -747,6 +786,7 @@ export function TripForm() {
   }
 
   function handleNext() {
+    markFormStarted();
     setDirection("forward");
     setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
   }
@@ -883,7 +923,10 @@ export function TripForm() {
                   max={BUDGET_MAX}
                   step={BUDGET_STEP}
                   value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value))}
+                  onChange={(e) => {
+                    markFormStarted();
+                    setBudget(Number(e.target.value));
+                  }}
                   onPointerUp={handleSliderRelease}
                   onTouchEnd={handleSliderRelease}
                   className="triply-slider w-full"
@@ -927,7 +970,10 @@ export function TripForm() {
                     <button
                       key={p}
                       type="button"
-                      onClick={() => setBudget(p)}
+                      onClick={() => {
+                        markFormStarted();
+                        setBudget(p);
+                      }}
                       aria-pressed={isActive}
                       className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
                         isActive

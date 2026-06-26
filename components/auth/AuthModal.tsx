@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { track, identify } from "@/lib/analytics";
 import { CloseIcon, GoogleIcon } from "./AuthIcons";
 
 type Mode = "signin" | "signup";
@@ -96,6 +97,11 @@ function AuthModalBody() {
           return;
         }
         await ensureProfileRow(displayName || email.split("@")[0]);
+        // Activation funnel: account is created and logged in. Fire the event,
+        // then backfill this session's anonymous pre-signup events onto the new
+        // user. Both fire-and-forget — they never block closing the modal.
+        track("account_created", { method: "email" });
+        identify();
         closeAuthModal();
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({

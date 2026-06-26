@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
+import { track } from "@/lib/analytics";
 import type { GenerationLimitStatus } from "@/lib/generationLimits";
 
 // Replaces the old "Pick your own city" picker below the 3 result cards.
@@ -350,6 +351,8 @@ function TriplyPlusCard({ limit }: { limit: number }) {
       }
       setJoined(true);
       setState("done");
+      // Activation funnel: newsletter / Triply Plus email captured.
+      track("email_captured", { source: "triply_plus" });
     } catch (err) {
       console.error("[TriplyPlusCard] waitlist failed:", err);
       setState("error");

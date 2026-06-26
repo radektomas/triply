@@ -6,6 +6,7 @@ import { Footer } from "@/components/landing/Footer";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
+import { OAuthSignupTracker } from "@/components/analytics/OAuthSignupTracker";
 import { Header } from "@/components/auth/Header";
 import { getServerSupabase } from "@/lib/supabase/server";
 import "./globals.css";
@@ -90,6 +91,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Footer />
             <FeedbackButton />
             <AuthModal />
+            <OAuthSignupTracker />
           </CurrencyProvider>
         </AuthProvider>
         <Analytics />
