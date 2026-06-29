@@ -197,6 +197,60 @@ export function ArrowRightIcon({ color, size = 14 }: VibeIconProps) {
   );
 }
 
+export function ArrowLeftIcon({ color, size = 14 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="19" y1="12" x2="5" y2="12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <polyline points="11 6 5 12 11 18" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
+}
+
+// Destination-screen affordances. "Surprise me" (DiceIcon), "I know the
+// region" (PinIcon), "I know the exact city" (TargetIcon). Same inline-SVG
+// pattern as the arrows above — no icon library.
+export function DiceIcon({ color, size = 22 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="4" width="16" height="16" rx="3.5" stroke={color} strokeWidth="1.8" />
+      <circle cx="8.5" cy="8.5" r="1.4" fill={color} />
+      <circle cx="15.5" cy="8.5" r="1.4" fill={color} />
+      <circle cx="12" cy="12" r="1.4" fill={color} />
+      <circle cx="8.5" cy="15.5" r="1.4" fill={color} />
+      <circle cx="15.5" cy="15.5" r="1.4" fill={color} />
+    </svg>
+  );
+}
+
+export function PinIcon({ color, size = 22 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M12 2.5C8 2.5 5 5.4 5 9c0 4.5 7 12 7 12s7-7.5 7-12c0-3.6-3-6.5-7-6.5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <circle cx="12" cy="9" r="2.3" fill={color} />
+    </svg>
+  );
+}
+
+export function TargetIcon({ color, size = 22 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="2.6" fill={color} />
+      <line x1="12" y1="2.5" x2="12" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="12" y1="18" x2="12" y2="21.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="2.5" y1="12" x2="6" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="18" y1="12" x2="21.5" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // Quick Picks vibe enum → icon component.
 // Free-form vibe strings from n8n should NOT use this — those go through
 // substring matching elsewhere. This is for the fixed Quick Picks enum.

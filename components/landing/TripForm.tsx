@@ -25,7 +25,14 @@ import { Button } from "@/components/ui/Button";
 import { TagButton } from "@/components/ui/TagButton";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
 import { ErrorOverlay } from "@/components/landing/ErrorOverlay";
-import { CheckIcon, CloseIcon } from "@/components/landing/VibeIcons";
+import {
+  CheckIcon,
+  CloseIcon,
+  ArrowRightIcon,
+  DiceIcon,
+  PinIcon,
+  TargetIcon,
+} from "@/components/landing/VibeIcons";
 import { setGenerationActive } from "@/components/triply/useGenerationActive";
 import { deriveTripFormVibe } from "@/lib/vibeDestinations";
 import { PREFILL_EVENT, type PrefillPayload } from "@/lib/prefill";
@@ -71,51 +78,6 @@ const BUDGET_STEP = 10;
 const BUDGET_PRESETS = [500, 1000, 2000] as const;
 const BUDGET_SNAP_THRESHOLD = 75; // ± euros within which the slider snaps on release.
 const BUDGET_RANGE_MSG = "Enter a budget between €100 and €2000.";
-
-interface ModeIconProps {
-  color: string;
-  size?: number;
-}
-
-function SurpriseIcon({ color, size = 18 }: ModeIconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="1.8" />
-      <circle cx="9" cy="9" r="1.4" fill={color} />
-      <circle cx="12" cy="12" r="1.4" fill={color} />
-      <circle cx="15" cy="15" r="1.4" fill={color} />
-    </svg>
-  );
-}
-
-function PinIcon({ color, size = 18 }: ModeIconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M12 2.5C8 2.5 5 5.4 5 9c0 4.5 7 12 7 12s7-7.5 7-12c0-3.6-3-6.5-7-6.5z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <circle cx="12" cy="9" r="2.3" fill={color} />
-    </svg>
-  );
-}
-
-function CrosshairIcon({ color, size = 18 }: ModeIconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <circle cx="12" cy="12" r="2.6" fill={color} />
-      <line x1="12" y1="2.5" x2="12" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="12" y1="18" x2="12" y2="21.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="2.5" y1="12" x2="6" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="18" y1="12" x2="21.5" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function computeNights(from: Date, to: Date): number {
   return Math.max(0, differenceInDays(to, from));
@@ -184,7 +146,11 @@ function renderBubble(variant: "solo" | "couple" | "family" | "group", isActive:
   }
 }
 
-const STEP_LABELS = ["Budget", "When", "Vibe"];
+// Step 3 swaps its label depending on the chosen path: the discovery path
+// still collects a vibe ("Vibe"), while the intent path skips vibe entirely
+// and only captures the origin airport ("From").
+const STEP_LABELS_DISCOVERY = ["Budget", "When", "Vibe"];
+const STEP_LABELS_INTENT = ["Budget", "When", "From"];
 
 
 function toIso(date: Date): string {
@@ -194,9 +160,11 @@ function toIso(date: Date): string {
 function ProgressDots({
   currentStep,
   onJump,
+  labels,
 }: {
   currentStep: 1 | 2 | 3;
   onJump: (step: 1 | 2 | 3) => void;
+  labels: string[];
 }) {
   return (
     <div className="mb-10">
@@ -215,7 +183,7 @@ function ProgressDots({
               type="button"
               onClick={() => step < currentStep && onJump(step)}
               disabled={step >= currentStep}
-              aria-label={`Step ${step}: ${STEP_LABELS[step - 1]}`}
+              aria-label={`Step ${step}: ${labels[step - 1]}`}
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 disabled:cursor-default"
               style={{
                 backgroundColor:
@@ -234,7 +202,7 @@ function ProgressDots({
         ))}
       </div>
       <p className="text-center text-xs font-semibold uppercase tracking-widest text-muted">
-        Step {currentStep} of 3 — {STEP_LABELS[currentStep - 1]}
+        Step {currentStep} of 3 — {labels[currentStep - 1]}
       </p>
     </div>
   );
@@ -275,6 +243,12 @@ export function TripForm() {
     return null;
   }, [selectedCurrency, ratesLoading, rates]);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  // The destination decision now lives on a dedicated PRE-screen that comes
+  // before the numbered wizard. While this is true we render that screen and
+  // hide the (1-2-3) ProgressDots; choosing an option flips it false and
+  // reveals the numbered wizard starting at Budget. Kept separate from
+  // currentStep so the numbered dots never count the pre-screen as a step.
+  const [onDestinationScreen, setOnDestinationScreen] = useState(true);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [budget, setBudget] = useState(500);
   // Mirror of `budget` for the editable big-number input. Shows the EUR
@@ -327,17 +301,17 @@ export function TripForm() {
   // onReady to drive the actual router.push (after the optional game's
   // reveal delay if the user opted in).
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
-  // Per-panel "expand has settled" flags. Drive an overflow-hidden →
-  // overflow-visible swap so the autocomplete dropdown isn't clipped by
-  // the panel boundary, while still letting the grid-template-rows
-  // collapse animation clip content during open/close transitions.
+  // "Expand has settled" flag for the region panel. Drives an
+  // overflow-hidden → overflow-visible swap so the autocomplete dropdown
+  // isn't clipped by the panel boundary, while still letting the
+  // grid-template-rows collapse animation clip content during open/close.
+  // (The exact-city input is rendered directly in the Step 1 intent state,
+  // not inside a collapsing panel, so it needs no equivalent flag.)
   const [specificExpanded, setSpecificExpanded] = useState(false);
-  const [exactCityExpanded, setExactCityExpanded] = useState(false);
-  // Reset both expand flags synchronously (before paint) on every mode
-  // change so we always re-clip during the next transition cycle.
+  // Reset the flag synchronously (before paint) on every mode change so we
+  // always re-clip during the next transition cycle.
   useLayoutEffect(() => {
     setSpecificExpanded(false);
-    setExactCityExpanded(false);
   }, [destinationMode]);
   const [loading, setLoading] = useState(false);
   // Broadcast generation on/off so the ambient HERO mascot (in a separate part
@@ -396,6 +370,7 @@ export function TripForm() {
 
   const stateRef = useRef({
     currentStep,
+    onDestinationScreen,
     budget,
     range,
     travelers,
@@ -413,6 +388,7 @@ export function TripForm() {
   useEffect(() => {
     stateRef.current = {
       currentStep,
+      onDestinationScreen,
       budget,
       range,
       travelers,
@@ -544,9 +520,12 @@ export function TripForm() {
           setDestinationMode("exact_city");
           setExactCity(selection);
         }
+        // Deep-link past the destination pre-screen: a VibeSearch prefill has
+        // already decided the destination, so skip straight to Budget with the
+        // selection set. The PrefillBanner carries the confirmation cue there.
+        setOnDestinationScreen(false);
         // Light up the confirmation cue. The banner persists until the user
-        // edits/clears the destination; the highlight ring auto-fades 1.5s
-        // after the user reaches step 3.
+        // edits/clears the destination.
         setPrefilled({ name: detail.city.cityName, kind: detail.city.kind });
         setPrefillHighlight(true);
       }
@@ -555,15 +534,17 @@ export function TripForm() {
     return () => window.removeEventListener(PREFILL_EVENT, handler);
   }, []);
 
-  // Highlight ring lifecycle: when the user actually reaches step 3 with a
-  // live prefill, fade the ring after 1.5s so it's a momentary "look here"
-  // rather than a permanent decoration. If the highlight gets cleared
-  // earlier (by an edit, see below), this effect is a no-op.
+  // Highlight ring lifecycle: the destination inputs live on the pre-screen,
+  // so when the user is on that screen with a live prefill, fade the ring
+  // after 1.5s — a momentary "look here" rather than a permanent decoration.
+  // (A VibeSearch prefill skips the pre-screen, so the ring simply won't show
+  // there; the PrefillBanner carries the cue on Budget instead.) If the
+  // highlight gets cleared earlier (by an edit, see below), this is a no-op.
   useEffect(() => {
-    if (currentStep !== 3 || !prefillHighlight) return;
+    if (!onDestinationScreen || !prefillHighlight) return;
     const t = window.setTimeout(() => setPrefillHighlight(false), 1500);
     return () => window.clearTimeout(t);
-  }, [currentStep, prefillHighlight]);
+  }, [onDestinationScreen, prefillHighlight]);
 
   // Auto-dismiss the banner + highlight when the user edits the destination
   // away from the pre-filled state. The cue is only for the initial arrival
@@ -587,6 +568,9 @@ export function TripForm() {
       if (document.activeElement?.tagName === "TEXTAREA") return;
       const s = stateRef.current;
       if (s.loading) return;
+      // On the destination pre-screen, Enter must not advance the numbered
+      // wizard — the destination is committed by choosing an option instead.
+      if (s.onDestinationScreen) return;
       if (s.currentStep < 3) {
         setDirection("forward");
         setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
@@ -804,8 +788,35 @@ export function TripForm() {
     setCurrentStep(step);
   }
 
+  // Commit a destination choice on the pre-screen: record which option was
+  // taken (the funnel's "new screen" signal) and slide into the numbered
+  // wizard at Budget. Surprise commits on tap; region/exact commit when a
+  // place is selected (auto-advance). "specific" reports as "region" so the
+  // event reads in the surprise/region/exact_city vocabulary.
+  function chooseDestination(option: "surprise" | "specific" | "exact_city") {
+    markFormStarted();
+    setDestinationMode(option);
+    track("destination_chosen", {
+      option: option === "specific" ? "region" : option,
+    });
+    setDirection("forward");
+    setOnDestinationScreen(false);
+  }
+
+  // Return from Budget to the destination pre-screen to change the choice.
+  function handleBackToDestination() {
+    setDirection("back");
+    setOnDestinationScreen(true);
+  }
+
   const animClass =
     direction === "forward" ? "animate-slide-in-right" : "animate-slide-in-left";
+
+  // The "intent" path (user typed an exact city) skips the vibe selector
+  // entirely. It's derived purely from destinationMode so the destination
+  // screen, the Step 3 vibe visibility, and the progress label stay in sync.
+  const isIntent = destinationMode === "exact_city";
+  const stepLabels = isIntent ? STEP_LABELS_INTENT : STEP_LABELS_DISCOVERY;
 
   return (
     <>
@@ -825,7 +836,12 @@ export function TripForm() {
           nights={nights}
           loading={loading}
         />
-        <ProgressDots currentStep={currentStep} onJump={handleJump} />
+        {/* Dots count only the numbered wizard (Budget/When/Vibe-or-From).
+            The destination pre-screen sits before them, so they stay hidden
+            until the user commits a destination. */}
+        {!onDestinationScreen && (
+          <ProgressDots currentStep={currentStep} onJump={handleJump} labels={stepLabels} />
+        )}
 
         {/* Mobile-only inline Triply, sits under the progress dots. The
             desktop variant above is hidden on small viewports; this one is
@@ -850,8 +866,199 @@ export function TripForm() {
           />
         )}
 
-        <div key={currentStep} className={animClass}>
-          {/* Step 1 — Budget */}
+        <div
+          key={onDestinationScreen ? "destination" : currentStep}
+          className={animClass}
+        >
+          {/* ── Destination pre-screen ───────────────────────────────────
+              Sits BEFORE the numbered wizard. Three full-width rows: the
+              discovery pair (Surprise / Region) on top, a thin divider, then
+              the accent-tinted exact-city row. Surprise commits on tap;
+              region/exact reveal the relocated autocompletes and commit
+              (auto-advance) when a place is selected. Tapping an already-
+              selected region/exact row re-commits — the path back from Budget
+              when the user only wanted to review. */}
+          {onDestinationScreen ? (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
+                  Where are we headed?
+                </h2>
+                <p className="text-sm text-[#1a1a1a]/60 mt-2 font-medium">
+                  Let us surprise you, narrow it to a region, or name the exact
+                  city.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {/* Surprise me — commits immediately. */}
+                <button
+                  type="button"
+                  onClick={() => chooseDestination("surprise")}
+                  className="w-full flex items-center gap-3.5 rounded-2xl bg-[#F5F5F5] hover:bg-[#0D7377]/10 px-4 py-3.5 text-left transition-colors"
+                  style={{ minHeight: "48px" }}
+                >
+                  <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm">
+                    <DiceIcon color="#0D7377" size={22} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-base font-semibold text-[#1a1a1a]">
+                      Surprise me
+                    </span>
+                    <span className="block text-xs text-[#1a1a1a]/55">
+                      Let Triply pick the perfect match
+                    </span>
+                  </span>
+                  <ArrowRightIcon color="#1a1a1a" size={16} />
+                </button>
+
+                {/* I know the region — reveals the region autocomplete. */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      destinationMode === "specific" && regionSelection
+                        ? chooseDestination("specific")
+                        : setDestinationMode("specific")
+                    }
+                    aria-expanded={destinationMode === "specific"}
+                    className={`w-full flex items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left transition-colors ${
+                      destinationMode === "specific"
+                        ? "bg-[#0D7377]/10"
+                        : "bg-[#F5F5F5] hover:bg-[#0D7377]/10"
+                    }`}
+                    style={{ minHeight: "48px" }}
+                  >
+                    <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm">
+                      <PinIcon color="#0D7377" size={22} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-base font-semibold text-[#1a1a1a]">
+                        I know the region
+                      </span>
+                      <span className="block text-xs text-[#1a1a1a]/55">
+                        Country, island, or area — we&apos;ll find the spots
+                      </span>
+                    </span>
+                    <ArrowRightIcon color="#1a1a1a" size={16} />
+                  </button>
+
+                  {/* Region autocomplete — same expand-transition + overflow-
+                      swap pattern (relocated) so the dropdown isn't clipped.
+                      Selecting a region auto-advances to Budget. */}
+                  <div
+                    className="grid transition-[grid-template-rows] duration-300 ease-out"
+                    style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
+                    onTransitionEnd={(e) => {
+                      if (
+                        e.propertyName === "grid-template-rows" &&
+                        destinationMode === "specific"
+                      ) {
+                        setSpecificExpanded(true);
+                      }
+                    }}
+                  >
+                    <div
+                      className={
+                        specificExpanded && destinationMode === "specific"
+                          ? "overflow-visible"
+                          : "overflow-hidden"
+                      }
+                    >
+                      <div
+                        className={`mt-3 rounded-2xl transition-shadow duration-500 ${
+                          prefillHighlight && prefilled?.kind === "region"
+                            ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
+                            : ""
+                        }`}
+                      >
+                        <CityAutocomplete
+                          mode="region"
+                          value={regionSelection}
+                          onChange={(sel) => {
+                            setRegionSelection(sel);
+                            if (sel) chooseDestination("specific");
+                          }}
+                          placeholder="e.g. Portugal, Sicily, Bali..."
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-muted">
+                        Country, region, or island — we&apos;ll find 3 great
+                        spots there.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider into the "already decided" path. */}
+                <div className="flex items-center gap-3 py-1">
+                  <span className="h-px flex-1 bg-[#1a1a1a]/10" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-[#1a1a1a]/40">
+                    or, already decided?
+                  </span>
+                  <span className="h-px flex-1 bg-[#1a1a1a]/10" />
+                </div>
+
+                {/* I know the exact city — accent-tinted, reveals the city
+                    autocomplete. Selecting a city auto-advances to Budget. */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      destinationMode === "exact_city" && exactCity
+                        ? chooseDestination("exact_city")
+                        : setDestinationMode("exact_city")
+                    }
+                    aria-expanded={destinationMode === "exact_city"}
+                    className={`w-full flex items-center gap-3.5 rounded-2xl border border-[#FF6B47]/30 px-4 py-3.5 text-left transition-colors ${
+                      destinationMode === "exact_city"
+                        ? "bg-[#FF6B47]/[0.14]"
+                        : "bg-[#FF6B47]/[0.08] hover:bg-[#FF6B47]/[0.14]"
+                    }`}
+                    style={{ minHeight: "48px" }}
+                  >
+                    <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm">
+                      <TargetIcon color="#FF6B47" size={22} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-base font-semibold text-[#1a1a1a]">
+                        I know the exact city
+                      </span>
+                      <span className="block text-xs text-[#1a1a1a]/55">
+                        Plan a detailed trip to one city
+                      </span>
+                    </span>
+                    <ArrowRightIcon color="#FF6B47" size={16} />
+                  </button>
+
+                  {destinationMode === "exact_city" && (
+                    <div
+                      className={`mt-3 rounded-2xl transition-shadow duration-500 ${
+                        prefillHighlight && prefilled?.kind === "city"
+                          ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
+                          : ""
+                      }`}
+                    >
+                      <CityAutocomplete
+                        value={exactCity}
+                        onChange={(sel) => {
+                          setExactCity(sel);
+                          if (sel) chooseDestination("exact_city");
+                        }}
+                        placeholder="Type a city — Lisbon, Athens, Reykjavík…"
+                      />
+                      <p className="mt-2 text-xs text-muted">
+                        Pick a specific city — we&apos;ll plan a detailed trip
+                        there.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+          <>
+          {/* Step 1 — Budget (pure) */}
           {currentStep === 1 && (
             <div className="space-y-8">
               {/* Heading */}
@@ -1016,11 +1223,24 @@ export function TripForm() {
                 </p>
               )}
 
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center">
+                {/* Back to the destination pre-screen to change the choice. */}
+                <button
+                  type="button"
+                  onClick={handleBackToDestination}
+                  className="text-muted hover:text-[#374151] font-medium transition-colors cursor-pointer"
+                >
+                  ← Back
+                </button>
                 <Button
                   onClick={handleNext}
                   className="sm:min-w-[160px] text-lg py-4"
-                  disabled={!!budgetError || !!fxWarning}
+                  disabled={
+                    !!budgetError ||
+                    !!fxWarning ||
+                    (destinationMode === "specific" && !regionSelection) ||
+                    (destinationMode === "exact_city" && !exactCity)
+                  }
                 >
                   Next →
                 </Button>
@@ -1158,165 +1378,49 @@ export function TripForm() {
             </div>
           )}
 
-          {/* Step 3 — Destination + Vibe + Origin */}
+          {/* Step 3 — Vibe (discovery only) + Origin. The destination pick
+              moved to the top of Step 1, so this step is now just the trip
+              vibe and the home airport. The intent path skips the vibe block
+              entirely. */}
           {currentStep === 3 && (
             <div className="space-y-8 px-1 sm:px-0">
-              <div>
-                <div className="flex items-baseline gap-2 mb-3">
-                  <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
-                    Destination
-                  </p>
-                </div>
-                <p className="text-sm text-[#1a1a1a]/70 mb-4">Let us pick, or tell us where</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {([
-                    { value: "surprise" as const,   label: "Surprise me",          Icon: SurpriseIcon  },
-                    { value: "specific" as const,   label: "I know the region",    Icon: PinIcon       },
-                    { value: "exact_city" as const, label: "I know the exact city", Icon: CrosshairIcon },
-                  ]).map(({ value, label, Icon }) => {
-                    const isActive = destinationMode === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setDestinationMode(value)}
-                        className={`rounded-2xl py-3 px-3 flex items-center justify-center gap-2 transition-all duration-200 ${
-                          isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"
-                        }`}
-                        style={{
-                          backgroundColor: isActive ? "#FF6B47" : "#F5F5F5",
-                          color: isActive ? "#ffffff" : "#1a1a1a",
-                          minHeight: "48px",
-                        }}
-                      >
-                        <Icon color={isActive ? "#ffffff" : "#FF6B47"} size={18} />
-                        <span className="text-sm font-semibold">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Region autocomplete — visible only in "specific" mode.
-                    Same expand-transition + overflow-swap pattern as the
-                    exact_city panel below so the dropdown isn't clipped. */}
-                <div
-                  className="grid transition-[grid-template-rows] duration-300 ease-out"
-                  style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
-                  onTransitionEnd={(e) => {
-                    if (
-                      e.propertyName === "grid-template-rows" &&
-                      destinationMode === "specific"
-                    ) {
-                      setSpecificExpanded(true);
-                    }
-                  }}
-                >
-                  <div
-                    className={
-                      specificExpanded && destinationMode === "specific"
-                        ? "overflow-visible"
-                        : "overflow-hidden"
-                    }
-                  >
-                    <div
-                      className={`mt-3 rounded-2xl transition-shadow duration-500 ${
-                        prefillHighlight && prefilled?.kind === "region"
-                          ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
-                          : ""
-                      }`}
-                    >
-                      <CityAutocomplete
-                        mode="region"
-                        value={regionSelection}
-                        onChange={setRegionSelection}
-                        placeholder="e.g. Portugal, Sicily, Bali..."
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-muted">
-                      Country, region, or island — we&apos;ll find 3 great
-                      spots there.
+              {!isIntent && (
+                <div>
+                  <div className="flex items-baseline gap-2 mb-3">
+                    <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
+                      Trip Vibe
                     </p>
                   </div>
-                </div>
-
-                {/* Photon city autocomplete — visible only in "exact_city" mode.
-                    The inner wrapper swaps overflow-hidden → overflow-visible
-                    once the expand transition completes so the dropdown can
-                    extend below the panel without being clipped. */}
-                <div
-                  className="grid transition-[grid-template-rows] duration-300 ease-out"
-                  style={{ gridTemplateRows: destinationMode === "exact_city" ? "1fr" : "0fr" }}
-                  onTransitionEnd={(e) => {
-                    if (
-                      e.propertyName === "grid-template-rows" &&
-                      destinationMode === "exact_city"
-                    ) {
-                      setExactCityExpanded(true);
-                    }
-                  }}
-                >
-                  <div
-                    className={
-                      exactCityExpanded && destinationMode === "exact_city"
-                        ? "overflow-visible"
-                        : "overflow-hidden"
-                    }
-                  >
-                    <div
-                      className={`mt-3 rounded-2xl transition-shadow duration-500 ${
-                        prefillHighlight && prefilled?.kind === "city"
-                          ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
-                          : ""
-                      }`}
-                    >
-                      <CityAutocomplete
-                        value={exactCity}
-                        onChange={setExactCity}
-                        placeholder="Type a city — Lisbon, Athens, Reykjavík…"
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-muted">
-                      Pick a specific city — we&apos;ll plan a detailed trip there.
-                    </p>
+                  <p className="text-sm text-[#1a1a1a]/70 mb-4">What are you into?</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    {VIBE_PRESETS.map((preset) => {
+                      const isActive = vibe === preset.value;
+                      const iconColor = isActive ? "#ffffff" : preset.accent;
+                      return (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          onClick={() => setVibe(preset.value)}
+                          className={`
+                            relative rounded-2xl py-4 px-3
+                            flex flex-col items-center justify-center gap-2
+                            transition-all duration-200
+                            ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
+                          `}
+                          style={{
+                            backgroundColor: isActive ? preset.activeBg : "#F5F5F5",
+                            color: isActive ? "#ffffff" : "#1a1a1a",
+                            minHeight: "92px",
+                          }}
+                        >
+                          <preset.Icon color={iconColor} size={32} />
+                          <span className="text-sm font-semibold">{preset.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <div className="flex items-baseline gap-2 mb-3">
-                  <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
-                    Trip Vibe
-                  </p>
-                </div>
-                <p className="text-sm text-[#1a1a1a]/70 mb-4">What are you into?</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {VIBE_PRESETS.map((preset) => {
-                    const isActive = vibe === preset.value;
-                    const iconColor = isActive ? "#ffffff" : preset.accent;
-                    return (
-                      <button
-                        key={preset.value}
-                        type="button"
-                        onClick={() => setVibe(preset.value)}
-                        className={`
-                          relative rounded-2xl py-4 px-3
-                          flex flex-col items-center justify-center gap-2
-                          transition-all duration-200
-                          ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
-                        `}
-                        style={{
-                          backgroundColor: isActive ? preset.activeBg : "#F5F5F5",
-                          color: isActive ? "#ffffff" : "#1a1a1a",
-                          minHeight: "92px",
-                        }}
-                      >
-                        <preset.Icon color={iconColor} size={32} />
-                        <span className="text-sm font-semibold">{preset.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              )}
 
               <div>
                 <div className="flex items-baseline gap-2 mb-3">
@@ -1385,6 +1489,8 @@ export function TripForm() {
                 </p>
               )}
             </div>
+          )}
+          </>
           )}
         </div>
       </div>
