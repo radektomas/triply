@@ -80,23 +80,28 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
   const vibeRaw = String(raw.vibe ?? "").toLowerCase().trim();
   const vibe = ALLOWED_VIBES.includes(vibeRaw) ? vibeRaw : "city";
 
-  // `specific` is the unified single-destination mode. `exact_city` is
-  // kept as a back-compat alias and normalized to `specific` here — the
-  // app no longer emits it, but in-flight requests / stale URLs survive.
+  // Three explicit modes — `region` and `exact_city` carry a destinationInput;
+  // `surprise` doesn't. Legacy `specific` (the old unified value) always
+  // resolved to a single result, so it's normalized to `exact_city` to
+  // preserve that behaviour for in-flight requests and the custom-city picker.
   const rawMode = String(raw.destinationMode ?? "surprise");
-  const requestedMode: "surprise" | "specific" =
-    rawMode === "specific" || rawMode === "exact_city" ? "specific" : "surprise";
+  const requestedMode: "surprise" | "region" | "exact_city" =
+    rawMode === "region"
+      ? "region"
+      : rawMode === "exact_city" || rawMode === "specific"
+        ? "exact_city"
+        : "surprise";
   const destinationInputRaw = String(raw.destinationInput ?? "")
     .slice(0, 80)
     .replace(/[^\p{L}\p{N}\s,\-.']/gu, "")
     .trim();
-  // `specific` mode carries a destinationInput. If the input is
+  // `region`/`exact_city` carry a destinationInput. If the input is
   // missing/too short we fall back to surprise mode.
   const destinationInput =
     requestedMode !== "surprise" && destinationInputRaw.length >= 2
       ? destinationInputRaw
       : undefined;
-  const destinationMode: "surprise" | "specific" =
+  const destinationMode: "surprise" | "region" | "exact_city" =
     destinationInput ? requestedMode : "surprise";
 
   return {

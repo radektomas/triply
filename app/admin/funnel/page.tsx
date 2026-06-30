@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { supabase as serviceSupabase } from "@/lib/supabase";
+import { TrendChart } from "./TrendChart";
 
 // Internal activation-funnel dashboard. Protected by an email allowlist
 // (ADMIN_EMAILS) — any non-listed or anonymous visitor gets a 404 so the route
@@ -12,14 +13,22 @@ export const dynamic = "force-dynamic";
 const WINDOW_DAYS = 30;
 
 // Ordered funnel: each step's conversion is measured against the one above it
-// and against the top of the funnel (landing_view).
-const FUNNEL: { event: string; label: string; blurb: string; Icon: StepIcon }[] = [
+// and against the top of the funnel (landing_view). A `partner` narrows the
+// count to a single affiliate via properties->>partner (the Booking step reuses
+// the existing `affiliate_clicked` event rather than a separate event name).
+const FUNNEL: {
+  event: string;
+  label: string;
+  blurb: string;
+  Icon: StepIcon;
+  partner?: string;
+}[] = [
   { event: "landing_view", label: "Landing view", blurb: "Arrived on the landing page", Icon: EyeIcon },
   { event: "trip_form_started", label: "Trip form started", blurb: "First interaction with the planner", Icon: PencilIcon },
   { event: "trip_generated", label: "Trip generated", blurb: "Got a set of destinations back", Icon: SparkleIcon },
   { event: "trip_detail_viewed", label: "Trip detail viewed", blurb: "Opened a destination page", Icon: PinIcon },
+  { event: "affiliate_clicked", label: "Booking link clicked", blurb: "Clicked through to book", Icon: BedIcon, partner: "booking" },
   { event: "account_created", label: "Account created", blurb: "Signed up", Icon: UserIcon },
-  { event: "email_captured", label: "Email captured", blurb: "Joined the waitlist / newsletter", Icon: MailIcon },
 ];
 
 // Affiliate partners broken out from affiliate_clicked events via the
@@ -52,10 +61,6 @@ function fmtPct(value: number | null): string {
 // ── Daily trend (time series) ────────────────────────────────────────────────
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
 
 // 30 UTC day keys (YYYY-MM-DD), oldest → newest, ending today. Kept out of the
 // component body so the clock read isn't flagged as an impure render call —
@@ -69,11 +74,6 @@ function last30DayKeys(): string[] {
     keys.push(new Date(base - i * DAY_MS).toISOString().slice(0, 10));
   }
   return keys;
-}
-
-function shortDay(key: string): string {
-  const [, m, d] = key.split("-");
-  return `${MONTHS[Number(m) - 1]} ${Number(d)}`;
 }
 
 // Per-day counts for one event over the window. Fetches only the created_at
@@ -104,45 +104,6 @@ async function dailyCounts(
   return dayKeys.map((k) => buckets.get(k) ?? 0);
 }
 
-// Chart geometry (viewBox units; the SVG scales to its container width).
-const CHART_W = 1000;
-const CHART_H = 220;
-const CHART_PAD_Y = 12; // top/bottom breathing room so lines aren't clipped
-
-// Round a peak up to a tidy axis maximum (1 / 2 / 2.5 / 5 / 10 × 10ⁿ).
-function niceCeil(value: number): number {
-  if (value <= 0) return 1;
-  const pow = Math.pow(10, Math.floor(Math.log10(value)));
-  for (const m of [1, 2, 2.5, 5, 10]) {
-    if (m * pow >= value) return m * pow;
-  }
-  return 10 * pow;
-}
-
-function pointX(i: number, n: number): number {
-  return n <= 1 ? 0 : (i / (n - 1)) * CHART_W;
-}
-
-function pointY(v: number, yMax: number): number {
-  const usable = CHART_H - 2 * CHART_PAD_Y;
-  return CHART_PAD_Y + (1 - v / yMax) * usable;
-}
-
-function linePath(values: number[], yMax: number): string {
-  return values
-    .map(
-      (v, i) =>
-        `${i === 0 ? "M" : "L"}${pointX(i, values.length).toFixed(1)},${pointY(v, yMax).toFixed(1)}`,
-    )
-    .join(" ");
-}
-
-function areaPath(values: number[], yMax: number): string {
-  if (values.length === 0) return "";
-  const base = CHART_H - CHART_PAD_Y;
-  return `${linePath(values, yMax)} L${CHART_W},${base} L0,${base} Z`;
-}
-
 export default async function FunnelPage() {
   // ── Access control ─────────────────────────────────────────────────────────
   const sb = await getServerSupabase();
@@ -164,18 +125,28 @@ export default async function FunnelPage() {
   const since = windowStartIso();
   const counts = await Promise.all(
     FUNNEL.map(async (step) => {
-      const { count, error } = await serviceSupabase
+      let query = serviceSupabase
         .from("analytics_events")
         .select("*", { count: "exact", head: true })
         .eq("event_name", step.event)
         .gte("created_at", since);
+      // Affiliate steps share the `affiliate_clicked` event — narrow to one
+      // partner so the Booking step counts only Booking.com click-throughs.
+      if (step.partner) query = query.eq("properties->>partner", step.partner);
+      const { count, error } = await query;
       if (error) console.error(`[admin/funnel] count failed for ${step.event}:`, error.message);
       return count ?? 0;
     }),
   );
 
   const top = counts[0];
-  const overall = pct(counts[counts.length - 1], top);
+  // End-to-end headline is the revenue metric — Booking link clicks ÷ landing
+  // views — referenced explicitly rather than via "the last step", so it stays
+  // correct independent of where the Booking step sits in the card order.
+  const bookingIdx = FUNNEL.findIndex(
+    (s) => s.event === "affiliate_clicked" && s.partner === "booking",
+  );
+  const overall = pct(counts[bookingIdx] ?? 0, top);
 
   // ── Daily trend (last 30 days, two series, zero-filled) ────────────────────
   const dayKeys = last30DayKeys();
@@ -333,156 +304,6 @@ export default async function FunnelPage() {
   );
 }
 
-// ── Daily trend line chart (hand-built inline SVG) ────────────────────────────
-
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className="inline-block h-[3px] w-4 rounded-full"
-        style={{ backgroundColor: color }}
-        aria-hidden="true"
-      />
-      <span className="text-muted">{label}</span>
-    </span>
-  );
-}
-
-function TrendChart({
-  dayKeys,
-  landing,
-  generated,
-}: {
-  dayKeys: string[];
-  landing: number[];
-  generated: number[];
-}) {
-  const n = dayKeys.length;
-  const yMax = niceCeil(Math.max(1, ...landing, ...generated));
-  const usable = CHART_H - 2 * CHART_PAD_Y;
-  // Gridline / y-tick fractions, top → bottom.
-  const ticks = [1, 0.75, 0.5, 0.25, 0];
-
-  // Sparse x-axis labels (~every 5–6 days) so the axis doesn't crowd; always
-  // include the most recent day.
-  const stride = Math.max(1, Math.ceil(n / 6));
-  const xIdx: number[] = [];
-  for (let i = 0; i < n; i += stride) xIdx.push(i);
-  if (n > 0 && xIdx[xIdx.length - 1] !== n - 1) xIdx.push(n - 1);
-
-  const series = [
-    { label: "Landing view", color: "var(--color-teal)", values: landing },
-    { label: "Trip generated", color: "var(--color-accent)", values: generated },
-  ];
-
-  return (
-    <section
-      className="mt-6 rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6"
-      style={{
-        boxShadow: "0 4px 20px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.03)",
-      }}
-    >
-      {/* Title + legend */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold text-[#1A1A1A]">
-            Daily activity — last 30 days
-          </h2>
-          <p className="mt-0.5 text-xs text-muted">Events per day (UTC)</p>
-        </div>
-        <div className="flex items-center gap-4 text-xs">
-          <LegendItem color="var(--color-teal)" label="Landing view" />
-          <LegendItem color="var(--color-accent)" label="Trip generated" />
-        </div>
-      </div>
-
-      {/* Plot: y-axis labels + responsive SVG */}
-      <div className="mt-5 flex gap-2">
-        <div
-          className="flex w-9 shrink-0 flex-col justify-between text-right text-[10px] tabular-nums text-muted/60"
-          style={{
-            height: CHART_H,
-            paddingTop: CHART_PAD_Y,
-            paddingBottom: CHART_PAD_Y,
-          }}
-        >
-          {ticks.map((f, idx) => (
-            <span key={idx}>{Math.round(f * yMax).toLocaleString()}</span>
-          ))}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <svg
-            viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-            width="100%"
-            height={CHART_H}
-            preserveAspectRatio="none"
-            className="block"
-            role="img"
-            aria-label="Daily landing views and trips generated over the last 30 days"
-          >
-            {/* Horizontal gridlines (non-scaling stroke keeps them crisp) */}
-            {ticks.map((f, idx) => {
-              const y = CHART_PAD_Y + (1 - f) * usable;
-              return (
-                <line
-                  key={idx}
-                  x1={0}
-                  x2={CHART_W}
-                  y1={y}
-                  y2={y}
-                  stroke="var(--color-border)"
-                  strokeWidth={1}
-                  vectorEffect="non-scaling-stroke"
-                  opacity={f === 0 ? 0.9 : 0.5}
-                />
-              );
-            })}
-
-            {/* Soft area fills */}
-            {series.map((s) => (
-              <path
-                key={`area-${s.label}`}
-                d={areaPath(s.values, yMax)}
-                fill={s.color}
-                fillOpacity={0.08}
-                stroke="none"
-              />
-            ))}
-
-            {/* Lines on top */}
-            {series.map((s) => (
-              <path
-                key={`line-${s.label}`}
-                d={linePath(s.values, yMax)}
-                fill="none"
-                stroke={s.color}
-                strokeWidth={2}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-          </svg>
-
-          {/* Sparse x-axis labels, positioned to match their data points */}
-          <div className="relative mt-2 h-4">
-            {xIdx.map((i) => (
-              <span
-                key={i}
-                className="absolute -translate-x-1/2 whitespace-nowrap text-[10px] tabular-nums text-muted/60"
-                style={{ left: `${n <= 1 ? 0 : (i / (n - 1)) * 100}%` }}
-              >
-                {shortDay(dayKeys[i])}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // ── Affiliate clicks by partner (horizontal bar list) ─────────────────────────
 
 function AffiliateBreakdown({
@@ -626,15 +447,6 @@ function UserIcon({ color, size = 24 }: { color: string; size?: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="12" cy="8" r="3.5" stroke={color} strokeWidth="1.8" />
       <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MailIcon({ color, size = 24 }: { color: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="5.5" width="18" height="13" rx="2.5" stroke={color} strokeWidth="1.8" />
-      <path d="M4 7l8 6 8-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

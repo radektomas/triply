@@ -212,12 +212,26 @@ export function ArrowLeftIcon({ color, size = 14 }: VibeIconProps) {
 export function DiceIcon({ color, size = 22 }: VibeIconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="4" y="4" width="16" height="16" rx="3.5" stroke={color} strokeWidth="1.8" />
-      <circle cx="8.5" cy="8.5" r="1.4" fill={color} />
-      <circle cx="15.5" cy="8.5" r="1.4" fill={color} />
-      <circle cx="12" cy="12" r="1.4" fill={color} />
-      <circle cx="8.5" cy="15.5" r="1.4" fill={color} />
-      <circle cx="15.5" cy="15.5" r="1.4" fill={color} />
+      {/* Soft tinted body gives the die a face to catch light, so the pips
+          and edge read as dimensional rather than a flat outline. */}
+      <rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4" fill={color} opacity="0.16" />
+      <rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4" stroke={color} strokeWidth="1.8" />
+      {/* Top-left bevel highlight — the lit edge of the cube. */}
+      <path
+        d="M6 8.2 Q6 6, 8.2 6 L13 6"
+        stroke={color}
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        opacity="0.55"
+        fill="none"
+      />
+      {/* Five pips. The lit diagonal (top-left → bottom-right) sits a touch
+          brighter for a subtle sense of depth. */}
+      <circle cx="8.4" cy="8.4" r="1.5" fill={color} />
+      <circle cx="15.6" cy="8.4" r="1.5" fill={color} opacity="0.85" />
+      <circle cx="12" cy="12" r="1.5" fill={color} />
+      <circle cx="8.4" cy="15.6" r="1.5" fill={color} opacity="0.85" />
+      <circle cx="15.6" cy="15.6" r="1.5" fill={color} />
     </svg>
   );
 }

@@ -527,7 +527,7 @@ function TriplyFace({
           ry="4"
           fill="#7dd9b0"
           opacity="0.85"
-          animate={active ? { cy: [222, 260, 260], opacity: [0, 0.9, 0] } : undefined}
+          animate={active ? { y: [0, 38, 38], opacity: [0, 0.9, 0] } : undefined}
           transition={
             active
               ? { duration: 2.5, repeat: Infinity, repeatDelay: 1.5, ease: "easeIn" }
@@ -719,7 +719,7 @@ function TriplyFace({
           cy="213"
           r="5"
           fill="#0d3b2e"
-          animate={active ? { cx: [180, 178, 180, 182, 180] } : undefined}
+          animate={active ? { x: [0, -2, 0, 2, 0] } : undefined}
           transition={
             active
               ? {
@@ -745,7 +745,7 @@ function TriplyFace({
           cy="213"
           r="5"
           fill="#0d3b2e"
-          animate={active ? { cx: [220, 218, 220, 222, 220] } : undefined}
+          animate={active ? { x: [0, -2, 0, 2, 0] } : undefined}
           transition={
             active
               ? {

@@ -7,8 +7,12 @@ export function PlannerSection() {
       className="py-24 md:py-32"
       style={{ backgroundColor: "#FFE4CC" }}
     >
-      <div className="max-w-3xl mx-auto px-6">
-        <div className="text-center mb-10">
+      <div className="group max-w-3xl mx-auto px-6">
+        {/* Hidden while the frameless destination fork is active (TripForm
+            sets data-fork="true"), so its own "Where are we headed?" heading
+            is the only one on the bare peach. Returns once a mode is chosen
+            and the white form card begins. */}
+        <div className="text-center mb-10 group-has-[[data-fork=true]]:hidden">
           <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-3">
             Ready?
           </p>

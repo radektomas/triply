@@ -89,10 +89,15 @@ export interface APITripResponse {
   searchSummary: string;
 }
 
-// The app emits only `surprise` or `specific`. `exact_city` was the
-// legacy single-city alias; the API normalizes it to `specific` for
-// back-compat with any in-flight requests, but no client should send it.
-export type DestinationMode = "surprise" | "specific";
+// The three explicit destination choices the fork UI offers, plumbed through
+// so the backend never guesses how many destinations to return:
+//   - surprise:   no input, return a curated set (multi)
+//   - region:     a country/region input, return several cities (multi)
+//   - exact_city: a single named city, return exactly one (single)
+// `specific` is the legacy unified value (region + exact collapsed, which
+// always returned a single result); the API normalizes it to `exact_city`
+// for back-compat with in-flight requests and the custom-city picker.
+export type DestinationMode = "surprise" | "region" | "exact_city";
 
 export interface TripInput {
   budget: number;

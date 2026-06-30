@@ -29,6 +29,7 @@ import {
   CheckIcon,
   CloseIcon,
   ArrowRightIcon,
+  ArrowLeftIcon,
   DiceIcon,
   PinIcon,
   TargetIcon,
@@ -406,6 +407,125 @@ export function TripForm() {
     return () => setLoading(false);
   }, []);
 
+  // ── Scroll-into-view after layout-shifting actions ────────────────────────
+  // The form lives far down a long page and scrolls the window. Revealing an
+  // autocomplete (region/exact) or swapping the wizard step grows/replaces
+  // content without moving the viewport, so the relevant element can land off
+  // screen — worst on mobile. These refs + helpers bring the right element
+  // into view (smooth, or instant under prefers-reduced-motion) and move focus
+  // to the revealed input without a jarring double-jump. None of this touches
+  // selection logic, analytics, or navigation.
+  const formCardRef = useRef<HTMLDivElement>(null);
+  const regionInputRef = useRef<HTMLInputElement>(null);
+  const exactInputRef = useRef<HTMLInputElement>(null);
+
+  const prefersReducedMotion = useCallback(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    [],
+  );
+
+  // Scroll an element into view only when it isn't already comfortably placed,
+  // so we never yank the page when the target is fine where it is.
+  const scrollIntoViewSoft = useCallback(
+    (el: HTMLElement | null, block: ScrollLogicalPosition) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      // "Already placed" = fully visible with a little margin. We deliberately
+      // do NOT require it to sit in the top third: pulling a perfectly visible
+      // field up to the top is what made the tile lurch, because that scroll
+      // competed with the collapse/expand layout animation. Only scroll when
+      // the target is genuinely clipped off-screen.
+      const fullyVisible = rect.top >= 8 && rect.bottom <= vh - 24;
+      if (fullyVisible) return;
+      el.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block,
+      });
+    },
+    [prefersReducedMotion],
+  );
+
+  // Bring a freshly revealed autocomplete input into view and focus it.
+  // focus({ preventScroll }) keeps the browser from doing its own jump, so the
+  // single smooth scroll above is the only motion (no double-jump). Focus still
+  // lands keyboard/screen-reader users on the field.
+  const revealInput = useCallback(
+    (el: HTMLInputElement | null) => {
+      if (!el) return;
+      scrollIntoViewSoft(el, "center");
+      el.focus({ preventScroll: true });
+    },
+    [scrollIntoViewSoft],
+  );
+
+  // Skip the initial mount so the page doesn't auto-scroll to the form on load.
+  const navScrollReady = useRef(false);
+  useEffect(() => {
+    if (!navScrollReady.current) {
+      navScrollReady.current = true;
+      return;
+    }
+    // Entering a new step view (commit → Budget, advance/back/jump, or back to
+    // the fork): bring the top of the form into view so the new heading — and
+    // the step dots once framed — are visible. rAF lets the swapped content lay
+    // out first.
+    const id = requestAnimationFrame(() =>
+      scrollIntoViewSoft(formCardRef.current, "start"),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [currentStep, onDestinationScreen, scrollIntoViewSoft]);
+
+  // Exact-city reveal: rendered instantly, so scroll + focus on the next frame.
+  // Keyed on destinationMode alone (read onDestinationScreen via the ref) so it
+  // fires on the mode tap but NOT when merely returning to the fork — that path
+  // changes onDestinationScreen, which this effect ignores. Region is handled
+  // on its expand transitionend instead (it animates open over 300ms).
+  useEffect(() => {
+    if (!stateRef.current.onDestinationScreen) return;
+    if (destinationMode !== "exact_city") return;
+    // Wait for the other tiles' collapse to finish before focusing/scrolling so
+    // the (possible) scroll never stacks on top of the layout animation and
+    // flings the tile. Instant under reduced motion (collapse doesn't animate).
+    const settle = prefersReducedMotion() ? 0 : 320;
+    const id = window.setTimeout(
+      () => revealInput(exactInputRef.current),
+      settle,
+    );
+    return () => window.clearTimeout(id);
+  }, [destinationMode, revealInput, prefersReducedMotion]);
+
+  // Surprise "fill, then carry you in": on tap the coral wash spreads across
+  // the ticket, then after a short beat we commit + slide into the wizard — so
+  // it reads as the tile filling and carrying you in, not an instant cut.
+  // Under reduced motion the fill is shown at full (no spread) for a brief
+  // beat, then advance. Does not change chooseDestination — only schedules it.
+  const [surpriseCommitting, setSurpriseCommitting] = useState(false);
+  useEffect(() => {
+    // Reset on return to the fork so the surprise ticket isn't stuck filled.
+    if (onDestinationScreen) setSurpriseCommitting(false);
+  }, [onDestinationScreen]);
+
+  // Coral suppression: the surprise tile's coral content (badge + dice) is
+  // unmounted the instant a region/exact ticket is *pressed* (pointerdown),
+  // not when the click commits. forkChoosing flips on the click, a few frames
+  // later — by then the browser has already painted the pressed state with the
+  // coral still mounted (the one-frame flash). Gating on pointerdown removes it
+  // before that paint. forkChoosing keeps it gated after commit; this resets
+  // whenever we're back to the neutral surprise default or the press is aborted.
+  const [coralPressed, setCoralPressed] = useState(false);
+  useEffect(() => {
+    if (destinationMode === "surprise") setCoralPressed(false);
+  }, [destinationMode]);
+  function handleSurprise() {
+    if (surpriseCommitting) return;
+    setSurpriseCommitting(true);
+    const delay = prefersReducedMotion() ? 200 : 360;
+    window.setTimeout(() => chooseDestination("surprise"), delay);
+  }
+
   // Sync the editable number-input mirror with the EUR canonical state,
   // converted into the user's selected currency. Re-runs when:
   //   - `budget` changes (slider drag, chip click, prefill from showcase)
@@ -636,12 +756,12 @@ export function TripForm() {
       if (m === "specific" && region) destinationInput = labelOf(region);
       else if (m === "exact_city" && city) destinationInput = labelOf(city);
 
-      // Both region and exact-city wizard options now route through the
-      // unified single-destination `specific` flow on the server. The two
-      // UI options stay (different labels/placeholders) but funnel into one
-      // n8n path so the app maintains a single single-destination pipeline.
-      const wireMode: "surprise" | "specific" =
-        m === "surprise" ? "surprise" : "specific";
+      // Emit all three choices explicitly so the backend decides the
+      // destination count deterministically instead of guessing. Internal UI
+      // state uses `specific` for the region tile; map it to the wire value
+      // `region`. `exact_city` and `surprise` pass through unchanged.
+      const wireMode: "surprise" | "region" | "exact_city" =
+        m === "surprise" ? "surprise" : m === "exact_city" ? "exact_city" : "region";
 
       const requestBody = {
         budget: b,
@@ -818,24 +938,84 @@ export function TripForm() {
   const isIntent = destinationMode === "exact_city";
   const stepLabels = isIntent ? STEP_LABELS_INTENT : STEP_LABELS_DISCOVERY;
 
+  // Fork ticket model: by default all three are empty light "tickets" (colour
+  // lives only in their icons). Choosing region/exact fills that ticket with
+  // its colour and collapses the other two; "surprise" is the neutral default,
+  // so it never reads as pre-selected. (Surprise commits on tap and the whole
+  // fork slides away, so it has no persistent filled state here.)
+  const forkChoosing =
+    onDestinationScreen &&
+    (destinationMode === "specific" || destinationMode === "exact_city");
+  // A ticket is collapsed when another ticket is the active choice.
+  const tileCollapsed = (selected: boolean) => forkChoosing && !selected;
+
+  // Region + exact share ONE ticket template (rendered from this config) so
+  // their fill / expand / collapse / checkmark behaviour can never drift apart.
+  // Per-ticket colours are full literal class strings here (not interpolated)
+  // so Tailwind statically generates them. The neutral "surprise" ticket is its
+  // own block above the map because it commits on tap instead of revealing.
+  const placeTickets = [
+    {
+      mode: "specific" as const,
+      label: "I know the region",
+      subtext: "Country or area",
+      Icon: PinIcon,
+      accent: "#0D7377",
+      delay: "70ms",
+      selection: regionSelection,
+      fillClass: "bg-gradient-to-br from-[#0F8589] to-[#0D7377]",
+      focusRing: "focus-visible:ring-[#0D7377]",
+      selectedShadow: "shadow-[0_16px_38px_-10px_rgba(13,115,119,0.6)]",
+      iconIdleClass: "bg-[#0D7377]/10 ring-[#0D7377]/15 text-[#0D7377]",
+    },
+    {
+      mode: "exact_city" as const,
+      label: "I know the exact city",
+      subtext: "One city, detailed",
+      Icon: TargetIcon,
+      accent: "#1B3A4B",
+      delay: "140ms",
+      selection: exactCity,
+      fillClass: "bg-gradient-to-br from-[#274C5E] to-[#1B3A4B]",
+      focusRing: "focus-visible:ring-[#1B3A4B]",
+      selectedShadow: "shadow-[0_16px_38px_-10px_rgba(27,58,75,0.55)]",
+      iconIdleClass: "bg-[#1B3A4B]/10 ring-[#1B3A4B]/15 text-[#1B3A4B]",
+    },
+  ];
+
   return (
     <>
       <div
-        className="relative bg-card rounded-3xl border border-accent/10 p-8 sm:p-10 md:p-14 w-full"
-        style={{
-          boxShadow:
-            "0 25px 60px rgba(255, 107, 71, 0.08), 0 4px 20px rgba(0, 0, 0, 0.06)",
-        }}
+        ref={formCardRef}
+        data-fork={onDestinationScreen}
+        className={`relative w-full scroll-mt-6 ${
+          onDestinationScreen
+            ? ""
+            : "bg-card rounded-3xl border border-accent/10 p-8 sm:p-10 md:p-14"
+        }`}
+        style={
+          onDestinationScreen
+            ? undefined
+            : {
+                boxShadow:
+                  "0 25px 60px rgba(255, 107, 71, 0.08), 0 4px 20px rgba(0, 0, 0, 0.06)",
+              }
+        }
       >
-        <TriplyFormPresence
-          budget={budget}
-          travelers={travelers}
-          vibe={vibe}
-          originCity={originCity}
-          range={range}
-          nights={nights}
-          loading={loading}
-        />
+        {/* Triply presence + step dots are form chrome — they belong to the
+            numbered wizard, not the frameless "choose your adventure" fork.
+            Both stay hidden until a mode is chosen and the white card begins. */}
+        {!onDestinationScreen && (
+          <TriplyFormPresence
+            budget={budget}
+            travelers={travelers}
+            vibe={vibe}
+            originCity={originCity}
+            range={range}
+            nights={nights}
+            loading={loading}
+          />
+        )}
         {/* Dots count only the numbered wizard (Budget/When/Vibe-or-From).
             The destination pre-screen sits before them, so they stay hidden
             until the user commits a destination. */}
@@ -846,15 +1026,17 @@ export function TripForm() {
         {/* Mobile-only inline Triply, sits under the progress dots. The
             desktop variant above is hidden on small viewports; this one is
             hidden on md+, so each breakpoint sees exactly one Triply. */}
-        <TriplyFormPresenceMobile
-          budget={budget}
-          travelers={travelers}
-          vibe={vibe}
-          originCity={originCity}
-          range={range}
-          nights={nights}
-          loading={loading}
-        />
+        {!onDestinationScreen && (
+          <TriplyFormPresenceMobile
+            budget={budget}
+            travelers={travelers}
+            vibe={vibe}
+            originCity={originCity}
+            range={range}
+            nights={nights}
+            loading={loading}
+          />
+        )}
 
         {prefilled && (
           <PrefillBanner
@@ -879,181 +1061,302 @@ export function TripForm() {
               selected region/exact row re-commits — the path back from Budget
               when the user only wanted to review. */}
           {onDestinationScreen ? (
-            <div className="space-y-6">
+            <div className="space-y-7">
               <div className="text-center">
-                <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
+                <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a]">
                   Where are we headed?
                 </h2>
-                <p className="text-sm text-[#1a1a1a]/60 mt-2 font-medium">
+                <p className="text-sm md:text-base text-[#1a1a1a]/60 mt-3 font-medium">
                   Let us surprise you, narrow it to a region, or name the exact
                   city.
                 </p>
               </div>
 
-              <div className="space-y-3">
-                {/* Surprise me — commits immediately. */}
-                <button
-                  type="button"
-                  onClick={() => chooseDestination("surprise")}
-                  className="w-full flex items-center gap-3.5 rounded-2xl bg-[#F5F5F5] hover:bg-[#0D7377]/10 px-4 py-3.5 text-left transition-colors"
-                  style={{ minHeight: "48px" }}
+              <div>
+                {/* Three empty light "tickets" by default — colour lives only
+                    in each icon (coral / teal / ink). Choosing region or exact
+                    fills that ticket with its colour via a spreading wash and
+                    collapses the other two; the neutral "surprise" default
+                    leaves all three equal. Each ticket sits in a grid-rows
+                    collapser so non-chosen ones animate out of the way. */}
+
+                {/* Surprise me — coral. Empty ticket with the POPULAR badge;
+                    washes coral on press, then commits + slides away. */}
+                <div
+                  className="animate-tile-rise grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none"
+                  style={{ gridTemplateRows: tileCollapsed(false) ? "0fr" : "1fr" }}
                 >
-                  <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm">
-                    <DiceIcon color="#0D7377" size={22} />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-base font-semibold text-[#1a1a1a]">
-                      Surprise me
-                    </span>
-                    <span className="block text-xs text-[#1a1a1a]/55">
-                      Let Triply pick the perfect match
-                    </span>
-                  </span>
-                  <ArrowRightIcon color="#1a1a1a" size={16} />
-                </button>
-
-                {/* I know the region — reveals the region autocomplete. */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      destinationMode === "specific" && regionSelection
-                        ? chooseDestination("specific")
-                        : setDestinationMode("specific")
-                    }
-                    aria-expanded={destinationMode === "specific"}
-                    className={`w-full flex items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left transition-colors ${
-                      destinationMode === "specific"
-                        ? "bg-[#0D7377]/10"
-                        : "bg-[#F5F5F5] hover:bg-[#0D7377]/10"
-                    }`}
-                    style={{ minHeight: "48px" }}
-                  >
-                    <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm">
-                      <PinIcon color="#0D7377" size={22} />
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-base font-semibold text-[#1a1a1a]">
-                        I know the region
-                      </span>
-                      <span className="block text-xs text-[#1a1a1a]/55">
-                        Country, island, or area — we&apos;ll find the spots
-                      </span>
-                    </span>
-                    <ArrowRightIcon color="#1a1a1a" size={16} />
-                  </button>
-
-                  {/* Region autocomplete — same expand-transition + overflow-
-                      swap pattern (relocated) so the dropdown isn't clipped.
-                      Selecting a region auto-advances to Budget. */}
                   <div
-                    className="grid transition-[grid-template-rows] duration-300 ease-out"
-                    style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
-                    onTransitionEnd={(e) => {
-                      if (
-                        e.propertyName === "grid-template-rows" &&
-                        destinationMode === "specific"
-                      ) {
-                        setSpecificExpanded(true);
-                      }
-                    }}
+                    className={`min-h-0 ${
+                      tileCollapsed(false)
+                        ? // Snap to invisible the instant it collapses (no fade)
+                          // so the coral badge/dice never paint a frame while a
+                          // region/exact ticket is being chosen.
+                          "overflow-hidden opacity-0"
+                        : "overflow-visible opacity-100 transition-opacity duration-200 motion-reduce:transition-none"
+                    }`}
                   >
-                    <div
-                      className={
-                        specificExpanded && destinationMode === "specific"
-                          ? "overflow-visible"
-                          : "overflow-hidden"
-                      }
-                    >
-                      <div
-                        className={`mt-3 rounded-2xl transition-shadow duration-500 ${
-                          prefillHighlight && prefilled?.kind === "region"
-                            ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
-                            : ""
+                    <div className="pb-3">
+                      <button
+                        type="button"
+                        onClick={handleSurprise}
+                        className={`group/surprise relative w-full overflow-hidden flex items-center gap-4 rounded-3xl px-5 py-5 text-left bg-white border text-[#1a1a1a] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC] ${
+                          surpriseCommitting
+                            ? "border-transparent shadow-[0_16px_38px_-10px_rgba(255,107,71,0.6)]"
+                            : "border-[#1a1a1a]/10 shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.16)] active:scale-[0.97] motion-safe:hover:-translate-y-0.5"
                         }`}
+                        style={{ minHeight: "48px" }}
                       >
-                        <CityAutocomplete
-                          mode="region"
-                          value={regionSelection}
-                          onChange={(sel) => {
-                            setRegionSelection(sel);
-                            if (sel) chooseDestination("specific");
-                          }}
-                          placeholder="e.g. Portugal, Sicily, Bali..."
-                        />
-                      </div>
-                      <p className="mt-2 text-xs text-muted">
-                        Country, region, or island — we&apos;ll find 3 great
-                        spots there.
-                      </p>
+                        {/* Coral press wash on tap. Only mounted while surprise
+                            is a live choice (not while a region/exact ticket is
+                            chosen) so this full-bleed coral can't bleed through
+                            another tile's selection transition. */}
+                        {!forkChoosing && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 bg-[#FF6B47] opacity-0 transition-opacity duration-200 group-active/surprise:opacity-100 motion-reduce:transition-none"
+                          />
+                        )}
+                        {/* Commit wipe — same left-to-right wash as region/exact,
+                            held during the beat before sliding into the wizard. */}
+                        {surpriseCommitting && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 origin-left bg-[#FF6B47] animate-fill-wipe"
+                          />
+                        )}
+                        {/* Coral dice chip — render-gated out the instant a
+                            region/exact ticket is pressed (coralPressed) and kept
+                            out once chosen (forkChoosing), so no coral can paint a
+                            frame as this tile collapses. Present in neutral and
+                            during the surprise commit (both false there). */}
+                        {!forkChoosing && !coralPressed && (
+                          <span
+                            className={`relative z-10 shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-2xl ring-1 ring-inset transition-[transform,color,background-color] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-safe:group-hover/surprise:-rotate-12 motion-safe:group-active/surprise:-rotate-[24deg] motion-safe:group-active/surprise:scale-90 ${
+                              surpriseCommitting
+                                ? "bg-white/20 ring-white/25 text-white"
+                                : "bg-[#FF6B47]/10 ring-[#FF6B47]/15 text-[#FF6B47] group-active/surprise:bg-white/20 group-active/surprise:text-white"
+                            }`}
+                          >
+                            {/* Inner wrapper carries the idle tumble so the chip's
+                                hover/press rotate composes without conflict. */}
+                            <span className="inline-flex animate-dice-idle">
+                              <DiceIcon color="currentColor" size={30} />
+                            </span>
+                          </span>
+                        )}
+                        <span className="relative z-10 flex-1 min-w-0 pr-20">
+                          <span
+                            className={`block text-xl font-bold leading-tight ${
+                              surpriseCommitting ? "text-white" : "group-active/surprise:text-white"
+                            }`}
+                          >
+                            Surprise me
+                          </span>
+                          <span
+                            className={`block text-sm mt-1 leading-snug ${
+                              surpriseCommitting
+                                ? "text-white/85"
+                                : "text-[#1a1a1a]/55 group-active/surprise:text-white/85"
+                            }`}
+                          >
+                            Let Triply pick the perfect match for your vibe
+                          </span>
+                        </span>
+                        {/* "Popular" badge — OUTLINE chip (coral border + text on
+                            a white base, no solid coral fill) so there is no solid
+                            coral surface that could paint even a single flash frame
+                            as the tile collapses. Still render-gated on press
+                            (coralPressed) / choice (forkChoosing) as belt-and-
+                            suspenders. On the coral press wash it inverts to a
+                            white outline. */}
+                        {!forkChoosing && !coralPressed && (
+                          <span
+                            className={`absolute z-10 top-4 right-4 inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm ${
+                              surpriseCommitting
+                                ? "bg-white text-[#FF6B47] border-transparent"
+                                : "bg-white text-[#FF6B47] border-[#FF6B47]/55 group-active/surprise:bg-transparent group-active/surprise:text-white group-active/surprise:border-white/70"
+                            }`}
+                          >
+                            Popular
+                          </span>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Divider into the "already decided" path. */}
-                <div className="flex items-center gap-3 py-1">
-                  <span className="h-px flex-1 bg-[#1a1a1a]/10" />
-                  <span className="text-xs font-medium uppercase tracking-wider text-[#1a1a1a]/40">
-                    or, already decided?
-                  </span>
-                  <span className="h-px flex-1 bg-[#1a1a1a]/10" />
-                </div>
+                {/* Region + exact — rendered from ONE shared template
+                    (placeTickets) so their fill / expand / collapse / checkmark
+                    behaviour stays identical and can't drift. */}
+                {placeTickets.map((cfg) => {
+                  const Icon = cfg.Icon;
+                  const selected = destinationMode === cfg.mode;
+                  const collapsed = tileCollapsed(selected);
+                  return (
+                    <div
+                      key={cfg.mode}
+                      className="animate-tile-rise grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none"
+                      style={{ animationDelay: cfg.delay, gridTemplateRows: collapsed ? "0fr" : "1fr" }}
+                    >
+                      <div
+                        className={`min-h-0 ${
+                          collapsed
+                            ? // Instant hide on collapse (no fade) — no coral or
+                              // stale content frame during another tile's select.
+                              "overflow-hidden opacity-0"
+                            : "overflow-visible opacity-100 transition-opacity duration-200 motion-reduce:transition-none"
+                        }`}
+                      >
+                        <div className="pb-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              selected && cfg.selection
+                                ? chooseDestination(cfg.mode)
+                                : setDestinationMode(cfg.mode)
+                            }
+                            // Drop the surprise tile's coral the moment this tile
+                            // is pressed — before the browser paints the pressed
+                            // state — so no coral frame survives into the collapse.
+                            // Restored if the press is abandoned (pointer leaves /
+                            // cancels) without selecting.
+                            onPointerDown={() => setCoralPressed(true)}
+                            onPointerLeave={() => setCoralPressed(false)}
+                            onPointerCancel={() => setCoralPressed(false)}
+                            aria-expanded={selected}
+                            className={`group/place relative w-full overflow-hidden flex items-center gap-4 rounded-3xl px-5 py-5 text-left transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC] ${cfg.focusRing} ${
+                              selected
+                                ? `bg-white text-white border border-transparent ${cfg.selectedShadow}`
+                                : "bg-white border border-[#1a1a1a]/10 text-[#1a1a1a] shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.16)] active:scale-[0.97] motion-safe:hover:-translate-y-0.5"
+                            }`}
+                            style={{ minHeight: "48px" }}
+                          >
+                            {selected && (
+                              <span
+                                aria-hidden
+                                className={`pointer-events-none absolute inset-0 origin-left ${cfg.fillClass} animate-fill-wipe`}
+                              />
+                            )}
+                            <span
+                              className={`relative z-10 shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-2xl ring-1 ring-inset transition-[transform,color,background-color] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-safe:group-hover/place:scale-110 motion-safe:group-active/place:scale-100 ${
+                                selected ? "bg-white/20 ring-white/25 text-white" : cfg.iconIdleClass
+                              }`}
+                            >
+                              <Icon color="currentColor" size={28} />
+                            </span>
+                            <span className="relative z-10 flex-1 min-w-0">
+                              <span className="block text-xl font-bold leading-tight">
+                                {cfg.label}
+                              </span>
+                              <span
+                                className={`block text-sm mt-1 leading-snug ${
+                                  selected ? "text-white/85" : "text-[#1a1a1a]/55"
+                                }`}
+                              >
+                                {cfg.subtext}
+                              </span>
+                            </span>
+                            {selected && (
+                              <span className="relative z-10 shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm">
+                                <CheckIcon color={cfg.accent} size={18} />
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
 
-                {/* I know the exact city — accent-tinted, reveals the city
-                    autocomplete. Selecting a city auto-advances to Budget. */}
-                <div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      destinationMode === "exact_city" && exactCity
-                        ? chooseDestination("exact_city")
-                        : setDestinationMode("exact_city")
+                {/* Region autocomplete — same expand-transition + overflow-
+                    swap pattern (relocated below the pair) so the dropdown
+                    isn't clipped. Selecting a region auto-advances to Budget. */}
+                <div
+                  className="grid transition-[grid-template-rows] duration-300 ease-out"
+                  style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
+                  onTransitionEnd={(e) => {
+                    if (
+                      e.propertyName === "grid-template-rows" &&
+                      destinationMode === "specific"
+                    ) {
+                      setSpecificExpanded(true);
+                      // Panel is fully expanded now — bring the input into view
+                      // and focus it (single scroll, no double-jump).
+                      revealInput(regionInputRef.current);
                     }
-                    aria-expanded={destinationMode === "exact_city"}
-                    className={`w-full flex items-center gap-3.5 rounded-2xl border border-[#FF6B47]/30 px-4 py-3.5 text-left transition-colors ${
-                      destinationMode === "exact_city"
-                        ? "bg-[#FF6B47]/[0.14]"
-                        : "bg-[#FF6B47]/[0.08] hover:bg-[#FF6B47]/[0.14]"
-                    }`}
-                    style={{ minHeight: "48px" }}
+                  }}
+                >
+                  <div
+                    className={
+                      specificExpanded && destinationMode === "specific"
+                        ? "overflow-visible"
+                        : "overflow-hidden"
+                    }
                   >
-                    <span className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white shadow-sm">
-                      <TargetIcon color="#FF6B47" size={22} />
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-base font-semibold text-[#1a1a1a]">
-                        I know the exact city
-                      </span>
-                      <span className="block text-xs text-[#1a1a1a]/55">
-                        Plan a detailed trip to one city
-                      </span>
-                    </span>
-                    <ArrowRightIcon color="#FF6B47" size={16} />
-                  </button>
-
-                  {destinationMode === "exact_city" && (
                     <div
                       className={`mt-3 rounded-2xl transition-shadow duration-500 ${
-                        prefillHighlight && prefilled?.kind === "city"
+                        prefillHighlight && prefilled?.kind === "region"
                           ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
                           : ""
                       }`}
                     >
                       <CityAutocomplete
-                        value={exactCity}
+                        mode="region"
+                        value={regionSelection}
+                        innerInputRef={regionInputRef}
                         onChange={(sel) => {
-                          setExactCity(sel);
-                          if (sel) chooseDestination("exact_city");
+                          setRegionSelection(sel);
+                          if (sel) chooseDestination("specific");
                         }}
-                        placeholder="Type a city — Lisbon, Athens, Reykjavík…"
+                        placeholder="e.g. Portugal, Sicily, Bali..."
                       />
-                      <p className="mt-2 text-xs text-muted">
-                        Pick a specific city — we&apos;ll plan a detailed trip
-                        there.
-                      </p>
                     </div>
-                  )}
+                    <p className="mt-2 text-xs text-muted">
+                      Country, region, or island — we&apos;ll find 3 great
+                      spots there.
+                    </p>
+                  </div>
                 </div>
+
+                {/* Exact-city autocomplete. Selecting a city auto-advances. */}
+                {destinationMode === "exact_city" && (
+                  <div
+                    className={`mt-3 rounded-2xl transition-shadow duration-500 ${
+                      prefillHighlight && prefilled?.kind === "city"
+                        ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
+                        : ""
+                    }`}
+                  >
+                    <CityAutocomplete
+                      value={exactCity}
+                      innerInputRef={exactInputRef}
+                      onChange={(sel) => {
+                        setExactCity(sel);
+                        if (sel) chooseDestination("exact_city");
+                      }}
+                      placeholder="Type a city — Lisbon, Athens, Reykjavík…"
+                    />
+                    <p className="mt-2 text-xs text-muted">
+                      Pick a specific city — we&apos;ll plan a detailed trip
+                      there.
+                    </p>
+                  </div>
+                )}
+
+                {/* Back affordance — returns to the neutral three-ticket state
+                    by resetting to the "surprise" default (no commit). Only
+                    shown while a region/exact ticket is filled. */}
+                {forkChoosing && (
+                  <button
+                    type="button"
+                    onClick={() => setDestinationMode("surprise")}
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-semibold text-[#1a1a1a]/55 hover:text-[#1a1a1a] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a1a]/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC]"
+                  >
+                    <ArrowLeftIcon color="currentColor" size={16} />
+                    Choose differently
+                  </button>
+                )}
               </div>
             </div>
           ) : (
