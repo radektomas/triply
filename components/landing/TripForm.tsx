@@ -421,6 +421,9 @@ export function TripForm() {
   // to the revealed input without a jarring double-jump. None of this touches
   // selection logic, analytics, or navigation.
   const formCardRef = useRef<HTMLDivElement>(null);
+  // The Surprise tile button — measured at commit so the coral bridge curtain
+  // can match its exact bounds (never spilling past the tile frame).
+  const surpriseTileRef = useRef<HTMLButtonElement>(null);
   const regionInputRef = useRef<HTMLInputElement>(null);
   const exactInputRef = useRef<HTMLInputElement>(null);
 
@@ -531,40 +534,45 @@ export function TripForm() {
   // fork unmounts and (2) hold it until the budget has actually PAINTED
   // underneath — not a fixed timeout a throttled phone can miss.
   const [commitCurtain, setCommitCurtain] = useState(false);
+  // The curtain is sized/positioned to the Surprise TILE (captured at commit),
+  // NOT the whole card — coral must never extend beyond the tile's rounded
+  // frame. Measured relative to the card container (its positioned ancestor).
+  const [curtainRect, setCurtainRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
   useEffect(() => {
     // Reset on return to the fork so the surprise ticket isn't stuck filled and
     // no stale curtain lingers.
     if (onDestinationScreen) {
       setSurpriseCommitting(false);
       setCommitCurtain(false);
+      setCurtainRect(null);
     }
   }, [onDestinationScreen]);
-  // Release the curtain only AFTER the budget step has painted underneath. Two
+  // Release the curtain the moment the budget step has painted underneath. Two
   // rAFs straddle a full frame (rAF callbacks run just before paint, so the
-  // second fires after the browser has painted the just-mounted budget), then a
-  // small floor for very slow devices. Only then do we fade the curtain out
-  // (AnimatePresence exit) — so there is never a frame where the curtain is gone
-  // but the budget isn't drawn. This is the robustness the old fixed 150ms hold
-  // lacked. Instant under reduced motion.
+  // second fires after the browser has painted the just-mounted budget) — this
+  // is the paint gate that guarantees no white frame can appear before the form.
+  // We release IMMEDIATELY after that second rAF (no extra hold floor): the form
+  // is confirmed on screen, so any further delay would just be opaque coral, or
+  // — via the exit fade — a coral tint over the visible form. The exit fade
+  // itself is kept very short (see AnimatePresence below) so the form reads clean
+  // white within a frame or two. Instant under reduced motion.
   useEffect(() => {
     if (!commitCurtain || onDestinationScreen) return;
     let raf1 = 0;
     let raf2 = 0;
-    let timer = 0;
     raf1 = window.requestAnimationFrame(() => {
-      raf2 = window.requestAnimationFrame(() => {
-        timer = window.setTimeout(
-          () => setCommitCurtain(false),
-          prefersReducedMotion() ? 0 : 80,
-        );
-      });
+      raf2 = window.requestAnimationFrame(() => setCommitCurtain(false));
     });
     return () => {
       window.cancelAnimationFrame(raf1);
       window.cancelAnimationFrame(raf2);
-      window.clearTimeout(timer);
     };
-  }, [commitCurtain, onDestinationScreen, prefersReducedMotion]);
+  }, [commitCurtain, onDestinationScreen]);
 
   // Coral suppression: the surprise tile's coral content (badge + dice) is
   // unmounted the instant a region/exact ticket is *pressed* (pointerdown),
@@ -582,10 +590,27 @@ export function TripForm() {
     setSurpriseCommitting(true);
     const delay = prefersReducedMotion() ? 200 : 360;
     window.setTimeout(() => {
+      // Measure the still-mounted, already-coral Surprise tile relative to the
+      // card container so the bridge curtain can match its EXACT bounds — the
+      // coral never extends beyond the tile's own rounded frame. Falls back to
+      // no curtain if either element is missing (the atomic full-opacity form
+      // swap via skipEntryAnim still prevents a white beat on its own).
+      const cardEl = formCardRef.current;
+      const tileEl = surpriseTileRef.current;
+      if (cardEl && tileEl) {
+        const card = cardEl.getBoundingClientRect();
+        const tile = tileEl.getBoundingClientRect();
+        setCurtainRect({
+          top: tile.top - card.top,
+          left: tile.left - card.left,
+          width: tile.width,
+          height: tile.height,
+        });
+      }
       // Raise the coral curtain FIRST — it paints over the still-present, already
-      // coral fork — THEN swap to the budget on the next frame, so the fork never
-      // unmounts into an uncovered frame. Released later, once the budget has
-      // painted underneath (see effect above).
+      // coral fork tile — THEN swap to the budget on the next frame, so the tile
+      // never unmounts into an uncovered frame. Released later, once the budget
+      // has painted underneath (see effect above).
       setCommitCurtain(true);
       window.requestAnimationFrame(() => chooseDestination("surprise"));
     }, delay);
@@ -1206,6 +1231,7 @@ export function TripForm() {
                       className="pb-3 w-full transform-gpu"
                     >
                       <button
+                        ref={surpriseTileRef}
                         type="button"
                         onClick={handleSurprise}
                         className={`group/surprise relative w-full overflow-hidden flex items-center gap-4 rounded-3xl px-5 py-5 text-left bg-white border text-[#1a1a1a] transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC] ${
@@ -1943,24 +1969,37 @@ export function TripForm() {
         </div>
 
         {/* Coral commit curtain — bridges the fork→budget key-swap so the
-            Surprise tile's coral NEVER reverts to white. It lives here at the
-            card level (a sibling of the keyed content div, which unmounts on
-            commit), so it survives the swap. Gated to appear only once the fork
-            has left (surpriseCommitting && !onDestinationScreen): it mounts the
-            exact frame the coral tile unmounts, already fully coral
-            (initial=false → no fade-in) and matching the tile fill, holds while
-            the budget paints underneath, then fades out (AnimatePresence exit)
-            to reveal the form. Coral on every frame from click until the budget
-            is on screen — no white frame between. Instant under reduced motion. */}
+            Surprise tile's coral hands straight off to the form. It lives here at
+            the card level (a sibling of the keyed content div, which unmounts on
+            commit) so it survives the swap, but it is sized/positioned to the
+            TILE's captured bounds (curtainRect) — NEVER the whole card — so the
+            coral can never extend past the tile's own rounded frame. It mounts
+            the exact frame the coral tile unmounts, already fully coral
+            (initial=false → no fade-in) and matching the tile fill + radius,
+            holds while the budget paints underneath (paint gate above), then
+            fades out fast (~90ms) to reveal the form. The rest of the card paints
+            as the form directly (full opacity via skipEntryAnim) — no white beat.
+            Instant under reduced motion. */}
         <AnimatePresence>
-          {commitCurtain && (
+          {commitCurtain && curtainRect && (
             <motion.div
               key="coral-commit-curtain"
               aria-hidden
-              className="pointer-events-none absolute -inset-px z-40 rounded-3xl bg-gradient-to-br from-[#FF7A57] to-[#FF6B47]"
+              className="pointer-events-none absolute z-40 rounded-3xl bg-gradient-to-br from-[#FF7A57] to-[#FF6B47]"
+              style={{
+                top: curtainRect.top,
+                left: curtainRect.left,
+                width: curtainRect.width,
+                height: curtainRect.height,
+              }}
               initial={false}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut" } }}
+              // Fast hand-off: the paint gate above only releases the curtain once
+              // the form is confirmed painted underneath, so this exit plays OVER
+              // the visible form — keep it near-instant (~90ms) so the form reads
+              // clean white almost immediately and is never tinted orange. A slow
+              // fade here was what left the form looking orange after commit.
+              exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.09, ease: "linear" } }}
             />
           )}
         </AnimatePresence>
