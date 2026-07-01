@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { DateRange } from "react-day-picker";
 import { addDays, differenceInDays } from "date-fns";
+// NOTE: the repo ships `framer-motion` (not the `motion` package), and every
+// animated component here imports from "framer-motion" — so we do too. The
+// AGENTS.md `motion/react` path would not resolve.
+import { motion, AnimatePresence, LayoutGroup, useReducedMotion } from "framer-motion";
 
 // The calendar pulls in react-day-picker + its stylesheet — only needed once
 // the user reaches the date step, so load it on demand (ssr:false) to keep it
@@ -211,6 +215,11 @@ function ProgressDots({
 
 export function TripForm() {
   const router = useRouter();
+  // Reactive reduced-motion flag for the fork-tile Motion animations below.
+  // (Distinct from the imperative `prefersReducedMotion` callback used by the
+  // scroll helpers.) When true, every fork transition runs at duration 0 with
+  // no entrance offset — instant, identical end state.
+  const reduceMotion = useReducedMotion() ?? false;
   // Fires `trip_form_started` exactly once, on the user's first meaningful
   // interaction with the wizard (first budget edit or first step advance).
   // Ref-guarded so repeated interactions don't re-fire. A hoisted function
@@ -251,6 +260,14 @@ export function TripForm() {
   // currentStep so the numbered dots never count the pre-screen as a step.
   const [onDestinationScreen, setOnDestinationScreen] = useState(true);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
+  // One-shot: skip the wizard's opacity-fade entry animation for the FIRST
+  // frame after committing a destination from the fork. The fork tile already
+  // filled with colour to "carry you in", so the budget step must appear
+  // instantly — otherwise it mounts at opacity 0 over a pure-white card, which
+  // reads as "the tile fills, then goes completely white for a beat, then the
+  // form". Set true on commit; cleared on the next navigation so budget↔when↔
+  // vibe keep their normal slide.
+  const [skipEntryAnim, setSkipEntryAnim] = useState(false);
   const [budget, setBudget] = useState(500);
   // Mirror of `budget` for the editable big-number input. Shows the EUR
   // canonical value CONVERTED to the user's selected currency (so €500 reads
@@ -302,18 +319,6 @@ export function TripForm() {
   // onReady to drive the actual router.push (after the optional game's
   // reveal delay if the user opted in).
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
-  // "Expand has settled" flag for the region panel. Drives an
-  // overflow-hidden → overflow-visible swap so the autocomplete dropdown
-  // isn't clipped by the panel boundary, while still letting the
-  // grid-template-rows collapse animation clip content during open/close.
-  // (The exact-city input is rendered directly in the Step 1 intent state,
-  // not inside a collapsing panel, so it needs no equivalent flag.)
-  const [specificExpanded, setSpecificExpanded] = useState(false);
-  // Reset the flag synchronously (before paint) on every mode change so we
-  // always re-clip during the next transition cycle.
-  useLayoutEffect(() => {
-    setSpecificExpanded(false);
-  }, [destinationMode]);
   const [loading, setLoading] = useState(false);
   // Broadcast generation on/off so the ambient HERO mascot (in a separate part
   // of the tree, with no access to this state) can pause its loops while the
@@ -497,16 +502,69 @@ export function TripForm() {
     return () => window.clearTimeout(id);
   }, [destinationMode, revealInput, prefersReducedMotion]);
 
+  // Region reveal: the panel is rendered the instant "I know the region" is
+  // tapped (no height animation any more — see collapsedSettled), so we wait
+  // the same settle beat for the non-chosen tiles to fade + leave flow, then
+  // scroll the input into view and focus it in a single move. Mirrors the
+  // exact-city reveal above; replaces the old grid-template-rows transitionend
+  // trigger. Instant under reduced motion.
+  useEffect(() => {
+    if (!stateRef.current.onDestinationScreen) return;
+    if (destinationMode !== "specific") return;
+    const settle = prefersReducedMotion() ? 0 : 320;
+    const id = window.setTimeout(
+      () => revealInput(regionInputRef.current),
+      settle,
+    );
+    return () => window.clearTimeout(id);
+  }, [destinationMode, revealInput, prefersReducedMotion]);
+
   // Surprise "fill, then carry you in": on tap the coral wash spreads across
   // the ticket, then after a short beat we commit + slide into the wizard — so
   // it reads as the tile filling and carrying you in, not an instant cut.
   // Under reduced motion the fill is shown at full (no spread) for a brief
   // beat, then advance. Does not change chooseDestination — only schedules it.
   const [surpriseCommitting, setSurpriseCommitting] = useState(false);
+  // Coral commit curtain: a full-card coral overlay (rendered at card level,
+  // below) that bridges the fork→budget swap so the surprise coral never reverts
+  // to white. Decoupled from surpriseCommitting so we can (1) raise it BEFORE the
+  // fork unmounts and (2) hold it until the budget has actually PAINTED
+  // underneath — not a fixed timeout a throttled phone can miss.
+  const [commitCurtain, setCommitCurtain] = useState(false);
   useEffect(() => {
-    // Reset on return to the fork so the surprise ticket isn't stuck filled.
-    if (onDestinationScreen) setSurpriseCommitting(false);
+    // Reset on return to the fork so the surprise ticket isn't stuck filled and
+    // no stale curtain lingers.
+    if (onDestinationScreen) {
+      setSurpriseCommitting(false);
+      setCommitCurtain(false);
+    }
   }, [onDestinationScreen]);
+  // Release the curtain only AFTER the budget step has painted underneath. Two
+  // rAFs straddle a full frame (rAF callbacks run just before paint, so the
+  // second fires after the browser has painted the just-mounted budget), then a
+  // small floor for very slow devices. Only then do we fade the curtain out
+  // (AnimatePresence exit) — so there is never a frame where the curtain is gone
+  // but the budget isn't drawn. This is the robustness the old fixed 150ms hold
+  // lacked. Instant under reduced motion.
+  useEffect(() => {
+    if (!commitCurtain || onDestinationScreen) return;
+    let raf1 = 0;
+    let raf2 = 0;
+    let timer = 0;
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        timer = window.setTimeout(
+          () => setCommitCurtain(false),
+          prefersReducedMotion() ? 0 : 80,
+        );
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+      window.clearTimeout(timer);
+    };
+  }, [commitCurtain, onDestinationScreen, prefersReducedMotion]);
 
   // Coral suppression: the surprise tile's coral content (badge + dice) is
   // unmounted the instant a region/exact ticket is *pressed* (pointerdown),
@@ -523,7 +581,14 @@ export function TripForm() {
     if (surpriseCommitting) return;
     setSurpriseCommitting(true);
     const delay = prefersReducedMotion() ? 200 : 360;
-    window.setTimeout(() => chooseDestination("surprise"), delay);
+    window.setTimeout(() => {
+      // Raise the coral curtain FIRST — it paints over the still-present, already
+      // coral fork — THEN swap to the budget on the next frame, so the fork never
+      // unmounts into an uncovered frame. Released later, once the budget has
+      // painted underneath (see effect above).
+      setCommitCurtain(true);
+      window.requestAnimationFrame(() => chooseDestination("surprise"));
+    }, delay);
   }
 
   // Sync the editable number-input mirror with the EUR canonical state,
@@ -692,6 +757,7 @@ export function TripForm() {
       // wizard — the destination is committed by choosing an option instead.
       if (s.onDestinationScreen) return;
       if (s.currentStep < 3) {
+        setSkipEntryAnim(false);
         setDirection("forward");
         setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
       } else {
@@ -894,16 +960,19 @@ export function TripForm() {
 
   function handleNext() {
     markFormStarted();
+    setSkipEntryAnim(false);
     setDirection("forward");
     setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
   }
 
   function handleBack() {
+    setSkipEntryAnim(false);
     setDirection("back");
     setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3) : prev));
   }
 
   function handleJump(step: 1 | 2 | 3) {
+    setSkipEntryAnim(false);
     setDirection("back");
     setCurrentStep(step);
   }
@@ -920,17 +989,24 @@ export function TripForm() {
       option: option === "specific" ? "region" : option,
     });
     setDirection("forward");
+    // Appear in the wizard instantly (no opacity fade) so the coral fill hands
+    // straight off to the form — no white-card beat in between.
+    setSkipEntryAnim(true);
     setOnDestinationScreen(false);
   }
 
   // Return from Budget to the destination pre-screen to change the choice.
   function handleBackToDestination() {
+    setSkipEntryAnim(false);
     setDirection("back");
     setOnDestinationScreen(true);
   }
 
-  const animClass =
-    direction === "forward" ? "animate-slide-in-right" : "animate-slide-in-left";
+  const animClass = skipEntryAnim
+    ? ""
+    : direction === "forward"
+    ? "animate-slide-in-right"
+    : "animate-slide-in-left";
 
   // The "intent" path (user typed an exact city) skips the vibe selector
   // entirely. It's derived purely from destinationMode so the destination
@@ -948,6 +1024,20 @@ export function TripForm() {
     (destinationMode === "specific" || destinationMode === "exact_city");
   // A ticket is collapsed when another ticket is the active choice.
   const tileCollapsed = (selected: boolean) => forkChoosing && !selected;
+  // While the surprise tile is being pressed-away (coralPressed, the pre-commit
+  // window where the old coral-flash happened) or is leaving because a
+  // region/exact ticket was chosen (forkChoosing, the lift-away exit), render
+  // its content in a NEUTRAL (non-coral) palette instead of unmounting it. The
+  // whole tile — dice, label, badge — then lifts away as one complete piece (no
+  // empty white card), while no coral surface exists to paint a flash frame.
+  const surpriseNeutral = forkChoosing || coralPressed;
+
+  // Collapse is now Motion-driven (see the fork JSX below). Non-chosen tickets
+  // simply `return null` the instant a choice is made; <AnimatePresence
+  // mode="popLayout"> pops them out of flow and fades them (opacity, compositor)
+  // while the chosen ticket's `layout` prop FLIP-slides it up into the vacated
+  // space via transform — a real glide, not the old fade-then-reflow snap. No
+  // grid-rows animation, no collapsedSettled timing flag any more.
 
   // Region + exact share ONE ticket template (rendered from this config) so
   // their fill / expand / collapse / checkmark behaviour can never drift apart.
@@ -1072,31 +1162,49 @@ export function TripForm() {
                 </p>
               </div>
 
-              <div>
+              {/* `relative` is REQUIRED: <AnimatePresence mode="popLayout">
+                  yanks each exiting ticket to position:absolute so the chosen
+                  ticket can slide up immediately. An absolutely-positioned
+                  exiting tile anchors to its nearest positioned ancestor — so
+                  without `relative` here it jumps far up the tree and jitters
+                  out (the "stays a moment then janky disappears" bug). With it,
+                  the leaving tile fades in place while the chosen one glides. */}
+              <div className="relative">
                 {/* Three empty light "tickets" by default — colour lives only
                     in each icon (coral / teal / ink). Choosing region or exact
                     fills that ticket with its colour via a spreading wash and
                     collapses the other two; the neutral "surprise" default
-                    leaves all three equal. Each ticket sits in a grid-rows
-                    collapser so non-chosen ones animate out of the way. */}
+                    leaves all three equal. Non-chosen tickets exit via
+                    AnimatePresence while the chosen one FLIP-slides up. */}
 
                 {/* Surprise me — coral. Empty ticket with the POPULAR badge;
                     washes coral on press, then commits + slides away. */}
-                <div
-                  className="animate-tile-rise grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none"
-                  style={{ gridTemplateRows: tileCollapsed(false) ? "0fr" : "1fr" }}
-                >
-                  <div
-                    className={`min-h-0 ${
-                      tileCollapsed(false)
-                        ? // Snap to invisible the instant it collapses (no fade)
-                          // so the coral badge/dice never paint a frame while a
-                          // region/exact ticket is being chosen.
-                          "overflow-hidden opacity-0"
-                        : "overflow-visible opacity-100 transition-opacity duration-200 motion-reduce:transition-none"
-                    }`}
-                  >
-                    <div className="pb-3">
+                <LayoutGroup>
+                <AnimatePresence mode="popLayout">
+                {!tileCollapsed(false) && (
+                    <motion.div
+                      key="surprise"
+                      // layout="position" (not full layout) — the tiles never
+                      // resize, they only move, so we animate position only. Full
+                      // `layout` would also interpolate size and can stutter.
+                      layout="position"
+                      // Coral dice/badge are render-gated out via forkChoosing
+                      // before this exit runs, so the tile leaving is plain white
+                      // — no coral frame can paint.
+                      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut" } }}
+                      // Soft dissolve: fade in place only — no lift, no scale, no
+                      // directional motion. `layout` (popLayout on the parent)
+                      // closes the gap via transform on a gentle tween. Nothing
+                      // flies away, so no half-gone tile ever exposes a gap, and
+                      // surprise's already-neutral content just fades out calmly.
+                      exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.24, ease: "easeOut" } }}
+                      // Gap-close via transform (FLIP), calm ease-out settle, no
+                      // spring overshoot. transform-gpu promotes the tile to its
+                      // own compositor layer so the slide stays smooth at 4x CPU.
+                      transition={{ layout: reduceMotion ? { duration: 0 } : { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }}
+                      className="pb-3 w-full transform-gpu"
+                    >
                       <button
                         type="button"
                         onClick={handleSurprise}
@@ -1108,32 +1216,46 @@ export function TripForm() {
                         style={{ minHeight: "48px" }}
                       >
                         {/* Coral press wash on tap. Only mounted while surprise
-                            is a live choice (not while a region/exact ticket is
-                            chosen) so this full-bleed coral can't bleed through
-                            another tile's selection transition. */}
-                        {!forkChoosing && (
+                            is a live choice — kept out during the press-away /
+                            leaving window (surpriseNeutral) so this full-bleed
+                            coral can't bleed through another tile's selection
+                            transition. (It only paints on the surprise button's
+                            own :active, so removing it here changes nothing
+                            visible — belt-and-suspenders against a coral frame.) */}
+                        {!surpriseNeutral && (
                           <span
                             aria-hidden
                             className="pointer-events-none absolute inset-0 bg-[#FF6B47] opacity-0 transition-opacity duration-200 group-active/surprise:opacity-100 motion-reduce:transition-none"
                           />
                         )}
-                        {/* Commit wipe — same left-to-right wash as region/exact,
-                            held during the beat before sliding into the wizard. */}
+                        {/* Commit fill — the SAME cross-fade mechanism as the
+                            region/exact tiles: opacity 0→1 over a soft coral
+                            gradient (with the dice/label colours cross-fading in
+                            sync below), NOT the old left-to-right scaleX wipe, so
+                            all three tiles fill identically. Held during the beat
+                            before sliding into the wizard. Instant under reduced
+                            motion (initial=false → resting at full coverage). */}
                         {surpriseCommitting && (
-                          <span
+                          <motion.span
                             aria-hidden
-                            className="pointer-events-none absolute inset-0 origin-left bg-[#FF6B47] animate-fill-wipe"
+                            initial={reduceMotion ? false : { opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: reduceMotion ? 0 : 0.3, ease: "easeOut" }}
+                            className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#FF7A57] to-[#FF6B47]"
                           />
                         )}
-                        {/* Coral dice chip — render-gated out the instant a
-                            region/exact ticket is pressed (coralPressed) and kept
-                            out once chosen (forkChoosing), so no coral can paint a
-                            frame as this tile collapses. Present in neutral and
-                            during the surprise commit (both false there). */}
-                        {!forkChoosing && !coralPressed && (
-                          <span
-                            className={`relative z-10 shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-2xl ring-1 ring-inset transition-[transform,color,background-color] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-safe:group-hover/surprise:-rotate-12 motion-safe:group-active/surprise:-rotate-[24deg] motion-safe:group-active/surprise:scale-90 ${
-                              surpriseCommitting
+                        {/* Dice chip — ALWAYS mounted so the tile lifts away as a
+                            complete piece (no empty-white-card frame). Coral only
+                            in the neutral-default and surprise-commit states; the
+                            instant the tile is pressed-away / leaving
+                            (surpriseNeutral) it flips to a NEUTRAL ink palette, so
+                            there is no coral surface to flash during press/collapse.
+                            Replaces the old unmount-on-press gate. */}
+                        <span
+                            className={`relative z-10 shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-2xl ring-1 ring-inset transition-[transform,color,background-color] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none motion-safe:group-hover/surprise:-rotate-12 motion-safe:group-active/surprise:-rotate-[24deg] motion-safe:group-active/surprise:scale-90 ${
+                              surpriseNeutral
+                                ? "bg-[#1a1a1a]/[0.05] ring-[#1a1a1a]/10 text-[#1a1a1a]/70"
+                                : surpriseCommitting
                                 ? "bg-white/20 ring-white/25 text-white"
                                 : "bg-[#FF6B47]/10 ring-[#FF6B47]/15 text-[#FF6B47] group-active/surprise:bg-white/20 group-active/surprise:text-white"
                             }`}
@@ -1144,17 +1266,16 @@ export function TripForm() {
                               <DiceIcon color="currentColor" size={30} />
                             </span>
                           </span>
-                        )}
                         <span className="relative z-10 flex-1 min-w-0 pr-20">
                           <span
-                            className={`block text-xl font-bold leading-tight ${
+                            className={`block text-xl font-bold leading-tight transition-colors duration-300 motion-reduce:transition-none ${
                               surpriseCommitting ? "text-white" : "group-active/surprise:text-white"
                             }`}
                           >
                             Surprise me
                           </span>
                           <span
-                            className={`block text-sm mt-1 leading-snug ${
+                            className={`block text-sm mt-1 leading-snug transition-colors duration-300 motion-reduce:transition-none ${
                               surpriseCommitting
                                 ? "text-white/85"
                                 : "text-[#1a1a1a]/55 group-active/surprise:text-white/85"
@@ -1163,28 +1284,26 @@ export function TripForm() {
                             Let Triply pick the perfect match for your vibe
                           </span>
                         </span>
-                        {/* "Popular" badge — OUTLINE chip (coral border + text on
-                            a white base, no solid coral fill) so there is no solid
-                            coral surface that could paint even a single flash frame
-                            as the tile collapses. Still render-gated on press
-                            (coralPressed) / choice (forkChoosing) as belt-and-
-                            suspenders. On the coral press wash it inverts to a
-                            white outline. */}
-                        {!forkChoosing && !coralPressed && (
-                          <span
+                        {/* "Popular" badge — ALWAYS mounted so the leaving tile
+                            stays complete. Coral outline (border + text on white,
+                            no fill) in the neutral-default / commit states; flips
+                            to a NEUTRAL grey outline the instant the tile is
+                            pressed-away / leaving (surpriseNeutral), so no coral —
+                            not even an outline — can paint a flash frame. */}
+                        <span
                             className={`absolute z-10 top-4 right-4 inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm ${
-                              surpriseCommitting
+                              surpriseNeutral
+                                ? "bg-white text-[#1a1a1a]/45 border-[#1a1a1a]/15"
+                                : surpriseCommitting
                                 ? "bg-white text-[#FF6B47] border-transparent"
                                 : "bg-white text-[#FF6B47] border-[#FF6B47]/55 group-active/surprise:bg-transparent group-active/surprise:text-white group-active/surprise:border-white/70"
                             }`}
                           >
                             Popular
                           </span>
-                        )}
                       </button>
-                    </div>
-                  </div>
-                </div>
+                    </motion.div>
+                )}
 
                 {/* Region + exact — rendered from ONE shared template
                     (placeTickets) so their fill / expand / collapse / checkmark
@@ -1192,23 +1311,26 @@ export function TripForm() {
                 {placeTickets.map((cfg) => {
                   const Icon = cfg.Icon;
                   const selected = destinationMode === cfg.mode;
-                  const collapsed = tileCollapsed(selected);
+                  // Non-chosen tickets leave the DOM immediately; AnimatePresence
+                  // fades them out (opacity) while the chosen ticket's `layout`
+                  // prop FLIP-slides it up into the vacated space via transform —
+                  // a real glide, not a reflow snap. No collapsedSettled gating.
+                  if (tileCollapsed(selected)) return null;
+                  // cfg.delay is "70ms" / "140ms" — parse to seconds for Motion's
+                  // entrance stagger (skipped under reduced motion).
+                  const entranceDelay = reduceMotion ? 0 : parseInt(cfg.delay, 10) / 1000;
                   return (
-                    <div
-                      key={cfg.mode}
-                      className="animate-tile-rise grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none"
-                      style={{ animationDelay: cfg.delay, gridTemplateRows: collapsed ? "0fr" : "1fr" }}
-                    >
-                      <div
-                        className={`min-h-0 ${
-                          collapsed
-                            ? // Instant hide on collapse (no fade) — no coral or
-                              // stale content frame during another tile's select.
-                              "overflow-hidden opacity-0"
-                            : "overflow-visible opacity-100 transition-opacity duration-200 motion-reduce:transition-none"
-                        }`}
-                      >
-                        <div className="pb-3">
+                        <motion.div
+                          key={cfg.mode}
+                          layout="position"
+                          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut", delay: entranceDelay } }}
+                          // Soft dissolve: fade in place only; `layout` closes the
+                          // gap via transform (gentle tween, no spring overshoot).
+                          exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.24, ease: "easeOut" } }}
+                          transition={{ layout: reduceMotion ? { duration: 0 } : { duration: 0.3, ease: [0.22, 1, 0.36, 1] } }}
+                          className="pb-3 w-full transform-gpu"
+                        >
                           <button
                             type="button"
                             onClick={() =>
@@ -1225,32 +1347,49 @@ export function TripForm() {
                             onPointerLeave={() => setCoralPressed(false)}
                             onPointerCancel={() => setCoralPressed(false)}
                             aria-expanded={selected}
-                            className={`group/place relative w-full overflow-hidden flex items-center gap-4 rounded-3xl px-5 py-5 text-left transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC] ${cfg.focusRing} ${
+                            // Transition ONLY transform (not box-shadow): the
+                            // selected shadow is a large blurred layer whose
+                            // per-frame repaint was the audit's #1 jank source.
+                            // It now snaps on instantly, fully masked by the fill
+                            // cross-fade below, so nothing paints per frame here.
+                            className={`group/place relative w-full overflow-hidden flex items-center gap-4 rounded-3xl px-5 py-5 text-left transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC] ${cfg.focusRing} ${
                               selected
                                 ? `bg-white text-white border border-transparent ${cfg.selectedShadow}`
                                 : "bg-white border border-[#1a1a1a]/10 text-[#1a1a1a] shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.16)] active:scale-[0.97] motion-safe:hover:-translate-y-0.5"
                             }`}
                             style={{ minHeight: "48px" }}
                           >
+                            {/* Fill = soft opacity cross-fade (no directional
+                                wipe). The icon/label/subtext colours transition in
+                                sync (below) so the label never sits white-on-white
+                                while the colour dissolves up — the chosen tile
+                                stays fully legible throughout. */}
                             {selected && (
-                              <span
+                              <motion.span
                                 aria-hidden
-                                className={`pointer-events-none absolute inset-0 origin-left ${cfg.fillClass} animate-fill-wipe`}
+                                initial={reduceMotion ? false : { opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: reduceMotion ? 0 : 0.3, ease: "easeOut" }}
+                                className={`pointer-events-none absolute inset-0 ${cfg.fillClass}`}
                               />
                             )}
                             <span
-                              className={`relative z-10 shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-2xl ring-1 ring-inset transition-[transform,color,background-color] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-safe:group-hover/place:scale-110 motion-safe:group-active/place:scale-100 ${
+                              className={`relative z-10 shrink-0 inline-flex items-center justify-center w-14 h-14 rounded-2xl ring-1 ring-inset transition-[transform,color,background-color] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none motion-safe:group-hover/place:scale-110 motion-safe:group-active/place:scale-100 ${
                                 selected ? "bg-white/20 ring-white/25 text-white" : cfg.iconIdleClass
                               }`}
                             >
                               <Icon color="currentColor" size={28} />
                             </span>
                             <span className="relative z-10 flex-1 min-w-0">
-                              <span className="block text-xl font-bold leading-tight">
+                              <span
+                                className={`block text-xl font-bold leading-tight transition-colors duration-300 motion-reduce:transition-none ${
+                                  selected ? "text-white" : "text-[#1a1a1a]"
+                                }`}
+                              >
                                 {cfg.label}
                               </span>
                               <span
-                                className={`block text-sm mt-1 leading-snug ${
+                                className={`block text-sm mt-1 leading-snug transition-colors duration-300 motion-reduce:transition-none ${
                                   selected ? "text-white/85" : "text-[#1a1a1a]/55"
                                 }`}
                               >
@@ -1258,71 +1397,77 @@ export function TripForm() {
                               </span>
                             </span>
                             {selected && (
-                              <span className="relative z-10 shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm">
+                              <motion.span
+                                // Confirmation "settle" — a gentle spring pop
+                                // (transform + opacity only) a beat after the fill
+                                // starts, so selection feels acknowledged. Instant
+                                // under reduced motion.
+                                initial={reduceMotion ? false : { opacity: 0, scale: 0.5 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={
+                                  reduceMotion
+                                    ? { duration: 0 }
+                                    : { type: "spring", stiffness: 500, damping: 24, delay: 0.1 }
+                                }
+                                className="relative z-10 shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm transform-gpu"
+                              >
                                 <CheckIcon color={cfg.accent} size={18} />
-                              </span>
+                              </motion.span>
                             )}
                           </button>
-                        </div>
-                      </div>
-                    </div>
+                        </motion.div>
                   );
                 })}
+                </AnimatePresence>
+                </LayoutGroup>
 
-                {/* Region autocomplete — same expand-transition + overflow-
-                    swap pattern (relocated below the pair) so the dropdown
-                    isn't clipped. Selecting a region auto-advances to Budget. */}
-                <div
-                  className="grid transition-[grid-template-rows] duration-300 ease-out"
-                  style={{ gridTemplateRows: destinationMode === "specific" ? "1fr" : "0fr" }}
-                  onTransitionEnd={(e) => {
-                    if (
-                      e.propertyName === "grid-template-rows" &&
-                      destinationMode === "specific"
-                    ) {
-                      setSpecificExpanded(true);
-                      // Panel is fully expanded now — bring the input into view
-                      // and focus it (single scroll, no double-jump).
-                      revealInput(regionInputRef.current);
-                    }
-                  }}
-                >
-                  <div
-                    className={
-                      specificExpanded && destinationMode === "specific"
-                        ? "overflow-visible"
-                        : "overflow-hidden"
-                    }
+                {/* Region autocomplete — rendered the instant the region ticket
+                    is chosen (scroll + focus handled by the region reveal effect
+                    above), mirroring the exact-city block below. No grid-rows
+                    height animation any more: the non-chosen tickets fade out and
+                    unmount, so this simply appears in the settled layout — one
+                    reflow, no per-frame thrash. Selecting a region auto-advances. */}
+                {destinationMode === "specific" && (
+                  <motion.div
+                    // Eases in a beat after the tiles settle: opacity + a 4px
+                    // transform rise (NOT a layout change — it stays in flow, so
+                    // the 320ms scroll/focus reveal reads a stable rect and can't
+                    // be fought). transform-gpu keeps the rise on the compositor.
+                    initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.3, ease: "easeOut", delay: reduceMotion ? 0 : 0.08 }}
+                    className={`mt-3 rounded-2xl transform-gpu transition-shadow duration-500 ${
+                      prefillHighlight && prefilled?.kind === "region"
+                        ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
+                        : ""
+                    }`}
                   >
-                    <div
-                      className={`mt-3 rounded-2xl transition-shadow duration-500 ${
-                        prefillHighlight && prefilled?.kind === "region"
-                          ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
-                          : ""
-                      }`}
-                    >
-                      <CityAutocomplete
-                        mode="region"
-                        value={regionSelection}
-                        innerInputRef={regionInputRef}
-                        onChange={(sel) => {
-                          setRegionSelection(sel);
-                          if (sel) chooseDestination("specific");
-                        }}
-                        placeholder="e.g. Portugal, Sicily, Bali..."
-                      />
-                    </div>
+                    <CityAutocomplete
+                      mode="region"
+                      value={regionSelection}
+                      innerInputRef={regionInputRef}
+                      onChange={(sel) => {
+                        setRegionSelection(sel);
+                        if (sel) chooseDestination("specific");
+                      }}
+                      placeholder="e.g. Portugal, Sicily, Bali..."
+                    />
                     <p className="mt-2 text-xs text-muted">
                       Country, region, or island — we&apos;ll find 3 great
                       spots there.
                     </p>
-                  </div>
-                </div>
+                  </motion.div>
+                )}
 
                 {/* Exact-city autocomplete. Selecting a city auto-advances. */}
                 {destinationMode === "exact_city" && (
-                  <div
-                    className={`mt-3 rounded-2xl transition-shadow duration-500 ${
+                  <motion.div
+                    // Eases in like the region block above: opacity + 4px rise,
+                    // no layout change (stable rect for the scroll/focus effect).
+                    initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.3, ease: "easeOut", delay: reduceMotion ? 0 : 0.08 }}
+                    className={`mt-3 rounded-2xl transform-gpu transition-shadow duration-500 ${
                       prefillHighlight && prefilled?.kind === "city"
                         ? "ring-2 ring-[#0D7377]/55 ring-offset-2"
                         : ""
@@ -1341,7 +1486,7 @@ export function TripForm() {
                       Pick a specific city — we&apos;ll plan a detailed trip
                       there.
                     </p>
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* Back affordance — returns to the neutral three-ticket state
@@ -1796,6 +1941,29 @@ export function TripForm() {
           </>
           )}
         </div>
+
+        {/* Coral commit curtain — bridges the fork→budget key-swap so the
+            Surprise tile's coral NEVER reverts to white. It lives here at the
+            card level (a sibling of the keyed content div, which unmounts on
+            commit), so it survives the swap. Gated to appear only once the fork
+            has left (surpriseCommitting && !onDestinationScreen): it mounts the
+            exact frame the coral tile unmounts, already fully coral
+            (initial=false → no fade-in) and matching the tile fill, holds while
+            the budget paints underneath, then fades out (AnimatePresence exit)
+            to reveal the form. Coral on every frame from click until the budget
+            is on screen — no white frame between. Instant under reduced motion. */}
+        <AnimatePresence>
+          {commitCurtain && (
+            <motion.div
+              key="coral-commit-curtain"
+              aria-hidden
+              className="pointer-events-none absolute -inset-px z-40 rounded-3xl bg-gradient-to-br from-[#FF7A57] to-[#FF6B47]"
+              initial={false}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut" } }}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       {loading && (
