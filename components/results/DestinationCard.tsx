@@ -51,6 +51,26 @@ const budgetFitLabel = {
   over: "Over budget",
 } as const;
 
+// Budget-fit is now computed in-app (n8n no longer classifies — it returns an
+// honest estimates.totalEstimate.typical and an empty budgetFit). Both inputs
+// are per-person, whole-trip, so it's a direct ratio — no travelers
+// multiplication, no pp/total conversion. Thresholds are the ratio of estimated
+// per-person total to per-person budget; tune here.
+const BUDGET_FIT_OVER_RATIO = 1.05; // > 5% over budget → "over"
+const BUDGET_FIT_UNDER_RATIO = 0.85; // < 85% of budget → "under"
+
+function computeBudgetFit(
+  typical: number | undefined,
+  budget: number,
+): "under" | "fit" | "over" | null {
+  // Missing/zero/NaN on either side → no honest verdict; caller hides the badge.
+  if (!budget || !typical || Number.isNaN(typical)) return null;
+  const ratio = typical / budget;
+  if (ratio > BUDGET_FIT_OVER_RATIO) return "over";
+  if (ratio < BUDGET_FIT_UNDER_RATIO) return "under";
+  return "fit";
+}
+
 // Fix 2 — rain label + color for weather chips
 const rainLabel = { low: "Dry", medium: "Some rain", high: "Wet" } as const;
 const rainColor = {
@@ -70,6 +90,7 @@ export async function DestinationCard({
   tripId,
 }: Props) {
   const { estimates, weather } = destination;
+  const budgetFit = computeBudgetFit(estimates.totalEstimate?.typical, budget);
   const gradient = getGradient(destination.id);
   const photoUrl = await getCityPhoto(destination.name, destination.country);
   const href =
@@ -109,12 +130,17 @@ export async function DestinationCard({
           )}
         </div>
 
-        {/* Fix 1 — budget fit badge: frosted white pill, warm text */}
-        <span
-          className={`absolute top-3 right-3 bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${badgeTextStyle[destination.budgetFit]}`}
-        >
-          {budgetFitLabel[destination.budgetFit]}
-        </span>
+        {/* Budget fit badge: frosted white pill, warm text. Verdict is computed
+            in-app (computeBudgetFit) from the per-person estimate vs the user's
+            per-person budget — hidden entirely when those numbers are missing,
+            never falling back to the (now-empty) n8n budgetFit. */}
+        {budgetFit && (
+          <span
+            className={`absolute top-3 right-3 bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full ${badgeTextStyle[budgetFit]}`}
+          >
+            {budgetFitLabel[budgetFit]}
+          </span>
+        )}
 
         <SaveButton
           destination={destination}
