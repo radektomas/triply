@@ -121,14 +121,14 @@ function AuthModalBody() {
 
   const overlay = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm animate-fade-in-overlay overscroll-contain"
+      className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center overflow-y-auto p-4 pt-16 sm:pt-4 bg-black/55 backdrop-blur-sm animate-fade-in-overlay overscroll-contain"
       onClick={closeAuthModal}
       role="dialog"
       aria-modal="true"
       aria-label="Sign in to Triply"
     >
       <div
-        className="relative z-[101] w-full max-w-md bg-white rounded-3xl border border-border shadow-2xl p-7 sm:p-8"
+        className="relative z-[101] w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white rounded-3xl border border-border shadow-2xl p-7 sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <button

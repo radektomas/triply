@@ -11,7 +11,10 @@ import { track, identify } from "@/lib/analytics";
 // where getSessionId() works. The flag is stripped from the URL before we do
 // anything else, so a reload or React re-mount can't double-count.
 const PARAM = "triply_new";
-const KNOWN_METHODS = new Set(["google"]);
+// `google` = OAuth callback; `email` = confirmed email-signup callback (the
+// verifyOtp success path). Both land here with ?triply_new=<method> only on a
+// genuinely new account, so both should fire account_created once.
+const KNOWN_METHODS = new Set(["google", "email"]);
 
 export function OAuthSignupTracker() {
   useEffect(() => {
