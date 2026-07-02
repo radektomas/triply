@@ -48,7 +48,7 @@ export function TagButton({
         "rotate-[3deg] transition-all duration-300",
         sizes[size],
         disabled
-          ? "opacity-60 cursor-not-allowed"
+          ? "opacity-60 cursor-not-allowed pointer-events-none"
           : "cursor-pointer hover:rotate-0 hover:scale-105 active:scale-95",
         className,
       ].join(" ")}
@@ -80,6 +80,7 @@ export function TagButton({
     <button
       type="button"
       disabled={disabled}
+      aria-disabled={disabled || undefined}
       onClick={disabled ? undefined : onClick}
       className="inline-block bg-transparent border-0 p-0 cursor-pointer disabled:cursor-not-allowed"
     >

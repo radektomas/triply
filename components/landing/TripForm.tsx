@@ -305,6 +305,14 @@ export function TripForm() {
   const reduceMotion = useReducedMotion() ?? false;
   // Fires `trip_form_started` exactly once, on the user's first meaningful
   // interaction with the wizard (first budget edit or first step advance).
+  // Layer-1 anti-duplicate lock for trip generation. A synchronous ref (not
+  // state — state updates lag a tick, so two rapid taps/Enters could both pass
+  // a state check) that drops any submit while a request is already in flight.
+  // Set just before the fetch, released in handleSubmit's finally on every
+  // path (success incl. pending navigation, and error). The `loading` state
+  // still drives the visual disable; this ref is the hard gate.
+  const isSubmittingRef = useRef(false);
+
   // Ref-guarded so repeated interactions don't re-fire. A hoisted function
   // declaration (not useCallback) so referencing it inside the `[]`-dep keydown
   // effect doesn't trip exhaustive-deps, matching handleSubmit/handleNext.
@@ -859,6 +867,9 @@ export function TripForm() {
     region: CitySelection | null,
     city: CitySelection | null,
   ) {
+    // A generation request is already in flight — drop this call entirely so
+    // double-taps / repeated Enter can never fire a second POST /api/trips.
+    if (isSubmittingRef.current) return;
     // Submitting is itself a meaningful interaction — guarantees
     // trip_form_started precedes trip_generated even on the keyboard-only
     // (Enter-to-advance) path that bypasses the field handlers. Inlined (rather
@@ -880,6 +891,7 @@ export function TripForm() {
     // again instead of overlapping the error screen.
     setSubmitError(null);
     setInlineSubmitError(null);
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       // Build the wire-level `destinationInput` string from the picked
@@ -1052,6 +1064,11 @@ export function TripForm() {
         sub: "Couldn't reach the planner service right now. Please try again in a moment.",
       });
       setLoading(false);
+    } finally {
+      // Release the anti-duplicate lock on every path. On success `loading`
+      // stays true (LoadingOverlay owns the pending navigation), so the button
+      // remains disabled — the ref just stops being the gate.
+      isSubmittingRef.current = false;
     }
   }
 

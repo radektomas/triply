@@ -7,6 +7,7 @@ import {
   UpstreamUnavailableError,
 } from "@/lib/n8n";
 import { computeNights } from "@/lib/dates";
+import { dedupeInFlight, TooBusyError } from "@/lib/inflight";
 import { warmCityPhotoCache } from "@/lib/photos";
 import {
   checkGenerationLimit,
@@ -220,11 +221,30 @@ export async function POST(req: NextRequest) {
       }
       console.log("[trips route] calling n8n:", safeUrl);
     }
+    // Layer-2 anti-duplicate guard: concurrent requests with the same
+    // normalized cache key ride along on the one in-flight n8n generation
+    // instead of each starting their own (n8n OOMs under duplicate bursts).
+    // Keyed by the SAME buildCacheKey n8n caches on. Surprise mode gets the
+    // client IP appended so one IP can't fan out parallel surprise
+    // generations while different users aren't coupled to each other's
+    // in-flight surprise request. Additive: runs after the existing rate
+    // limit + daily-cap checks; cache behavior (owned by n8n) is unchanged.
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      req.headers.get("x-real-ip") ??
+      "unknown";
+    const inflightKey =
+      input.destinationMode === "surprise" || !input.destinationInput
+        ? `${cacheKey}|ip:${clientIp}`
+        : cacheKey;
+
     let result;
     try {
-      result = await fetchTripSuggestions(input);
+      result = await dedupeInFlight(inflightKey, () => fetchTripSuggestions(input));
       console.log("[trips route] n8n responded: ok");
     } catch (n8nErr) {
+      // At capacity — no n8n call was made; handled by the outer catch (429).
+      if (n8nErr instanceof TooBusyError) throw n8nErr;
       const name = n8nErr instanceof Error ? n8nErr.name : typeof n8nErr;
       const message = n8nErr instanceof Error ? n8nErr.message : String(n8nErr);
       const kind =
@@ -328,6 +348,20 @@ export async function POST(req: NextRequest) {
       destinationCount,
     });
   } catch (err: unknown) {
+    // Layer-2 concurrency cap hit — n8n was never called. 429 + short
+    // Retry-After: the in-flight burst clears within seconds. `message` is
+    // what TripForm's 429 branch surfaces to the user.
+    if (err instanceof TooBusyError) {
+      return NextResponse.json(
+        {
+          error:
+            "We're generating a lot of trips right now — try again in a few seconds.",
+          message:
+            "We're generating a lot of trips right now — try again in a few seconds.",
+        },
+        { status: 429, headers: { "Retry-After": "5" } },
+      );
+    }
     if (err instanceof UpstreamUnavailableError) {
       // 504 for timeout (semantically "we timed out waiting on upstream"),
       // 503 for unreachable / non-2xx ("upstream not currently available").
