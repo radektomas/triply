@@ -125,6 +125,22 @@ export default async function FunnelPage() {
   const since = windowStartIso();
   const counts = await Promise.all(
     FUNNEL.map(async (step) => {
+      // "Account created" is the one step backed by a durable entity, so count
+      // real accounts from `profiles` rather than the `account_created`
+      // analytics event. The event only fires on some client paths (it was
+      // historically dropped for confirmed email signups, and depends on the
+      // deploy + email-template lining up), which made this tile undercount —
+      // it showed 1 while 17 accounts existed. A `profiles` row is written for
+      // every signup, so this reflects true signups regardless of the path.
+      if (step.event === "account_created") {
+        const { count, error } = await serviceSupabase
+          .from("profiles")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", since);
+        if (error)
+          console.error("[admin/funnel] count failed for profiles:", error.message);
+        return count ?? 0;
+      }
       let query = serviceSupabase
         .from("analytics_events")
         .select("*", { count: "exact", head: true })
@@ -297,7 +313,8 @@ export default async function FunnelPage() {
         <AffiliateBreakdown partners={AFFILIATE_PARTNERS} counts={affiliateCounts} />
 
         <p className="mt-8 text-center text-xs text-muted/60">
-          Counts are distinct events, not unique sessions. Signed in as {email}.
+          Counts are distinct events, not unique sessions — except Account
+          created, which counts real accounts. Signed in as {email}.
         </p>
       </div>
     </main>
