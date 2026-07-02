@@ -80,3 +80,55 @@ export function computeReconciledTotal(
     categories: { flight, hotel, food, activities, transport },
   };
 }
+
+// ─── Budget-fit verdict ──────────────────────────────────────────────────────
+//
+// Shared FITS/OVER/UNDER classifier — the single source of truth for the card
+// badge AND the "all over budget" banner test, so they can never disagree.
+// (Moved here from DestinationCard unchanged.) Inputs are per-person, whole-trip.
+// Thresholds are the ratio of reconciled per-person total to per-person budget.
+export const BUDGET_FIT_OVER_RATIO = 1.05; // > 5% over budget → "over"
+export const BUDGET_FIT_UNDER_RATIO = 0.85; // < 85% of budget → "under"
+
+export function computeBudgetFit(
+  typical: number | undefined,
+  budget: number,
+): "under" | "fit" | "over" | null {
+  // Missing/zero/NaN on either side → no honest verdict; caller hides the badge.
+  if (!budget || !typical || Number.isNaN(typical)) return null;
+  const ratio = typical / budget;
+  if (ratio > BUDGET_FIT_OVER_RATIO) return "over";
+  if (ratio < BUDGET_FIT_UNDER_RATIO) return "under";
+  return "fit";
+}
+
+// ─── Fixed vs per-night cost split ───────────────────────────────────────────
+
+export interface CostBasis {
+  /** One-off per-person cost that doesn't scale with nights (flights). */
+  fixed: number;
+  /** Per-person cost per night (hotel + food + activities + transport). */
+  perNight: number;
+}
+
+/**
+ * Split a destination's per-person cost into its fixed (one-off) and per-night
+ * components, using the SAME field selection as computeReconciledTotal — so that
+ * `fixed + perNight * nights === computeReconciledTotal(...).total`. Used to
+ * solve for "how many nights would fit this budget". Returns null on missing
+ * estimates.
+ */
+export function computeCostBasis(
+  estimates: APIDestination["estimates"] | undefined | null,
+): CostBasis | null {
+  if (!estimates) return null;
+  const fixed = estimates.flightRange?.typical ?? 0;
+  const perNight =
+    (estimates.hotelPerNightRange?.typical ?? 0) +
+    (estimates.foodPerDay?.budget ?? estimates.foodPerDay?.midRange ?? 0) +
+    (estimates.activitiesPerDay?.budget ??
+      estimates.activitiesPerDay?.midRange ??
+      0) +
+    (estimates.localTransportPerDay ?? 0);
+  return { fixed, perNight };
+}

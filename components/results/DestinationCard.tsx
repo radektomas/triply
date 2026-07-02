@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { VibeTag } from "@/components/ui/VibeTag";
 import { getGradient } from "@/lib/utils/gradient";
-import { computeReconciledTotal } from "@/lib/budget";
+import { computeReconciledTotal, computeBudgetFit } from "@/lib/budget";
 import { computeNights } from "@/lib/dates";
 import { getCityPhoto } from "@/lib/photos";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
@@ -53,25 +53,10 @@ const budgetFitLabel = {
   over: "Over budget",
 } as const;
 
-// Budget-fit is now computed in-app (n8n no longer classifies — it returns an
-// honest estimates.totalEstimate.typical and an empty budgetFit). Both inputs
-// are per-person, whole-trip, so it's a direct ratio — no travelers
-// multiplication, no pp/total conversion. Thresholds are the ratio of estimated
-// per-person total to per-person budget; tune here.
-const BUDGET_FIT_OVER_RATIO = 1.05; // > 5% over budget → "over"
-const BUDGET_FIT_UNDER_RATIO = 0.85; // < 85% of budget → "under"
-
-function computeBudgetFit(
-  typical: number | undefined,
-  budget: number,
-): "under" | "fit" | "over" | null {
-  // Missing/zero/NaN on either side → no honest verdict; caller hides the badge.
-  if (!budget || !typical || Number.isNaN(typical)) return null;
-  const ratio = typical / budget;
-  if (ratio > BUDGET_FIT_OVER_RATIO) return "over";
-  if (ratio < BUDGET_FIT_UNDER_RATIO) return "under";
-  return "fit";
-}
+// Budget-fit verdict (FITS/OVER/UNDER) is computed in-app from the reconciled
+// per-person total vs the per-person budget. The classifier + thresholds now
+// live in lib/budget.ts (computeBudgetFit) so the card badge and the "all over
+// budget" banner share one source of truth.
 
 // Fix 2 — rain label + color for weather chips
 const rainLabel = { low: "Dry", medium: "Some rain", high: "Wet" } as const;
