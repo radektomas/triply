@@ -7,6 +7,7 @@ import {
   UpstreamUnavailableError,
 } from "@/lib/n8n";
 import { computeNights } from "@/lib/dates";
+import { warmCityPhotoCache } from "@/lib/photos";
 import { incrementGenerationCount } from "@/lib/generationLimits";
 import type { TripInput } from "@/lib/types";
 
@@ -253,6 +254,22 @@ export async function POST(req: NextRequest) {
         console.warn("[/api/trips] generation_history write skipped:", histErr);
       }
     });
+
+    // Pre-warm the shared photo cache for every returned destination so the
+    // results grid / detail page render from cache instead of a live Pexels
+    // fetch. Critical for region trips: their niche towns are usually cache-cold
+    // (famous surprise/exact cities are already warm from prior traffic), so a
+    // failed live fetch on prod would otherwise drop them to the gradient
+    // fallback. Fire-and-forget via after() — runs post-response, never blocks
+    // TTFB; getCityPhotos no-ops on a cache hit so warm cities stay cheap, and
+    // warmCityPhotoCache bounds concurrency + swallows per-city failures.
+    const warmTargets = (result.destinations ?? []).map((d) => ({
+      name: d.name,
+      country: d.country,
+    }));
+    if (warmTargets.length > 0) {
+      after(() => warmCityPhotoCache(warmTargets));
+    }
 
     // Surface the destinations count + first slug so the caller can branch:
     //   count === 1 → deep-link to /trip/<id>?d=<slug> (detail page)

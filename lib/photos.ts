@@ -38,22 +38,68 @@ export async function getCityPhotos(name: string, country: string): Promise<City
 
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey) {
-    console.warn("PEXELS_API_KEY not set — returning empty photos");
+    // Surfaced (not silent) so a missing key is diagnosable in Vercel logs —
+    // this is the usual reason prod shows gradients where local shows photos.
+    console.warn(
+      `[photos] PEXELS_API_KEY not set — returning no photos for "${name}, ${country}"`,
+    );
     return [];
   }
 
+  // Fallback query chain — the first query that yields results wins. Mirrors
+  // getPlacePhoto: obscure towns (common in region trips) may return nothing
+  // for the specific "city country travel" query, so widen to the country and
+  // then the bare city name before giving up.
+  const queries = [`${name} ${country} travel`, `${country} travel`, name];
+
+  for (const query of queries) {
+    const photos = await fetchCityPhotosForQuery(query, apiKey, name, country);
+    if (photos.length > 0) {
+      // Fire-and-forget cache write — ignore if table doesn't exist yet.
+      // Always keyed by the city (cacheKey), regardless of which query matched.
+      supabase
+        .from("photo_cache")
+        .upsert({
+          cache_key: cacheKey,
+          photos,
+          cached_at: new Date().toISOString(),
+        })
+        .then(({ error }) => {
+          if (error) console.warn("[photos] Failed to cache photos:", error.message);
+        });
+      return photos;
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Fetches up to 5 landscape city photos for a single Pexels query. Returns an
+ * empty array on any failure (no results, non-2xx, timeout, network) and logs
+ * the reason so failures are visible in Vercel logs instead of silently
+ * degrading to the gradient fallback. Never throws.
+ */
+async function fetchCityPhotosForQuery(
+  query: string,
+  apiKey: string,
+  name: string,
+  country: string,
+): Promise<CityPhoto[]> {
   try {
-    const query = encodeURIComponent(`${name} ${country} travel`);
     const res = await fetch(
-      `${PEXELS_API}?query=${query}&per_page=5&orientation=landscape`,
+      `${PEXELS_API}?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape`,
       {
         headers: { Authorization: apiKey },
         signal: AbortSignal.timeout(5000),
-      }
+      },
     );
 
     if (!res.ok) {
-      console.warn(`Pexels API returned ${res.status}`);
+      // 429 (rate limit) and 401/403 (bad key) land here — the prod failure modes.
+      console.warn(
+        `[photos] Pexels returned ${res.status} for query "${query}" (${name}, ${country})`,
+      );
       return [];
     }
 
@@ -66,33 +112,53 @@ export async function getCityPhotos(name: string, country: string): Promise<City
       }>;
     };
 
-    const photos: CityPhoto[] = (data.photos ?? []).map((p) => ({
+    return (data.photos ?? []).map((p) => ({
       url: p.src.large,
       urlLarge: p.src.large2x,
       photographer: p.photographer,
       photographerUrl: p.photographer_url,
       alt: p.alt || `${name}, ${country}`,
     }));
-
-    if (photos.length > 0) {
-      // Fire-and-forget cache write — ignore if table doesn't exist yet
-      supabase
-        .from("photo_cache")
-        .upsert({
-          cache_key: cacheKey,
-          photos,
-          cached_at: new Date().toISOString(),
-        })
-        .then(({ error }) => {
-          if (error) console.warn("Failed to cache photos:", error.message);
-        });
-    }
-
-    return photos;
   } catch (err) {
-    console.warn("Pexels fetch failed:", err);
+    const timedOut = err instanceof Error && err.name === "TimeoutError";
+    console.warn(
+      `[photos] Pexels ${timedOut ? "timed out" : "fetch failed"} for query "${query}" (${name}, ${country}):`,
+      err instanceof Error ? err.message : err,
+    );
     return [];
   }
+}
+
+/**
+ * Pre-warms the shared photo cache for a batch of cities so later renders read
+ * from cache instead of making a live Pexels call. Fire-and-forget by design —
+ * intended to run inside a Next.js `after()` seam, post-response.
+ *
+ * Bounded concurrency (default 3) so a region batch of ~5 cities doesn't fire a
+ * burst that itself trips Pexels rate limiting (429). Per-city failures are
+ * swallowed (getCityPhotos already logs them) so one bad city never affects the
+ * rest of the batch. Cities already cached are cheap — getCityPhotos returns
+ * early on a cache hit without touching Pexels.
+ */
+export async function warmCityPhotoCache(
+  cities: Array<{ name: string; country: string }>,
+  concurrency = 3,
+): Promise<void> {
+  const queue = [...cities];
+  const worker = async () => {
+    for (let city = queue.shift(); city; city = queue.shift()) {
+      try {
+        await getCityPhotos(city.name, city.country);
+      } catch {
+        // getCityPhotos already logs; never let one city reject the batch.
+      }
+    }
+  };
+  const workers = Array.from(
+    { length: Math.min(concurrency, cities.length) },
+    worker,
+  );
+  await Promise.allSettled(workers);
 }
 
 export async function getCityPhoto(name: string, country: string): Promise<string> {
