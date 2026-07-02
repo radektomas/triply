@@ -110,7 +110,7 @@ export function BookingHub({ detail }: Props) {
         <p className="text-xs font-semibold uppercase tracking-widest text-[#0D7377] mb-2">
           Ready to book?
         </p>
-        <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
+        <h2 className="font-display text-3xl md:text-4xl font-bold text-[#1a1a1a]">
           Your trip to {destination}
         </h2>
         {dateRange && (
@@ -240,15 +240,14 @@ function BookingCTACard({
         onClick={() => trackAffiliateClick(primary.provider, destination)}
         whileHover={{
           y: -1,
-          background: "#0A5D60",
           boxShadow: "0 6px 18px rgba(13,115,119,0.32)",
         }}
         whileTap={{ scale: 0.98 }}
         transition={{ duration: 0.2 }}
-        className="group/cta mt-auto w-full inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-[15px] font-semibold"
+        // Teal booking-role pill (D2/D4): fill + hover via tokens instead of the
+        // old inline background:"#0D7377"/whileHover "#0A5D60" hex pair.
+        className="group/cta mt-auto w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-[15px] font-semibold bg-teal hover:bg-teal-deep text-white transition-colors"
         style={{
-          background: "#0D7377",
-          color: "#FFFFFF",
           border: "1px solid transparent",
           boxShadow: "0 2px 8px rgba(13,115,119,0.18)",
         }}

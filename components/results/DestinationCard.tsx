@@ -131,7 +131,7 @@ export async function DestinationCard({
 
     return (
       // Fix 5 — card hover: lift + warm ring + boosted shadow. `group` enables image zoom.
-      <div className="group bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-orange-200">
+      <div className="group bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-accent/25">
 
         {/* Fix 5 — image zoom on hover via inner div scale */}
         <div className="h-64 sm:h-72 lg:h-80 relative shrink-0 overflow-hidden">
@@ -196,7 +196,9 @@ export async function DestinationCard({
               </p>
             )}
             {destination.name && (
-              <h2 className="text-white text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">
+              // break-words: Bricolage is wider than Inter and the title is
+              // pinned inside a fixed-height image area — long names must wrap.
+              <h2 className="font-display text-white text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight break-words">
                 {destination.name}
               </h2>
             )}
@@ -316,7 +318,7 @@ export async function DestinationCard({
                   Per-person total
                 </p>
                 <div>
-                  <p className="text-4xl font-bold text-slate-900 leading-none">
+                  <p className="font-display text-4xl font-bold tabular-nums text-slate-900 leading-none">
                     <FormattedPrice eur={totalTypical} />
                   </p>
                   {totalMin != null && totalMax != null && (
@@ -330,7 +332,7 @@ export async function DestinationCard({
             <Link
               href={href}
               prefetch
-              className="mt-4 block w-full bg-orange-700 hover:bg-orange-800 text-white font-semibold px-5 py-3 rounded-full text-sm shadow-sm hover:shadow-md transition-all text-center"
+              className="mt-4 block w-full bg-accent hover:bg-accent-deep text-white font-semibold px-5 py-3 rounded-full text-sm shadow-sm hover:shadow-md transition-all text-center"
             >
               See full plan →
             </Link>

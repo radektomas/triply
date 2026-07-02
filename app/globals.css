@@ -11,6 +11,19 @@
   --color-card: #FFFFFF;
   --color-muted: #6B7280;
   --color-border: #E5E7EB;
+  /* ── Canonical tokens (design-system unification, Batch 1) ────────────────
+     Definitions only — nothing consumes these yet; later batches migrate the
+     hand-typed values onto them.
+     - fg: the ink text color (#1A1A1A), today hand-typed ~179× and colliding
+       with text-slate-900. Use text-fg going forward.
+     - teal-deep: hover companion to --color-teal (#0D7377 is the brand teal
+       per design decision D3); today hand-typed as #0A5D60.
+     - shadow-card / shadow-card-hover: the one card shadow system, replacing
+       the mix of shadow-sm/hover:shadow-xl and bespoke inline rgba() strings. */
+  --color-fg: #1A1A1A;
+  --color-teal-deep: #0A5D60;
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-card-hover: 0 12px 32px -12px rgba(13, 115, 119, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-bricolage), var(--font-inter), system-ui, sans-serif;
 }

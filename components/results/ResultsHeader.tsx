@@ -9,7 +9,7 @@ interface Props {
 export function ResultsHeader({ budget, dateRange, nights }: Props) {
   return (
     <div className="mb-8">
-      <h1 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-1">
+      <h1 className="font-display text-3xl sm:text-4xl font-bold text-[#1A1A1A] mb-1">
         3 trips for{" "}
         <span className="text-accent">
           <FormattedPrice eur={budget} />

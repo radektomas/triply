@@ -144,7 +144,7 @@ function AuthModalBody() {
           <p className="font-mono text-[11px] font-medium uppercase text-accent tracking-[0.18em] mb-1">
             Triply Account
           </p>
-          <h2 className="text-2xl font-bold text-[#1a1a1a]">
+          <h2 className="font-display text-2xl font-bold text-[#1a1a1a]">
             {mode === "signup" ? "Create your account" : "Welcome back"}
           </h2>
           <p className="text-sm text-muted mt-1">
@@ -156,7 +156,7 @@ function AuthModalBody() {
           type="button"
           onClick={handleGoogle}
           disabled={busy}
-          className="w-full inline-flex items-center justify-center gap-3 py-3 rounded-xl border border-border bg-white hover:bg-[#F5F5F5] font-medium text-[#1a1a1a] text-sm transition-colors disabled:opacity-60 cursor-pointer"
+          className="w-full inline-flex items-center justify-center gap-3 py-3 rounded-full border border-border bg-white hover:bg-[#F5F5F5] font-medium text-[#1a1a1a] text-sm transition-colors disabled:opacity-60 cursor-pointer"
         >
           <GoogleIcon />
           Continue with Google
@@ -213,7 +213,7 @@ function AuthModalBody() {
           <button
             type="submit"
             disabled={busy || !email || !password}
-            className="w-full py-3 rounded-xl bg-accent text-white font-semibold text-sm hover:brightness-110 transition disabled:opacity-50 cursor-pointer"
+            className="w-full py-3 rounded-full bg-accent text-white font-semibold text-sm hover:bg-accent-deep transition disabled:opacity-50 cursor-pointer"
           >
             {busy
               ? mode === "signup"

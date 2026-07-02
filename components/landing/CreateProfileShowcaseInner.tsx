@@ -97,7 +97,7 @@ export function CreateProfileShowcaseInner({ rows }: Props) {
             <button
               type="button"
               onClick={openAuthModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#0D7377] hover:bg-[#0A5D60] text-white text-sm font-semibold transition-colors shadow-md cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-teal hover:bg-teal-deep text-white text-sm font-semibold transition-colors shadow-md cursor-pointer"
             >
               Create free profile
               <span aria-hidden="true">→</span>

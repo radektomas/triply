@@ -135,7 +135,7 @@ export default async function ProfilePage() {
           <p className="font-mono text-[11px] font-medium uppercase text-accent tracking-[0.18em] mb-1">
             Your profile
           </p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A]">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-[#1A1A1A]">
             Welcome back, {displayName.split(" ")[0]}.
           </h1>
           <p className="text-sm text-muted mt-1">

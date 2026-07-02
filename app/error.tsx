@@ -19,7 +19,7 @@ export default function Error({
         </p>
         <button
           onClick={reset}
-          className="inline-flex items-center bg-accent text-white font-semibold px-6 py-3 rounded-xl hover:brightness-110 hover:scale-[1.02] transition-all cursor-pointer"
+          className="inline-flex items-center bg-accent text-white font-semibold px-6 py-3 rounded-full hover:bg-accent-deep hover:scale-[1.02] transition-all cursor-pointer"
         >
           Try again
         </button>

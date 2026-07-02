@@ -198,7 +198,7 @@ export default async function FunnelPage() {
           <p className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-accent mb-2">
             Triply · Internal
           </p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A]">
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-[#1A1A1A]">
             Activation funnel
           </h1>
           <p className="mt-2 text-sm text-muted">

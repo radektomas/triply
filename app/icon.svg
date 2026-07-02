@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Triply favicon: boarding-pass mark. Coral ticket on cream, slight tilt
+       (matches the wizard's TagButton), perforation notches + dashed tear line
+       as the identifying detail. Bold shapes only — legible at 16px. -->
+  <rect width="32" height="32" rx="7" fill="#FFE4CC"/>
+  <g transform="rotate(-10 16 16)">
+    <rect x="4.5" y="9" width="23" height="14" rx="3.2" fill="#FF6B47"/>
+    <circle cx="20.5" cy="9" r="2.4" fill="#FFE4CC"/>
+    <circle cx="20.5" cy="23" r="2.4" fill="#FFE4CC"/>
+    <line x1="20.5" y1="12.8" x2="20.5" y2="19.2" stroke="#FFE4CC" stroke-width="1.6" stroke-dasharray="2 2.2" stroke-linecap="round"/>
+  </g>
+</svg>

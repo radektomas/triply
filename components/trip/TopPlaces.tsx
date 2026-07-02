@@ -68,7 +68,7 @@ export function TopPlaces({ topPlaces, destinationName }: Props) {
         </p>
         <div className="h-0.5 w-10 bg-[#FF6B47] mb-3" />
         <h2
-          className="font-semibold text-[#1A1A1A] leading-tight mb-1"
+          className="font-display font-semibold text-[#1A1A1A] leading-tight mb-1"
           style={{ fontSize: "clamp(1.5rem, 3vw, 1.75rem)" }}
         >
           Top places to visit

@@ -78,7 +78,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
           Per person
         </p>
         <p
-          className="font-bold text-[#FF6B47] leading-none"
+          className="font-display font-bold tabular-nums text-[#FF6B47] leading-none"
           style={{ fontSize: "clamp(2.5rem, 10vw, 4.5rem)" }}
         >
           {fmt(total)}

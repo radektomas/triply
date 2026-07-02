@@ -234,7 +234,7 @@ export function GenerateMore({
       {anonExhausted ? (
         // Anonymous, out of quota → sign-in prompt. UNCHANGED.
         <div className="bg-card border border-border rounded-2xl p-6 sm:p-8 shadow-sm text-center">
-          <h2 className="text-xl sm:text-2xl font-bold text-[#1A1A1A]">
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-[#1A1A1A]">
             Want more destinations?
           </h2>
           <p className="text-sm text-muted mt-1 mb-5">
@@ -244,7 +244,7 @@ export function GenerateMore({
           <button
             type="button"
             onClick={openAuthModal}
-            className="inline-flex items-center justify-center gap-2 bg-[#0D7377] text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-[#0A5D60] active:scale-95 transition-all cursor-pointer shadow-md"
+            className="inline-flex items-center justify-center gap-2 bg-teal text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-teal-deep active:scale-95 transition-all cursor-pointer shadow-md"
           >
             <span>Sign in to generate more</span>
             <ArrowRightIcon />
@@ -268,7 +268,7 @@ export function GenerateMore({
             </div>
 
             <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-xl sm:text-2xl font-bold text-[#1A1A1A] leading-tight">
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-[#1A1A1A] leading-tight">
                 Not feeling these three?
               </h2>
               <p className="text-sm text-muted mt-1 mb-4">
@@ -278,7 +278,7 @@ export function GenerateMore({
                 type="button"
                 onClick={handleClick}
                 disabled={!canGenerate}
-                className="inline-flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold px-6 py-3 rounded-full hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-accent-deep active:scale-95 transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <SparkleIcon />
                 <span>Generate 3 more destinations</span>
@@ -365,7 +365,7 @@ function TriplyPlusCard({ limit }: { limit: number }) {
 
   return (
     <div className="rounded-2xl border border-accent/25 bg-accent-light p-6 sm:p-8 shadow-sm text-center">
-      <h2 className="text-2xl font-bold text-[#1A1A1A]">
+      <h2 className="font-display text-2xl font-bold text-[#1A1A1A]">
         That&apos;s today&apos;s free batch
       </h2>
       <p className="text-sm text-muted mt-2 mb-2 max-w-md mx-auto">
@@ -386,7 +386,7 @@ function TriplyPlusCard({ limit }: { limit: number }) {
           type="button"
           onClick={() => submit(authEmail)}
           disabled={state === "saving"}
-          className="inline-flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold px-6 py-3 rounded-full hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
+          className="inline-flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-accent-deep active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shadow-md"
         >
           <SparkleIcon />
           {state === "saving" ? "Adding you…" : "Notify me when it's live"}
@@ -412,7 +412,7 @@ function TriplyPlusCard({ limit }: { limit: number }) {
           <button
             type="submit"
             disabled={state === "saving"}
-            className="inline-flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold px-6 py-3 rounded-full hover:brightness-110 active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
+            className="inline-flex items-center justify-center gap-2 bg-accent text-white text-sm font-semibold px-6 py-3 rounded-full hover:bg-accent-deep active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shrink-0"
           >
             {state === "saving" ? "Saving…" : "Notify me"}
           </button>

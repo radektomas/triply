@@ -72,7 +72,7 @@ export function OverBudgetBanner({
 
         <Link
           href={editHref}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-deep"
         >
           Adjust your trip →
         </Link>

@@ -74,7 +74,7 @@ export function BudgetShowcaseCard({ example, budget }: Props) {
       type="button"
       onClick={handleClick}
       aria-label={`See full plan for ${example.city}, ${example.country}`}
-      className="group relative bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col text-left w-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-orange-200"
+      className="group relative bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col text-left w-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-accent/25"
     >
       {/* Photo header — fixed height, identical to the live results card.
           The gradient sits behind the <Image> so onError / missing photo

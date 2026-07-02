@@ -41,7 +41,7 @@ export function GenerationHistory({ rows }: { rows: HistoryRow[] }) {
           <p className="text-sm text-muted">No trips yet — head to the planner and try one.</p>
           <Link
             href="/#planner"
-            className="inline-block mt-4 px-5 py-2.5 rounded-full bg-orange-700 hover:bg-orange-800 text-white text-sm font-semibold transition"
+            className="inline-block mt-4 px-5 py-2.5 rounded-full bg-accent hover:bg-accent-deep text-white text-sm font-semibold transition"
           >
             Start planning →
           </Link>
@@ -90,7 +90,7 @@ export function GenerationHistory({ rows }: { rows: HistoryRow[] }) {
                     </span>
                   )}
                   {input?.vibe && (
-                    <span className="text-[10px] uppercase tracking-widest font-mono text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] uppercase tracking-widest font-mono text-teal bg-teal/10 px-2 py-0.5 rounded-full">
                       {input.vibe}
                     </span>
                   )}
@@ -126,7 +126,7 @@ export function GenerationHistory({ rows }: { rows: HistoryRow[] }) {
                 <div className="mt-3 text-right">
                   <Link
                     href={`/trip/${tripId}`}
-                    className="text-xs font-semibold text-teal-700 hover:text-teal-800"
+                    className="text-xs font-semibold text-teal hover:text-teal-deep"
                   >
                     Re-open trip →
                   </Link>

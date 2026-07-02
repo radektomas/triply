@@ -116,7 +116,7 @@ export function SavedDestinationCard({
   );
 
   return (
-    <div className="group bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-orange-200 h-full">
+    <div className="group bg-card rounded-2xl shadow-sm border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-1 hover:ring-accent/25 h-full">
       <div className="h-40 relative shrink-0 overflow-hidden">
         {showcase ? (
           // Whole photo area triggers the sign-up CTA — feels natural that
@@ -208,7 +208,7 @@ export function SavedDestinationCard({
             <button
               type="button"
               onClick={onCtaClick}
-              className="inline-flex items-center gap-1 shrink-0 px-3.5 py-2 rounded-full bg-[#0D7377] hover:bg-[#0A5D60] text-white text-xs font-semibold transition-colors shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-1 shrink-0 px-3.5 py-2 rounded-full bg-teal hover:bg-teal-deep text-white text-xs font-semibold transition-colors shadow-sm cursor-pointer"
             >
               View trip
               <span aria-hidden="true">→</span>
@@ -217,7 +217,7 @@ export function SavedDestinationCard({
             <Link
               href={primaryHref}
               prefetch
-              className="inline-flex items-center gap-1 shrink-0 px-3.5 py-2 rounded-full bg-[#0D7377] hover:bg-[#0A5D60] text-white text-xs font-semibold transition-colors shadow-sm"
+              className="inline-flex items-center gap-1 shrink-0 px-3.5 py-2 rounded-full bg-teal hover:bg-teal-deep text-white text-xs font-semibold transition-colors shadow-sm"
             >
               View trip
               <span aria-hidden="true">→</span>

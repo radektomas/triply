@@ -123,8 +123,10 @@ export function TripHero({
           {trip.country}
         </p>
 
+        {/* break-words: Bricolage runs wider than Inter, so a long single-word
+            city name at clamp-max must wrap instead of overflowing on ~360px. */}
         <h1
-          className="font-bold text-white leading-tight mb-3"
+          className="font-display font-bold text-white leading-tight mb-3 break-words"
           style={{
             fontSize: "clamp(2.5rem, 8vw, 5rem)",
             textShadow: "0 2px 8px rgba(0,0,0,0.55), 0 0 20px rgba(0,0,0,0.35)",
@@ -151,7 +153,7 @@ export function TripHero({
             style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
           >
             <span
-              className="text-2xl font-bold text-white"
+              className="font-display text-2xl font-bold tabular-nums text-white"
               style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
             >
               <FormattedPrice eur={trip.budget.total} />

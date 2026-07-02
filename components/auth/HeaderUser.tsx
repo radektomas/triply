@@ -54,7 +54,7 @@ export function HeaderUser() {
       <button
         type="button"
         onClick={openAuthModal}
-        className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#0D7377] hover:bg-[#0A5D60] text-white text-sm font-semibold transition-colors cursor-pointer shadow-md ring-1 ring-[#0D7377]/30 hover:shadow-lg"
+        className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-teal hover:bg-teal-deep text-white text-sm font-semibold transition-colors cursor-pointer shadow-md ring-1 ring-teal/30 hover:shadow-lg"
       >
         Sign in
       </button>
