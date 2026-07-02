@@ -13,8 +13,8 @@ import {
 // parent owns whatever happens on selection (`onChange` callback).
 //
 // Used by:
-//   - components/CustomCityPicker.tsx (the "/results" escape hatch)
-//   - components/landing/TripForm.tsx (Step 3 "I know the exact city" mode)
+//   - components/landing/DestinationFork.tsx (the "region" and "exact city"
+//     tiles of the destination pre-screen)
 
 export interface CitySelection {
   cityName: string;

@@ -82,8 +82,10 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
 
   // Three explicit modes — `region` and `exact_city` carry a destinationInput;
   // `surprise` doesn't. Legacy `specific` (the old unified value) always
-  // resolved to a single result, so it's normalized to `exact_city` to
-  // preserve that behaviour for in-flight requests and the custom-city picker.
+  // resolved to a single result, so it's normalized to `exact_city`. The last
+  // in-app emitter of wire `specific` (CustomCityPicker) has been removed and no
+  // current client sends it; the alias is kept purely for back-compat with any
+  // in-flight requests / bookmarked calls still using the old value.
   const rawMode = String(raw.destinationMode ?? "surprise");
   const requestedMode: "surprise" | "region" | "exact_city" =
     rawMode === "region"

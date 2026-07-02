@@ -94,9 +94,11 @@ export interface APITripResponse {
 //   - surprise:   no input, return a curated set (multi)
 //   - region:     a country/region input, return several cities (multi)
 //   - exact_city: a single named city, return exactly one (single)
-// `specific` is the legacy unified value (region + exact collapsed, which
-// always returned a single result); the API normalizes it to `exact_city`
-// for back-compat with in-flight requests and the custom-city picker.
+// `specific` is the legacy unified WIRE value (region + exact collapsed, which
+// always returned a single result); the API normalizes it to `exact_city`.
+// No current client emits it — the last emitter (CustomCityPicker) was removed
+// — so the alias in app/api/trips/route.ts is kept purely for back-compat with
+// any in-flight / bookmarked requests still using the old value.
 export type DestinationMode = "surprise" | "region" | "exact_city";
 
 export interface TripInput {

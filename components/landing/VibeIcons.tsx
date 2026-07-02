@@ -206,61 +206,70 @@ export function ArrowLeftIcon({ color, size = 14 }: VibeIconProps) {
   );
 }
 
-// Destination-screen affordances. "Surprise me" (DiceIcon), "I know the
-// region" (PinIcon), "I know the exact city" (TargetIcon). Same inline-SVG
-// pattern as the arrows above — no icon library.
-export function DiceIcon({ color, size = 22 }: VibeIconProps) {
+// Fork tile icons v2 — "Surprise me" (FlightPathIcon), "I know the region"
+// (RegionIcon), "I know the exact city" (FlagIcon). Same inline-SVG pattern:
+// color prop, no icon library. Replaced the earlier dice/pin/target set.
+export function FlightPathIcon({ color, size = 22 }: VibeIconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Soft tinted body gives the die a face to catch light, so the pips
-          and edge read as dimensional rather than a flat outline. */}
-      <rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4" fill={color} opacity="0.16" />
-      <rect x="3.6" y="3.6" width="16.8" height="16.8" rx="4" stroke={color} strokeWidth="1.8" />
-      {/* Top-left bevel highlight — the lit edge of the cube. */}
+      {/* Dotted looping trajectory — the "anywhere" of Surprise me */}
       <path
-        d="M6 8.2 Q6 6, 8.2 6 L13 6"
+        d="M4 18 C 6 12, 10 16, 12 11 S 17 7, 19 6"
         stroke={color}
-        strokeWidth="1.4"
+        strokeWidth="1.7"
         strokeLinecap="round"
-        opacity="0.55"
+        strokeDasharray="0.5 3.4"
         fill="none"
       />
-      {/* Five pips. The lit diagonal (top-left → bottom-right) sits a touch
-          brighter for a subtle sense of depth. */}
-      <circle cx="8.4" cy="8.4" r="1.5" fill={color} />
-      <circle cx="15.6" cy="8.4" r="1.5" fill={color} opacity="0.85" />
-      <circle cx="12" cy="12" r="1.5" fill={color} />
-      <circle cx="8.4" cy="15.6" r="1.5" fill={color} opacity="0.85" />
-      <circle cx="15.6" cy="15.6" r="1.5" fill={color} />
+      {/* Paper plane at the end of the path */}
+      <path
+        d="M21.5 3.5 L 13.8 7.2 L 16.6 8.9 Z"
+        fill={color}
+      />
+      <path
+        d="M21.5 3.5 L 16.6 8.9 L 17 11.5 Z"
+        fill={color}
+        opacity="0.65"
+      />
     </svg>
   );
 }
 
-export function PinIcon({ color, size = 22 }: VibeIconProps) {
+export function RegionIcon({ color, size = 22 }: VibeIconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Organic map-fragment outline, dashed = a boundary, not a point */}
       <path
-        d="M12 2.5C8 2.5 5 5.4 5 9c0 4.5 7 12 7 12s7-7.5 7-12c0-3.6-3-6.5-7-6.5z"
+        d="M6.5 4.5 C 9.5 3, 13 4.5, 15.5 4 C 18.5 3.5, 20.5 6, 20 9 C 19.6 11.5, 21 13.5, 19.5 16 C 18 18.5, 14.5 18, 12 19.5 C 9.5 21, 6 20, 5 17.5 C 4 15, 5.5 13, 4.5 10.5 C 3.5 8, 4.5 5.5, 6.5 4.5 Z"
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth="1.7"
+        strokeDasharray="3.2 2.4"
         strokeLinecap="round"
+        fill={color}
+        fillOpacity="0.13"
+      />
+      {/* Two soft settlement dots inside — "somewhere in here" */}
+      <circle cx="10" cy="10" r="1.4" fill={color} />
+      <circle cx="14.5" cy="13.5" r="1.4" fill={color} opacity="0.6" />
+    </svg>
+  );
+}
+
+export function FlagIcon({ color, size = 22 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Planted flag — decisiveness, "I know exactly where" */}
+      <line x1="7" y1="3.5" x2="7" y2="20.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M7 4.5 C 10 3, 12.5 6, 16.5 4.5 C 17.5 4.1, 18 4.6, 18 5.4 L 18 10.6 C 18 11.3, 17.6 11.7, 16.9 11.9 C 13 13.2, 10.5 10.4, 7 12"
+        fill={color}
+        fillOpacity="0.18"
+        stroke={color}
+        strokeWidth="1.7"
         strokeLinejoin="round"
-        fill="none"
       />
-      <circle cx="12" cy="9" r="2.3" fill={color} />
-    </svg>
-  );
-}
-
-export function TargetIcon({ color, size = 22 }: VibeIconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <circle cx="12" cy="12" r="2.6" fill={color} />
-      <line x1="12" y1="2.5" x2="12" y2="6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="12" y1="18" x2="12" y2="21.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="2.5" y1="12" x2="6" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="18" y1="12" x2="21.5" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      {/* Ground dot — the pin-point, planted */}
+      <ellipse cx="7" cy="21" rx="2.6" ry="0.9" fill={color} opacity="0.35" />
     </svg>
   );
 }
