@@ -30,8 +30,13 @@ interface RateWindow {
 // quota. NOTE: this is per serverless-instance state — on Vercel's Fluid
 // Compute multiple instances each keep a separate Map, so the effective
 // limit is (tier limit × live instance count). It throttles casual abuse
-// but is not a hard guarantee; a shared store (Redis/Upstash) would be
-// needed for that — deliberately deferred as a separate decision.
+// but is not a hard guarantee.
+//
+// TODO(rate-limit): move these windows to a shared store (Redis/Upstash/DB)
+// so the per-IP limit is enforced across instances. Until then, the DURABLE
+// cost guard for /api/trips is the per-user daily cap enforced server-side in
+// app/api/trips/route.ts (checkGenerationLimit → 429); this Map is only a
+// best-effort per-IP throttle in front of it. Deferred as a separate decision.
 const minuteWindows = new Map<string, RateWindow>();
 const dayWindows = new Map<string, RateWindow>();
 

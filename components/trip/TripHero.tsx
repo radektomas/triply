@@ -184,12 +184,27 @@ export function TripHero({
             className="backdrop-blur-md rounded-2xl px-4 py-2.5 border border-white/15 text-white text-sm"
             style={{ backgroundColor: "rgba(255,255,255,0.12)", textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}
           >
-            <span className="font-semibold">{trip.weather.temperature}°C</span>
-            <span className="text-white/60 mx-1.5">·</span>
-            <span>{trip.weather.sunHours}h sun</span>
-            <span className="text-white/60 mx-1.5">·</span>
+            {/* Each chip hides when its value is missing (undefined) rather than
+                showing "0°C" / "0h sun" or a fabricated sea temp. temperature is
+                guarded on != null (not > 0) so a legitimate 0°C/negative still
+                shows. Precipitation + month always render, so the row is never
+                empty. */}
+            {trip.weather.temperature != null && (
+              <span className="font-semibold">{trip.weather.temperature}°C</span>
+            )}
+            {trip.weather.sunHours != null && (
+              <>
+                {trip.weather.temperature != null && (
+                  <span className="text-white/60 mx-1.5">·</span>
+                )}
+                <span>{trip.weather.sunHours}h sun</span>
+              </>
+            )}
+            {(trip.weather.temperature != null || trip.weather.sunHours != null) && (
+              <span className="text-white/60 mx-1.5">·</span>
+            )}
             <span>{precipLabel[trip.weather.precipitation]}</span>
-            {trip.weather.seaTemperature > 0 && (
+            {trip.weather.seaTemperature != null && trip.weather.seaTemperature > 0 && (
               <>
                 <span className="text-white/60 mx-1.5">·</span>
                 <span>{trip.weather.seaTemperature}°C sea</span>

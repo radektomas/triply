@@ -45,7 +45,9 @@ function getCategoryDefaults(cat: BudgetCategory) {
   return CATEGORY_DEFAULTS[cat.label] ?? {};
 }
 
-export function BudgetBreakdown({ total, range, breakdown, travelers }: Props) {
+// `travelers` is intentionally not consumed — every figure here is per-person.
+// Kept in Props so existing call sites remain valid.
+export function BudgetBreakdown({ total, range, breakdown }: Props) {
   const [active, setActive] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(barRef, { once: true });
@@ -148,15 +150,14 @@ export function BudgetBreakdown({ total, range, breakdown, travelers }: Props) {
         </div>
       </div>
 
-      {/* Legend section — single-column stacked list, preceded by an eyebrow
-          that makes the unit unambiguous (these are TOTALS for the trip,
-          contrasted with the PER PERSON hero number above). */}
+      {/* Legend section — single-column stacked list. The whole page is
+          per-person (matching the hero above and the breakdown amounts, which
+          are per-person), so the eyebrow says "per person" too. (Was "total for
+          N travelers", which contradicted the per-person hero and the
+          never-multiplied-by-travelers amounts.) */}
       <div className="pt-1">
         <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-[#0D7377] mb-2.5">
-          Breakdown ·{" "}
-          {travelers
-            ? `total for ${travelers} ${travelers === 1 ? "traveler" : "travelers"}`
-            : "total for trip"}
+          Breakdown · per person
         </p>
         <div className="flex flex-col">
           {breakdown.map((cat) => {

@@ -8,7 +8,10 @@ import {
 } from "@/lib/n8n";
 import { computeNights } from "@/lib/dates";
 import { warmCityPhotoCache } from "@/lib/photos";
-import { incrementGenerationCount } from "@/lib/generationLimits";
+import {
+  checkGenerationLimit,
+  incrementGenerationCount,
+} from "@/lib/generationLimits";
 import type { TripInput } from "@/lib/types";
 
 // Discriminated error stages. The client (TripForm) branches on `stage` to
@@ -17,6 +20,7 @@ import type { TripInput } from "@/lib/types";
 // stages in sync with TripForm's stage handler.
 type FailureStage =
   | "validation"
+  | "rate_limit"
   | "upstream_unreachable"
   | "upstream_error"
   | "upstream_timeout"
@@ -31,6 +35,8 @@ interface FailureBody {
   detail?: string;
   /** Upstream HTTP status when stage === "upstream_error". */
   upstreamStatus?: number;
+  /** Seconds until the caller may retry — set when stage === "rate_limit". */
+  retryAfter?: number;
 }
 
 function failure(
@@ -154,6 +160,43 @@ export async function POST(req: NextRequest) {
         status: 400,
         detail: "Check-out must be after check-in.",
       });
+    }
+
+    // P0-5: enforce the per-user daily generation cap BEFORE spending an n8n /
+    // OpenAI call — previously the limit was only read to render UI and the
+    // count was incremented but never checked, so any signed-in user (or a
+    // direct POST) could generate without bound. checkGenerationLimit fails OPEN
+    // on transient DB errors and returns allowed for anonymous users (their
+    // quota is a separate UI-phase concern), so this only hard-stops signed-in
+    // users over DAILY_GENERATION_LIMIT. The successful-generation increment
+    // still happens in the after() seam below.
+    //
+    // NOTE: check-then-increment is NOT atomic — the increment lands post-
+    // response in after(), so a burst of concurrent requests can each pass this
+    // check before any increment is written, allowing bounded over-generation.
+    // Closing this fully needs a Postgres atomic increment/RPC; deferred as
+    // larger scope. This check is the durable enforcement the proxy Map can't
+    // provide (see proxy.ts TODO).
+    const userClient = await getServerSupabase();
+    const limitStatus = await checkGenerationLimit(userClient);
+    if (!limitStatus.allowed) {
+      const now = Date.now();
+      const nextUtcMidnight = Date.UTC(
+        new Date(now).getUTCFullYear(),
+        new Date(now).getUTCMonth(),
+        new Date(now).getUTCDate() + 1,
+      );
+      const retryAfter = Math.max(1, Math.ceil((nextUtcMidnight - now) / 1000));
+      return failure(
+        {
+          error: "daily_limit_reached",
+          stage: "rate_limit",
+          status: 429,
+          detail: `You've reached your daily limit of ${limitStatus.limit} trip generations. It resets at midnight UTC.`,
+          retryAfter,
+        },
+        { headers: { "Retry-After": String(retryAfter) } },
+      );
     }
 
     const cacheKey = buildCacheKey(input);

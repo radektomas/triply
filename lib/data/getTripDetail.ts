@@ -1,4 +1,5 @@
 import { computeNights, monthName } from "@/lib/dates";
+import { computeReconciledTotal } from "@/lib/budget";
 import { bookingHotelUrl, skyscannerFlightUrl, getYourGuideUrl } from "@/lib/booking";
 import type { APIDestination, TripInput, TrustedSource } from "@/lib/types";
 import type {
@@ -9,33 +10,40 @@ import type {
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
 function buildBudget(e: APIDestination["estimates"], nights: number, travelers: number): TripDetail["budget"] {
-  const flightCost = e.flightRange?.typical ?? 0;
-  const hotelNightly = e.hotelPerNightRange?.typical ?? 0;
-  const hotelCost = hotelNightly * nights;
-  const foodDaily = e.foodPerDay?.budget ?? e.foodPerDay?.midRange ?? 0;
-  const foodCost = foodDaily * nights;
-  const activitiesDaily = e.activitiesPerDay?.budget ?? e.activitiesPerDay?.midRange ?? 0;
-  const activitiesCost = activitiesDaily * nights;
-  const transportDaily = e.localTransportPerDay ?? 0;
-  const transportCost = transportDaily * nights;
+  // Total, range, and per-category amounts ALL come from the shared
+  // computeReconciledTotal (lib/budget.ts) — the single source of truth also
+  // used by the results card (components/results/DestinationCard.tsx), so the
+  // detail headline and the card total can never drift apart. The total is the
+  // sum of the categories below, so the breakdown rows always add up to it.
+  const reconciled = computeReconciledTotal(e, nights);
+  const cats = reconciled?.categories ?? {
+    flight: 0,
+    hotel: 0,
+    food: 0,
+    activities: 0,
+    transport: 0,
+  };
+  const total = reconciled?.total ?? 0;
+  const min = reconciled?.min ?? total;
+  const max = reconciled?.max ?? total;
 
-  const total =
-    e.totalEstimate?.typical ??
-    flightCost + hotelCost + foodCost + activitiesCost + transportCost;
+  // Per-night / per-day unit figures for the expandable detail rows (display
+  // only — the row *amounts* come from the reconciled categories above).
+  const hotelNightly = e.hotelPerNightRange?.typical ?? 0;
+  const foodDaily = e.foodPerDay?.budget ?? e.foodPerDay?.midRange ?? 0;
+  const activitiesDaily = e.activitiesPerDay?.budget ?? e.activitiesPerDay?.midRange ?? 0;
+  const transportDaily = e.localTransportPerDay ?? 0;
 
   return {
     total,
-    range: {
-      min: e.totalEstimate?.min ?? total,
-      max: e.totalEstimate?.max ?? total,
-    },
+    range: { min, max },
     perPerson: true,
     travelers,
     breakdown: [
       {
         label: "Flights",
         icon: "✈️",
-        amount: flightCost,
+        amount: cats.flight,
         perUnit: e.flightRange
           ? { amount: e.flightRange.min, amountMax: e.flightRange.max }
           : undefined,
@@ -46,7 +54,7 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
       {
         label: "Hotel",
         icon: "🏨",
-        amount: hotelCost,
+        amount: cats.hotel,
         perUnit: { amount: hotelNightly, unit: `/night × ${nights}` },
         color: "#FF6B47",
         tips: ["Compare Booking.com with direct rates", "15 min walk from center = 30% cheaper"],
@@ -55,7 +63,7 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
       {
         label: "Food",
         icon: "🍽️",
-        amount: foodCost,
+        amount: cats.food,
         perUnit: { amount: foodDaily, unit: `/day × ${nights}` },
         color: "#0D7377",
         tips: ["Lunch menu of the day is €8–12", "Breakfast at local cafés, not hotels"],
@@ -64,7 +72,7 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
       {
         label: "Activities",
         icon: "🎭",
-        amount: activitiesCost,
+        amount: cats.activities,
         perUnit: { amount: activitiesDaily, unit: `/day × ${nights}` },
         color: "#F4A261",
         tips: ["Book tours a week ahead for best prices", "Free walking tours in most cities"],
@@ -73,7 +81,7 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
       {
         label: "Transport",
         icon: "🚌",
-        amount: transportCost,
+        amount: cats.transport,
         perUnit: { amount: transportDaily, unit: `/day × ${nights}` },
         color: "#8E7CC3",
         tips: ["Day pass if taking 3+ rides", "Walk when possible — you see more"],
@@ -140,9 +148,14 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     description: dest.description,
     vibes: dest.vibes ?? [],
     weather: {
-      temperature: weather?.tempC ?? 0,
-      sunHours: weather?.sunshineHours ?? 0,
-      seaTemperature: weather?.seaTemp ?? 18,
+      // Pass through undefined when n8n omits a value — the hero hides missing
+      // chips instead of showing "0°C · 0h sun" or a fabricated sea temp. (Was
+      // `?? 0` / `?? 18`, which invented an 18°C sea for landlocked cities and
+      // rendered a fake 0°C/0h. This now matches how the results card hides
+      // missing weather.)
+      temperature: weather?.tempC,
+      sunHours: weather?.sunshineHours,
+      seaTemperature: weather?.seaTemp,
       precipitation: adaptRain(weather?.rain ?? "low"),
       month: capitalizeFirst(monthName(input.checkIn)),
     },

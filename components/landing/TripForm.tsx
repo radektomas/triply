@@ -91,6 +91,39 @@ const BUDGET_PRESETS = [500, 1000, 2000] as const;
 const BUDGET_SNAP_THRESHOLD = 75; // ± euros within which the slider snaps on release.
 const BUDGET_RANGE_MSG = "Enter a budget between €100 and €2000.";
 
+// P0-4: is the currently-focused element one that owns the Enter key itself?
+// Used to stop the global Enter-to-advance handler from double-firing when the
+// user presses Enter inside a form control or an open autocomplete/combobox
+// (picking an airport, toggling a chip, submitting a field). Guards against a
+// null/SSR activeElement.
+function isInteractiveEnterTarget(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    tag === "BUTTON" ||
+    tag === "A"
+  ) {
+    return true;
+  }
+  if (el instanceof HTMLElement && el.isContentEditable) return true;
+  const role = el.getAttribute("role");
+  if (
+    role === "option" ||
+    role === "combobox" ||
+    role === "listbox" ||
+    role === "menuitem"
+  ) {
+    return true;
+  }
+  // Focus sitting anywhere inside an open autocomplete/combobox/dropdown.
+  return !!el.closest(
+    '[role="combobox"],[role="listbox"],[aria-expanded="true"]',
+  );
+}
+
 function computeNights(from: Date, to: Date): number {
   return Math.max(0, differenceInDays(to, from));
 }
@@ -449,6 +482,10 @@ export function TripForm() {
     regionSelection,
     exactCity,
     loading,
+    // Mirror validation state so the Enter-key handler can honor the exact same
+    // disabled conditions as the Next/Submit buttons (P0-4).
+    budgetError,
+    fxWarning,
     // Mirror the selected currency here too so handleSubmit can stamp the
     // trip_generated event without closing over the reactive value directly
     // (keeps the keyboard-shortcut effect's empty dep array honest).
@@ -467,6 +504,8 @@ export function TripForm() {
       regionSelection,
       exactCity,
       loading,
+      budgetError,
+      fxWarning,
       selectedCurrency,
     };
   });
@@ -753,17 +792,47 @@ export function TripForm() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Enter") return;
-      if (document.activeElement?.tagName === "TEXTAREA") return;
+      // P0-4: do nothing when focus is on an interactive control. Enter there
+      // belongs to that control (pick an airport from the dropdown, toggle a
+      // vibe/traveler chip, submit a field) — NOT to advancing the wizard.
+      // Previously only TEXTAREA was excluded, so Enter double-fired: it
+      // selected the control AND advanced/submitted, and it bypassed the
+      // disabled-button validation (e.g. advanced past the dates step with no
+      // dates picked).
+      if (isInteractiveEnterTarget(document.activeElement)) return;
+
       const s = stateRef.current;
       if (s.loading) return;
       // On the destination pre-screen, Enter must not advance the numbered
       // wizard — the destination is committed by choosing an option instead.
       if (s.onDestinationScreen) return;
+
+      const nights =
+        s.range?.from && s.range?.to
+          ? computeNights(s.range.from, s.range.to)
+          : 0;
+
       if (s.currentStep < 3) {
+        // Mirror the current step's Next-button disabled condition exactly so
+        // Enter can never advance past a step whose Next button is disabled.
+        if (s.currentStep === 1) {
+          // matches the Step-1 Next button (budget/fx/destination validation)
+          if (s.budgetError || s.fxWarning) return;
+          if (s.destinationMode === "region" && !s.regionSelection) return;
+          if (s.destinationMode === "exact_city" && !s.exactCity) return;
+        } else if (s.currentStep === 2) {
+          // matches the Step-2 Next button (dates picked, ≥1 night)
+          if (!s.range?.from || !s.range?.to || nights < 1) return;
+        }
         setSkipEntryAnim(false);
         setDirection("forward");
         setCurrentStep((prev) => (prev < 3 ? ((prev + 1) as 1 | 2 | 3) : prev));
       } else {
+        // Mirror the Step-3 submit-button disabled condition exactly.
+        if (!s.range?.from || !s.range?.to) return;
+        if (s.fxWarning) return;
+        if (s.destinationMode === "region" && !s.regionSelection) return;
+        if (s.destinationMode === "exact_city" && !s.exactCity) return;
         handleSubmit(
           s.budget,
           s.range,
@@ -911,6 +980,30 @@ export function TripForm() {
             heading: "Our trip planner didn't respond",
             sub: "Couldn't reach the planner service right now. Please try again in a moment.",
           });
+          return;
+        }
+
+        // P1-11: rate limited (HTTP 429). Two sources: the per-user daily cap
+        // enforced in the route (stage "rate_limit", carries a specific detail)
+        // and the per-IP burst throttle in proxy.ts (raw 429, no stage). Show
+        // the real reason instead of the generic "Something glitched".
+        if (res.status === 429 || body.stage === "rate_limit") {
+          if (body.stage === "rate_limit") {
+            setSubmitError({
+              heading: "Daily limit reached",
+              sub:
+                body.detail ||
+                "You've hit today's trip-generation limit. It resets at midnight UTC.",
+            });
+          } else {
+            setSubmitError({
+              heading: "You're going a bit fast",
+              sub:
+                body.detail ||
+                body.message ||
+                "Too many requests in a short time. Give it a moment and try again.",
+            });
+          }
           return;
         }
 

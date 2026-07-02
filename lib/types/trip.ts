@@ -36,9 +36,9 @@ export type TripDetail = {
   vibes: string[];           // ["beach", "sun", "relax"]
 
   weather: {
-    temperature: number;     // 26
-    sunHours: number;        // 9
-    seaTemperature: number;  // 20
+    temperature?: number;    // 26 — undefined when n8n omits it (hidden, not faked)
+    sunHours?: number;       // 9  — undefined when omitted
+    seaTemperature?: number; // 20 — undefined for landlocked / when omitted
     precipitation: "dry" | "mixed" | "wet";
     month: string;           // "July"
   };

@@ -54,10 +54,11 @@ interface Props {
 export function BookingHub({ detail }: Props) {
   const { booking, destination, checkIn, checkOut, budget } = detail;
   const travelers = budget.travelers || 1;
-  // Flights/Activities amounts come from budget.breakdown — same source as the
-  // Budget widget, which labels them as totals for the trip. Reuse the same
-  // phrasing here so units stay consistent.
-  const travelersTotalLabel = `total · ${travelers} ${travelers === 1 ? "traveler" : "travelers"}`;
+  // Flights/Activities amounts come from budget.breakdown — which are per-person
+  // (never multiplied by travelers). The whole detail page reads per-person
+  // (matching the Budget widget hero), so label these per-person too. (Was
+  // "total · N travelers", which overstated/contradicted the per-person figure.)
+  const perPersonLabel = "per person";
   const dateRange = checkIn && checkOut ? formatRange(checkIn, checkOut) : undefined;
   const { selectedCurrency, format } = useCurrency();
   const fmt = (eur: number) => format(eur, { rounded: true });
@@ -125,7 +126,7 @@ export function BookingHub({ detail }: Props) {
             icon="🏨"
             title="Hotels"
             estimate={hotelEstimate ? `~${fmt(hotelEstimate)}` : undefined}
-            estimateLabel="total stay"
+            estimateLabel="per person · whole stay"
             providers={hotelProviders}
             destination={destination}
             forceDisclosure={hasBookingAffiliateCard}
@@ -134,7 +135,7 @@ export function BookingHub({ detail }: Props) {
             icon="✈️"
             title="Flights"
             estimate={flightEstimate ? `from ${fmt(flightEstimate)}` : undefined}
-            estimateLabel={travelersTotalLabel}
+            estimateLabel={perPersonLabel}
             providers={booking.flights}
             destination={destination}
           />
@@ -142,7 +143,7 @@ export function BookingHub({ detail }: Props) {
             icon="🎭"
             title="Activities"
             estimate={activitiesEstimate ? `from ${fmt(activitiesEstimate)}` : undefined}
-            estimateLabel={travelersTotalLabel}
+            estimateLabel={perPersonLabel}
             providers={booking.activities}
             destination={destination}
           />
