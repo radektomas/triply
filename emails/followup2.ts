@@ -13,7 +13,7 @@ export interface Followup2Data {
   destinationName: string;
 }
 
-// Day +2 after saving: the last soft touch. Different angle from followup_1
+// Second followup (7 days after saving, per /api/cron/followups): the last soft touch. Different angle from followup_1
 // (which was about flight timing): this one is about how little planning is
 // actually left, then we go quiet.
 export function renderFollowup2(data: Followup2Data): {

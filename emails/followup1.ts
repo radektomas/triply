@@ -13,7 +13,7 @@ export interface Followup1Data {
   destinationName: string;
 }
 
-// Day +1 after saving: gentle, helpful angle (booking-window tip), not salesy.
+// First followup (1 day after saving, per /api/cron/followups): gentle, helpful angle, not salesy.
 export function renderFollowup1(data: Followup1Data): {
   subject: string;
   html: string;

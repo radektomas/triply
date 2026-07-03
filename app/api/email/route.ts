@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Resend } from "resend";
-import {
-  renderEmail,
-  EMAIL_TEMPLATES,
-  type EmailTemplate,
-} from "@/emails";
+import { sendTemplateEmail } from "@/lib/email/send";
+import { type EmailTemplate } from "@/emails";
 
 // Transactional email sender, called by n8n workflows and Supabase hooks
 // (never by the browser). Locked behind the x-triply-secret header so the
-// endpoint can't be used as an open relay.
+// endpoint can't be used as an open relay. Render + Resend logic lives in
+// lib/email/send.ts (shared with /api/hooks/supabase and /api/cron/followups);
+// this route only does auth + request validation + status mapping.
 //
 //   POST /api/email
 //   headers: { "x-triply-secret": TRIPLY_EMAIL_SECRET }
@@ -17,20 +15,18 @@ import {
 //              to: string,
 //              data: { name?, destinationName? } }
 
-const FROM = "Triply <noreply@flytriply.eu>";
-
-// Loose-but-useful shape check; Resend does the authoritative validation.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STATUS_BY_ERROR: Record<string, number> = {
+  email_not_configured: 500,
+  unknown_template: 400,
+  invalid_recipient: 400,
+  invalid_template_data: 400,
+  send_failed: 502,
+};
 
 export async function POST(req: NextRequest) {
   const secret = process.env.TRIPLY_EMAIL_SECRET;
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!secret || !apiKey) {
-    console.error(
-      "[api/email] missing env:",
-      !secret ? "TRIPLY_EMAIL_SECRET" : "",
-      !apiKey ? "RESEND_API_KEY" : "",
-    );
+  if (!secret) {
+    console.error("[api/email] missing env: TRIPLY_EMAIL_SECRET");
     return NextResponse.json(
       { error: "email_not_configured" },
       { status: 500 },
@@ -49,69 +45,19 @@ export async function POST(req: NextRequest) {
   }
 
   const template = body.template as EmailTemplate;
-  if (!EMAIL_TEMPLATES.includes(template)) {
-    return NextResponse.json(
-      {
-        error: "unknown_template",
-        detail: `template must be one of: ${EMAIL_TEMPLATES.join(", ")}`,
-      },
-      { status: 400 },
-    );
-  }
-
-  const to = typeof body.to === "string" ? body.to.trim() : "";
-  if (!EMAIL_RE.test(to)) {
-    return NextResponse.json(
-      { error: "invalid_recipient", detail: "`to` must be an email address" },
-      { status: 400 },
-    );
-  }
-
+  const to = typeof body.to === "string" ? body.to : "";
   const data =
     body.data && typeof body.data === "object"
       ? (body.data as Record<string, unknown>)
       : {};
 
-  let rendered;
-  try {
-    rendered = renderEmail(template, data);
-  } catch (err) {
+  const result = await sendTemplateEmail({ template, to, data });
+  if (!result.ok) {
     return NextResponse.json(
-      {
-        error: "invalid_template_data",
-        detail: err instanceof Error ? err.message : String(err),
-      },
-      { status: 400 },
+      { error: result.error, detail: result.detail },
+      { status: STATUS_BY_ERROR[result.error] ?? 500 },
     );
   }
 
-  try {
-    const resend = new Resend(apiKey);
-    const { data: sent, error } = await resend.emails.send({
-      from: FROM,
-      to,
-      subject: rendered.subject,
-      html: rendered.html,
-      text: rendered.text,
-    });
-
-    if (error) {
-      console.error("[api/email] resend error:", error);
-      return NextResponse.json(
-        { error: "send_failed", detail: error.message },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json({ id: sent?.id ?? null, template, to });
-  } catch (err) {
-    console.error("[api/email] send threw:", err);
-    return NextResponse.json(
-      {
-        error: "send_failed",
-        detail: err instanceof Error ? err.message : String(err),
-      },
-      { status: 502 },
-    );
-  }
+  return NextResponse.json({ id: result.id, template, to: to.trim() });
 }
