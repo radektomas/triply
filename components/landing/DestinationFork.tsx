@@ -1,19 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CityAutocomplete,
   type CitySelection,
 } from "@/components/shared/CityAutocomplete";
 import {
-  FlightPathIcon,
-  RegionIcon,
-  FlagIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
 } from "@/components/landing/VibeIcons";
 import type { DestinationMode } from "@/lib/types";
+
+// Full-bleed tile photos — direct Unsplash CDN URLs (images.unsplash.com is
+// already allowed in next.config remotePatterns + the CSP img-src). All three
+// are warm golden-hour shots with a calm/dark lower third so the white overlay
+// text stays readable over the bottom scrim. To swap a photo, replace the
+// `src` with any images.unsplash.com URL carrying the same sizing params.
+const TILE_PHOTOS: Record<DestinationMode, { src: string; alt: string }> = {
+  surprise: {
+    // Airplane wing over sunlit clouds — travel anticipation.
+    src: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1200&q=75&auto=format&fit=crop",
+    alt: "Airplane wing above golden sunlit clouds",
+  },
+  region: {
+    // Tuscan rolling hills at golden hour — reads as a countryside region,
+    // no single recognizable landmark.
+    src: "https://images.unsplash.com/photo-1516108317508-6788f6a160e4?w=1200&q=75&auto=format&fit=crop",
+    alt: "Rolling Tuscan hills with cypress trees at golden hour",
+  },
+  exact_city: {
+    // Prague riverside at golden hour — the exact-city example.
+    src: "https://images.unsplash.com/photo-1458150945447-7fb764c11a92?w=1200&q=75&auto=format&fit=crop",
+    alt: "Prague old town riverside at golden hour",
+  },
+};
 
 interface DestinationForkProps {
   destinationMode: DestinationMode;
@@ -226,9 +248,11 @@ export function DestinationFork({
     );
   }
 
-  // Coral suppression on the surprise tile while a region/exact tile is pressed,
-  // so no coral frame survives into the collapse. Reset back at neutral — the
-  // fill flag too, so a re-entered grid ("Choose differently") doesn't show the
+  // Historically suppressed the surprise tile's coral icon chip while a
+  // region/exact tile was pressed; the photo reskin removed that chip, so the
+  // flag has no visual target today — the state and pointer handlers are kept
+  // so the reset semantics below stay intact. The reset also clears the fill
+  // flag, so a re-entered grid ("Choose differently") doesn't show the
   // previously tapped tile still flooded. (A surprise COMMIT never trips this
   // reset: destinationMode is already "surprise" on the neutral grid, so the
   // dep doesn't change and the coral fill survives the fork's exit fade.)
@@ -242,7 +266,6 @@ export function DestinationFork({
 
   const showBar =
     destinationMode === "region" || destinationMode === "exact_city";
-  const surpriseNeutral = coralPressed; // no longer "leaving" — bar replaces grid
 
   // The tiles' AnimatePresence remounts together with the tiles group (it's
   // nested inside the tiles↔bar swap), so its `initial` gate must know whether
@@ -268,7 +291,6 @@ export function DestinationFork({
       mode: "surprise" as const,
       label: "Surprise me",
       subtext: "Let Triply pick your match",
-      Icon: FlightPathIcon,
       fill: "bg-gradient-to-br from-[#FF7A57] to-[#FF6B47]",
       fillShadow: "shadow-[0_16px_38px_-10px_rgba(255,107,71,0.6)]",
       fillMs: FILL_MS,
@@ -277,7 +299,6 @@ export function DestinationFork({
       mode: "region" as const,
       label: "I know the region",
       subtext: "Country or area",
-      Icon: RegionIcon,
       fill: "bg-gradient-to-br from-[#0F8589] to-[#0D7377]",
       fillShadow: "shadow-[0_16px_38px_-10px_rgba(13,115,119,0.6)]",
       fillMs: PLACE_FILL_RAMP_MS,
@@ -286,7 +307,6 @@ export function DestinationFork({
       mode: "exact_city" as const,
       label: "I know the exact city",
       subtext: "One city, detailed",
-      Icon: FlagIcon,
       fill: "bg-gradient-to-br from-[#274C5E] to-[#1B3A4B]",
       fillShadow: "shadow-[0_16px_38px_-10px_rgba(27,58,75,0.55)]",
       fillMs: PLACE_FILL_RAMP_MS,
@@ -294,14 +314,15 @@ export function DestinationFork({
   ];
 
   // Per-mode presentation for the input bar (teal for region, ink for exact).
+  // photo/tint/fillShadow mirror the tile the user just tapped, so the bar
+  // reads as that tile's duotone state carrying over — not a new surface.
   const barCfg =
     destinationMode === "exact_city"
       ? {
           accent: "#1B3A4B",
-          borderClass: "border-[#1B3A4B]/45",
-          ringClass: "ring-[#1B3A4B]/15",
-          iconClass: "bg-[#1B3A4B]/10 text-[#1B3A4B]",
-          Icon: FlagIcon,
+          photo: TILE_PHOTOS.exact_city,
+          tint: "bg-gradient-to-br from-[#274C5E] to-[#1B3A4B]",
+          fillShadow: "shadow-[0_16px_38px_-10px_rgba(27,58,75,0.55)]",
           title: "Which city?",
           value: exactCity,
           onChange: (sel: CitySelection | null) => {
@@ -315,10 +336,9 @@ export function DestinationFork({
         }
       : {
           accent: "#0D7377",
-          borderClass: "border-[#0D7377]/45",
-          ringClass: "ring-[#0D7377]/15",
-          iconClass: "bg-[#0D7377]/10 text-[#0D7377]",
-          Icon: RegionIcon,
+          photo: TILE_PHOTOS.region,
+          tint: "bg-gradient-to-br from-[#0F8589] to-[#0D7377]",
+          fillShadow: "shadow-[0_16px_38px_-10px_rgba(13,115,119,0.6)]",
           title: "Which region?",
           value: regionSelection,
           onChange: (sel: CitySelection | null) => {
@@ -330,7 +350,6 @@ export function DestinationFork({
           placeholder: "e.g. Portugal, Sicily, Bali...",
           helper: "Country, region, or island — we'll find 3 great spots there.",
         };
-  const BarIcon = barCfg.Icon;
   const ringActive =
     prefillHighlight &&
     ((destinationMode === "region" && prefilledKind === "region") ||
@@ -390,7 +409,7 @@ export function DestinationFork({
                 if (surpriseCommitting && t.mode !== "surprise") return null;
                 const isSurprise = t.mode === "surprise";
                 const isFilling = fillingMode === t.mode;
-                const Icon = t.Icon;
+                const photo = TILE_PHOTOS[t.mode];
                 return (
                   <motion.button
                     key={t.mode}
@@ -416,7 +435,7 @@ export function DestinationFork({
                     onPointerDown={isSurprise ? undefined : () => setCoralPressed(true)}
                     onPointerLeave={isSurprise ? undefined : () => setCoralPressed(false)}
                     onPointerCancel={isSurprise ? undefined : () => setCoralPressed(false)}
-                    className={`group/tile relative w-full max-md:aspect-[5/3] md:min-h-[39rem] overflow-hidden md:overflow-visible flex flex-col items-center justify-center md:justify-evenly gap-3 rounded-3xl px-4 py-5 md:py-12 text-center bg-white border transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC] ${
+                    className={`group/tile relative w-full max-md:aspect-[5/3] md:min-h-[39rem] overflow-hidden flex flex-col items-start justify-end rounded-3xl px-5 py-5 md:px-7 md:py-7 text-left bg-white border transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC] ${
                       isSurprise ? "focus-visible:ring-[#FF6B47]" : t.mode === "region" ? "focus-visible:ring-[#0D7377]" : "focus-visible:ring-[#1B3A4B]"
                     } ${
                       isFilling
@@ -424,63 +443,70 @@ export function DestinationFork({
                         : "border-[#1a1a1a]/10 shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] hover:shadow-[0_12px_28px_-8px_rgba(0,0,0,0.16)] active:scale-[0.97] motion-safe:hover:-translate-y-0.5"
                     }`}
                   >
-                    {/* Identity-colour commit fill — shared by ALL tiles.
-                        Starts at t=0 with the tap. Surprise: the commit fires
-                        mid-fill (COMMIT_AT_MS) so the parent starts crossfading
-                        to the wizard while the fill completes — nothing waits.
-                        Region/exact: a brief acknowledgment riding the
-                        tiles→bar crossfade window (fillMs is clipped to it). */}
-                    {isFilling && (
-                      <motion.span
-                        aria-hidden
-                        initial={reduceMotion ? false : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: reduceMotion ? 0 : t.fillMs / 1000, ease: "easeOut" }}
-                        // rounded-3xl matches the tile so the fill still clips
-                        // to the tile's corners now that the tile itself is no
-                        // longer overflow-hidden (which was cutting the subtitle).
-                        className={`pointer-events-none absolute inset-0 rounded-3xl ${t.fill}`}
+                    {/* Full-bleed photo + bottom scrim — the same treatment as
+                        the results DestinationCard (photo, dark bottom
+                        gradient, white text pinned bottom-left). The wrapper
+                        carries its own rounded clip so the hover zoom (on the
+                        IMAGE, not the card) can never leak past the corners.
+                        `isolate` scopes the tap-tint's mix-blend-multiply to
+                        the photo+scrim — without it the blend could reach
+                        through to whatever is painted behind the card. */}
+                    <span className="absolute inset-0 overflow-hidden rounded-3xl isolate">
+                      <Image
+                        src={photo.src}
+                        alt={photo.alt}
+                        fill
+                        // 3-up desktop row is a fixed md:w-[54rem] container →
+                        // ~288px per tile; mobile stacks full-width.
+                        sizes="(max-width: 768px) 100vw, 288px"
+                        className="object-cover transition-transform duration-500 motion-safe:group-hover/tile:scale-105 motion-reduce:transition-none"
                       />
-                    )}
-                    <span
-                      className={`relative z-10 shrink-0 inline-flex items-center justify-center w-14 h-14 md:w-24 md:h-24 rounded-2xl md:rounded-[1.6rem] ring-1 ring-inset transition-[transform,color,background-color] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none ${
-                        isFilling
-                          ? "bg-white/20 ring-white/25 text-white"
-                          : isSurprise
-                          ? surpriseNeutral
-                            ? "bg-[#1a1a1a]/[0.05] ring-[#1a1a1a]/10 text-[#1a1a1a]/70"
-                            : "bg-[#FF6B47]/10 ring-[#FF6B47]/15 text-[#FF6B47] motion-safe:group-hover/tile:-rotate-12"
-                          : t.mode === "region"
-                          ? "bg-[#0D7377]/10 ring-[#0D7377]/15 text-[#0D7377] motion-safe:group-hover/tile:scale-110"
-                          : "bg-[#1B3A4B]/10 ring-[#1B3A4B]/15 text-[#1B3A4B] motion-safe:group-hover/tile:scale-110"
-                      }`}
-                    >
-                      <span className="inline-flex md:scale-[1.5]">
-                        <Icon color="currentColor" size={30} />
-                      </span>
-                    </span>
-                    <span className="relative z-10">
                       <span
-                        className={`block text-lg md:text-2xl font-bold leading-tight transition-colors duration-300 motion-reduce:transition-none ${
-                          isFilling ? "text-white" : "text-[#1a1a1a]"
-                        }`}
-                      >
+                        aria-hidden
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)",
+                        }}
+                      />
+                      {/* Identity-colour commit tint — shared by ALL tiles.
+                          Multiply-blended over the photo so the tap reads as
+                          the photo taking on the choice's colour (duotone),
+                          not a solid wall covering it. Timing is unchanged:
+                          starts at t=0 with the tap; surprise commits mid-ramp
+                          (COMMIT_AT_MS) so the wizard crossfade starts while
+                          the tint completes; region/exact hold a brief
+                          acknowledgment riding the tiles→bar crossfade window
+                          (fillMs is clipped to it). */}
+                      {isFilling && (
+                        <motion.span
+                          aria-hidden
+                          initial={reduceMotion ? false : { opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: reduceMotion ? 0 : t.fillMs / 1000, ease: "easeOut" }}
+                          className={`pointer-events-none absolute inset-0 mix-blend-multiply ${t.fill}`}
+                        />
+                      )}
+                    </span>
+                    {/* Title + subtitle pinned bottom-left over the scrim —
+                        the results card's country/city typography. White in
+                        every state (the identity fill floods behind them). */}
+                    <span className="relative z-10">
+                      <span className="block font-display text-white text-2xl md:text-3xl font-bold leading-tight">
                         {t.label}
                       </span>
-                      <span
-                        className={`block text-xs md:text-base mt-1 md:mt-2 leading-snug transition-colors duration-300 motion-reduce:transition-none ${
-                          isFilling ? "text-white/85" : "text-[#1a1a1a]/55"
-                        }`}
-                      >
+                      <span className="block text-xs md:text-base mt-1 md:mt-1.5 leading-snug text-white/80">
                         {t.subtext}
                       </span>
                     </span>
                     {isSurprise && (
+                      // Frosted white pill (results-card badge style) so it
+                      // stays legible on the photo.
                       <span
-                        className={`absolute z-10 top-3 right-3 inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm ${
+                        className={`absolute z-10 top-3 right-3 inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider shadow-sm ${
                           surpriseCommitting
-                            ? "bg-white text-[#FF6B47] border-transparent"
-                            : "bg-white text-[#FF6B47] border-[#FF6B47]/55"
+                            ? "bg-white text-[#FF6B47]"
+                            : "bg-white/85 backdrop-blur-sm ring-1 ring-black/5 text-[#FF6B47]"
                         }`}
                       >
                         Popular
@@ -503,45 +529,66 @@ export function DestinationFork({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, transition: swapExit }}
                 transition={swapEnter}
-                className={`[grid-area:1/1] self-start w-full rounded-3xl border-2 bg-white p-4 sm:p-5 shadow-[0_4px_16px_-6px_rgba(0,0,0,0.12)] ${barCfg.borderClass} ${
-                  ringActive ? "ring-2 ring-offset-2 ring-[#0D7377]/55" : ""
+                className={`[grid-area:1/1] self-start relative w-full rounded-3xl p-4 sm:p-5 ${barCfg.fillShadow} ${
+                  ringActive ? "ring-2 ring-offset-2 ring-white/80" : ""
                 }`}
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <span
-                    className={`shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl ring-1 ring-inset ${barCfg.iconClass} ${barCfg.ringClass}`}
-                  >
-                    <BarIcon color="currentColor" size={22} />
-                  </span>
-                  <span className="text-base font-bold text-[#1a1a1a]">
+                {/* Same duotone-photo backdrop as the tapped tile, with the
+                    identity tint HELD (the bar is the selected state). The
+                    clip lives on this inner layer — NOT the container — so
+                    the autocomplete dropdown can still overflow the bar's
+                    bottom edge. `isolate` scopes the multiply blend; the
+                    black wash keeps the white text and input readable over
+                    the photo's brighter areas (the title sits at the TOP,
+                    above the bottom scrim's reach). */}
+                <span aria-hidden className="absolute inset-0 overflow-hidden rounded-3xl isolate">
+                  <Image
+                    src={barCfg.photo.src}
+                    alt=""
+                    fill
+                    // Full card width (~45rem column), all breakpoints.
+                    sizes="(max-width: 768px) 100vw, 720px"
+                    className="object-cover"
+                  />
+                  <span className={`absolute inset-0 mix-blend-multiply ${barCfg.tint}`} />
+                  <span className="absolute inset-0 bg-black/15" />
+                </span>
+                <div className="relative z-10 flex items-center gap-3 mb-3">
+                  <span className="font-display text-lg font-bold text-white">
                     {barCfg.title}
                   </span>
                 </div>
-                <CityAutocomplete
-                  mode={barCfg.mode}
-                  value={barCfg.value}
-                  innerInputRef={barCfg.innerInputRef}
-                  onChange={barCfg.onChange}
-                  placeholder={barCfg.placeholder}
-                />
-                <p className="mt-2 text-xs text-muted">{barCfg.helper}</p>
-                <div className="mt-4 flex items-center justify-between gap-3">
+                <div className="relative z-10">
+                  <CityAutocomplete
+                    mode={barCfg.mode}
+                    value={barCfg.value}
+                    innerInputRef={barCfg.innerInputRef}
+                    onChange={barCfg.onChange}
+                    placeholder={barCfg.placeholder}
+                  />
+                </div>
+                <p className="relative z-10 mt-2 text-xs text-white/80">
+                  {barCfg.helper}
+                </p>
+                <div className="relative z-10 mt-4 flex items-center justify-between gap-3">
                   <button
                     type="button"
                     onClick={() => onDestinationModeChange("surprise")}
-                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-semibold text-[#1a1a1a]/55 hover:text-[#1a1a1a] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a1a]/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFE4CC]"
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-semibold text-white/75 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
                     <ArrowLeftIcon color="currentColor" size={16} />
                     Choose differently
                   </button>
                   {/* Re-commit path: returning from Budget's "Back" shows the bar
-                      with the prior selection; this proceeds without re-picking. */}
+                      with the prior selection; this proceeds without re-picking.
+                      Frosted white on the tinted photo (accent-on-accent would
+                      vanish into the tint). */}
                   {barCfg.value && (
                     <button
                       type="button"
                       onClick={() => onCommit(destinationMode)}
-                      className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-                      style={{ backgroundColor: barCfg.accent }}
+                      className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold bg-white shadow-sm transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                      style={{ color: barCfg.accent }}
                     >
                       Continue
                       <ArrowRightIcon color="currentColor" size={14} />
