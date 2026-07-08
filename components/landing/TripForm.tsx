@@ -1037,7 +1037,7 @@ export function TripForm() {
           return;
         }
 
-        // Upstream timeout — we waited 60s and n8n didn't answer.
+        // Upstream timeout — we waited 120s and n8n didn't answer.
         if (body.stage === "upstream_timeout" || res.status === 504) {
           setSubmitError({
             heading: "The trip planner timed out",

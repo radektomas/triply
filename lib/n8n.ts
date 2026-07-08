@@ -8,12 +8,12 @@ import { computeNights, monthName, isoWeekKey } from "@/lib/dates";
 import { travelersLabel, travelersFlavor } from "@/lib/travelers";
 
 // Thrown when the n8n trip-planning call fails. `kind` lets the route handler
-// (and ultimately the client) tell a 60s timeout apart from a network/DNS
+// (and ultimately the client) tell a 120s timeout apart from a network/DNS
 // failure apart from a non-2xx upstream response — three quite different
 // failure modes that all used to look the same.
 //
 //   - "unreachable": fetch threw (DNS, TLS, network) before any response.
-//   - "timeout":     our AbortController fired the 60s timeout.
+//   - "timeout":     our AbortController fired the 120s timeout.
 //   - "error":       upstream responded non-2xx (or returned non-JSON we
 //                    couldn't parse). `status` is set for non-2xx; absent
 //                    for parse failures.
@@ -30,7 +30,7 @@ export class UpstreamUnavailableError extends Error {
   }
 }
 
-const N8N_TIMEOUT_MS = 60_000;
+const N8N_TIMEOUT_MS = 120_000;
 
 export async function fetchTripSuggestions(input: TripInput): Promise<APITripResponse> {
   const url = process.env.N8N_WEBHOOK_URL;
