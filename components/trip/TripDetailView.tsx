@@ -75,6 +75,7 @@ export async function TripDetailView({
               range={detail.budget.range}
               breakdown={detail.budget.breakdown}
               travelers={detail.budget.travelers}
+              transportMode={tripInput?.transportMode ?? "plane"}
             />
           </div>
         </section>
@@ -105,7 +106,11 @@ export async function TripDetailView({
       </FadeIn>
 
       <FadeIn delay={0.42}>
-        <BookingHub detail={detail} />
+        <BookingHub
+          detail={detail}
+          transportMode={tripInput?.transportMode ?? "plane"}
+          tips={tips}
+        />
       </FadeIn>
     </main>
     </>

@@ -45,13 +45,23 @@ export interface ReconciledBudget {
 export function computeReconciledTotal(
   estimates: APIDestination["estimates"] | undefined | null,
   nights: number,
+  transportMode: "plane" | "car" = "plane",
 ): ReconciledBudget | null {
   if (!estimates) return null;
 
   // Guard nights: invalid/zero dates → only non-nightly costs (flights) count.
   const n = Number.isFinite(nights) && nights > 0 ? nights : 0;
 
-  const flight = estimates.flightRange?.typical ?? 0;
+  // The one-off transport-to-destination cost. Car trips read drivingCost
+  // (the model zeroes flightRange in car mode); plane keeps flightRange.
+  // A car trip cached before drivingCost existed falls back to 0 — same
+  // rendered result as before the field, never NaN. The category keeps its
+  // `flight` key: it's the wire/adapter name for "getting there", and the
+  // display layer relabels it per mode.
+  const flight =
+    transportMode === "car"
+      ? estimates.drivingCost?.typical ?? 0
+      : estimates.flightRange?.typical ?? 0;
   const hotel = (estimates.hotelPerNightRange?.typical ?? 0) * n;
   const food =
     (estimates.foodPerDay?.budget ?? estimates.foodPerDay?.midRange ?? 0) * n;
@@ -120,9 +130,15 @@ export interface CostBasis {
  */
 export function computeCostBasis(
   estimates: APIDestination["estimates"] | undefined | null,
+  transportMode: "plane" | "car" = "plane",
 ): CostBasis | null {
   if (!estimates) return null;
-  const fixed = estimates.flightRange?.typical ?? 0;
+  // Same per-mode field selection as computeReconciledTotal, preserving the
+  // `fixed + perNight * nights === total` contract for car trips too.
+  const fixed =
+    transportMode === "car"
+      ? estimates.drivingCost?.typical ?? 0
+      : estimates.flightRange?.typical ?? 0;
   const perNight =
     (estimates.hotelPerNightRange?.typical ?? 0) +
     (estimates.foodPerDay?.budget ?? estimates.foodPerDay?.midRange ?? 0) +

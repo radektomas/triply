@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "framer-motion";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { CarIcon } from "@/components/landing/VibeIcons";
 import type { BudgetCategory } from "@/lib/types/trip";
 
 interface Props {
@@ -10,6 +11,13 @@ interface Props {
   range: { min: number; max: number };
   breakdown: BudgetCategory[];
   travelers?: number;
+  /**
+   * Car trips display the flightRange row as "Driving" with the car glyph
+   * instead of "Flights ✈️" — a display-time substitution only (amounts,
+   * percentages, and the adapter's category data are untouched). Defaults to
+   * plane so existing call sites (quick picks) keep the historical labels.
+   */
+  transportMode?: "plane" | "car";
 }
 
 const CATEGORY_DEFAULTS: Record<string, { typical?: string; tips?: string[] }> = {
@@ -47,7 +55,20 @@ function getCategoryDefaults(cat: BudgetCategory) {
 
 // `travelers` is intentionally not consumed — every figure here is per-person.
 // Kept in Props so existing call sites remain valid.
-export function BudgetBreakdown({ total, range, breakdown }: Props) {
+export function BudgetBreakdown({
+  total,
+  range,
+  breakdown,
+  transportMode = "plane",
+}: Props) {
+  const isCar = transportMode === "car";
+  // Display-time relabel of the flight row for car trips. The category keeps
+  // its adapter label ("Flights") internally — active-row state and
+  // CATEGORY_DEFAULTS key off it — only what the user sees changes.
+  const isDriveRow = (cat: BudgetCategory) => isCar && cat.label === "Flights";
+  const displayLabel = (cat: BudgetCategory) =>
+    isDriveRow(cat) ? "Driving" : cat.label;
+
   const [active, setActive] = useState<string | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(barRef, { once: true });
@@ -67,7 +88,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
   const sum = Math.max(breakdown.reduce((acc, c) => acc + (c.amount || 0), 0), 1);
 
   const ariaLabel = `Budget breakdown: ${breakdown
-    .map((c) => `${c.label} ${fmt(c.amount)}`)
+    .map((c) => `${displayLabel(c)} ${fmt(c.amount)}`)
     .join(", ")} — total ${fmt(total)}`;
 
   return (
@@ -169,7 +190,7 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
                 type="button"
                 onClick={() => setActive((a) => (a === cat.label ? null : cat.label))}
                 aria-expanded={isActive}
-                aria-label={`${cat.label} — ${fmt(cat.amount)}, ${pct}% of total`}
+                aria-label={`${displayLabel(cat)} — ${fmt(cat.amount)}, ${pct}% of total`}
                 className="flex items-center justify-between gap-3 min-h-[44px] px-2 py-2 rounded-lg w-full text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47]/50 focus-visible:ring-offset-1 hover:bg-[rgba(13,115,119,0.04)]"
                 style={{
                   opacity: active && !isActive ? 0.5 : 1,
@@ -182,11 +203,17 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: cat.color }}
                   />
-                  <span aria-hidden="true" className="text-base leading-none">
-                    {cat.icon}
-                  </span>
+                  {isDriveRow(cat) ? (
+                    <span aria-hidden="true" className="leading-none flex-shrink-0">
+                      <CarIcon color={cat.color} size={16} />
+                    </span>
+                  ) : (
+                    <span aria-hidden="true" className="text-base leading-none">
+                      {cat.icon}
+                    </span>
+                  )}
                   <span className="text-sm font-medium text-[#1A1A1A] truncate">
-                    {cat.label}
+                    {displayLabel(cat)}
                   </span>
                 </span>
                 <span className="flex items-center gap-3 flex-shrink-0">
@@ -252,10 +279,16 @@ export function BudgetBreakdown({ total, range, breakdown }: Props) {
                         {/* Card header */}
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2.5">
-                            <span className="text-xl leading-none">{cat.icon}</span>
+                            {isDriveRow(cat) ? (
+                              <span className="leading-none flex-shrink-0">
+                                <CarIcon color={cat.color} size={22} />
+                              </span>
+                            ) : (
+                              <span className="text-xl leading-none">{cat.icon}</span>
+                            )}
                             <div>
                               <p className="font-semibold text-[#1A1A1A] leading-tight">
-                                {cat.label}
+                                {displayLabel(cat)}
                               </p>
                               <p className="text-xs text-muted">{pct}% of total</p>
                             </div>

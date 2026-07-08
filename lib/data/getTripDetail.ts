@@ -9,13 +9,23 @@ import type {
 
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
-function buildBudget(e: APIDestination["estimates"], nights: number, travelers: number): TripDetail["budget"] {
+function buildBudget(
+  e: APIDestination["estimates"],
+  nights: number,
+  travelers: number,
+  transportMode: "plane" | "car" = "plane",
+): TripDetail["budget"] {
   // Total, range, and per-category amounts ALL come from the shared
   // computeReconciledTotal (lib/budget.ts) — the single source of truth also
   // used by the results card (components/results/DestinationCard.tsx), so the
   // detail headline and the card total can never drift apart. The total is the
   // sum of the categories below, so the breakdown rows always add up to it.
-  const reconciled = computeReconciledTotal(e, nights);
+  // transportMode picks the getting-there field (drivingCost vs flightRange);
+  // the row keeps its "Flights" label here — BudgetBreakdown relabels it to
+  // "Driving" at display time in car mode.
+  const reconciled = computeReconciledTotal(e, nights, transportMode);
+  const transportToDestRange =
+    transportMode === "car" ? e.drivingCost : e.flightRange;
   const cats = reconciled?.categories ?? {
     flight: 0,
     hotel: 0,
@@ -44,12 +54,24 @@ function buildBudget(e: APIDestination["estimates"], nights: number, travelers: 
         label: "Flights",
         icon: "✈️",
         amount: cats.flight,
-        perUnit: e.flightRange
-          ? { amount: e.flightRange.min, amountMax: e.flightRange.max }
+        perUnit: transportToDestRange
+          ? { amount: transportToDestRange.min, amountMax: transportToDestRange.max }
           : undefined,
         color: "#4A90E2",
-        tips: ["Book 6–8 weeks ahead", "Tue/Wed departures save ~15%"],
-        typical: "Budget airline round-trip",
+        // Expand-card copy per mode. Car copy stays generic — route-specific
+        // vignette/toll details already surface in BookingHub's "On the road"
+        // card from the model's tips[], so nothing country-specific here.
+        tips:
+          transportMode === "car"
+            ? [
+                "Buy vignettes online before you cross borders",
+                "Split fuel and tolls across all travelers",
+              ]
+            : ["Book 6–8 weeks ahead", "Tue/Wed departures save ~15%"],
+        typical:
+          transportMode === "car"
+            ? "Fuel, tolls & vignettes"
+            : "Budget airline round-trip",
       },
       {
         label: "Hotel",
@@ -162,7 +184,12 @@ export function adaptAPIDestination(dest: APIDestination, input: TripInput): Tri
     nights,
     checkIn: input.checkIn,
     checkOut: input.checkOut,
-    budget: buildBudget(estimates, nights, input.travelers),
+    budget: buildBudget(
+      estimates,
+      nights,
+      input.travelers,
+      input.transportMode ?? "plane",
+    ),
     topPlaces: dest.topPlaces,
     localWisdom: [],
     goodToKnow: defaultGoodToKnow(dest.country),

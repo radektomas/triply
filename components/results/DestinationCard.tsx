@@ -36,6 +36,12 @@ interface Props {
   budget: number;
   vibe: string;
   originCity: string;
+  /**
+   * Picks the getting-there estimate field (car → drivingCost, plane →
+   * flightRange) inside the shared reconciled-total computation. Defaults to
+   * plane so call sites without a trip input keep the historical numbers.
+   */
+  transportMode?: "plane" | "car";
   href?: string;
   tripId?: string;
 }
@@ -73,6 +79,7 @@ export async function DestinationCard({
   budget,
   vibe,
   originCity,
+  transportMode = "plane",
   href: hrefOverride,
   tripId,
 }: Props) {
@@ -95,7 +102,7 @@ export async function DestinationCard({
     // badge is computed from this same reconciled total so it reflects the
     // number actually shown, not n8n's unreliable totalEstimate.
     const nights = computeNights(checkIn, checkOut);
-    const reconciled = computeReconciledTotal(estimates, nights);
+    const reconciled = computeReconciledTotal(estimates, nights, transportMode);
     const budgetFit = computeBudgetFit(reconciled?.total, budget);
     const gradient = getGradient(destination.id);
     const photoUrl = await getCityPhoto(
@@ -116,9 +123,15 @@ export async function DestinationCard({
     const hasWeather =
       tempC != null || sunHours != null || rainKey != null || seaTemp != null;
 
-    const flightTypical = estimates?.flightRange?.typical;
-    const flightMin = estimates?.flightRange?.min;
-    const flightMax = estimates?.flightRange?.max;
+    // Getting-there estimate row: car reads drivingCost (flightRange is
+    // zeroed by the model in car mode), plane keeps flightRange — the same
+    // per-mode selection computeReconciledTotal uses for the total above.
+    const transportRange =
+      transportMode === "car" ? estimates?.drivingCost : estimates?.flightRange;
+    const transportLabel = transportMode === "car" ? "Driving" : "Flights";
+    const flightTypical = transportRange?.typical;
+    const flightMin = transportRange?.min;
+    const flightMax = transportRange?.max;
     const hotelNightly = estimates?.hotelPerNightRange?.typical;
     const foodDaily = estimates?.foodPerDay?.midRange;
     // Big "Per-person total" — sourced from the reconciled budget (sum of rows),
@@ -285,7 +298,7 @@ export async function DestinationCard({
           <div className="flex-1 text-xs text-muted space-y-1">
             {flightTypical != null && (
               <p>
-                <span className="font-medium text-[#374151]">Flights</span>{" "}
+                <span className="font-medium text-[#374151]">{transportLabel}</span>{" "}
                 ~<FormattedPrice eur={flightTypical} />
                 {flightMin != null && flightMax != null && (
                   <span className="ml-1 text-muted/70">

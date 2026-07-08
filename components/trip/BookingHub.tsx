@@ -10,6 +10,7 @@ import {
 } from "@/lib/affiliates/booking";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { track } from "@/lib/analytics";
+import { CarIcon } from "@/components/landing/VibeIcons";
 import { TriplyBookingSignoff } from "./TriplyBookingSignoff";
 
 // Normalize a provider name into the affiliate partner key the funnel
@@ -47,12 +48,33 @@ function withBookingCurrency(url: string, currency: string): string {
   return `${url}${sep}selected_currency=${encodeURIComponent(currency)}`;
 }
 
+// Road-logistics tips (from the model's free-text tips[]) surfaced in the
+// car-mode slot where the flight card would have been. Matching is scoped to
+// the vocabulary of driving costs — vignette/toll/motorway/fuel — so generic
+// sightseeing tips never leak into the booking hub (TipsList shows them all).
+const CAR_TIP_RE = /vignette|toll|motorway|fuel/i;
+
 interface Props {
   detail: TripDetail;
+  /**
+   * How the traveler gets there (from the trip's input). Car trips hide the
+   * flight CTA entirely and surface road-logistics tips in its place.
+   * Defaults to plane so callers without a trip input (quick picks) keep the
+   * historical layout.
+   */
+  transportMode?: "plane" | "car";
+  /**
+   * The destination's free-text tips[] (same array TipsList renders). Only
+   * read in car mode, to populate CarEssentialsSlot. Optional so callers
+   * without tips (quick picks) need no change.
+   */
+  tips?: string[];
 }
 
-export function BookingHub({ detail }: Props) {
+export function BookingHub({ detail, transportMode = "plane", tips = [] }: Props) {
   const { booking, destination, checkIn, checkOut, budget } = detail;
+  const isCar = transportMode === "car";
+  const carTips = isCar ? tips.filter((t) => CAR_TIP_RE.test(t)) : [];
   const travelers = budget.travelers || 1;
   // Flights/Activities amounts come from budget.breakdown — which are per-person
   // (never multiplied by travelers). The whole detail page reads per-person
@@ -121,24 +143,31 @@ export function BookingHub({ detail }: Props) {
       </div>
 
       <div className="relative mb-6">
-        <div className="grid md:grid-cols-3 gap-4 items-stretch">
-          <BookingCTACard
-            icon="🏨"
-            title="Hotels"
-            estimate={hotelEstimate ? `~${fmt(hotelEstimate)}` : undefined}
-            estimateLabel="per person · whole stay"
-            providers={hotelProviders}
-            destination={destination}
-            forceDisclosure={hasBookingAffiliateCard}
-          />
-          <BookingCTACard
-            icon="✈️"
-            title="Flights"
-            estimate={flightEstimate ? `from ${fmt(flightEstimate)}` : undefined}
-            estimateLabel={perPersonLabel}
-            providers={booking.flights}
-            destination={destination}
-          />
+        {/* The stay is the hero: a full-width primary card, visually dominant
+            over everything below. The Booking.com CTA it carries is the hub's
+            single most prominent action. Everything else (flights,
+            activities) demotes to the compact secondary grid underneath. */}
+        <StayHeroCard
+          destination={destination}
+          estimate={hotelEstimate ? `~${fmt(hotelEstimate)}` : undefined}
+          estimateLabel="per person · whole stay"
+          providers={hotelProviders}
+          forceDisclosure={hasBookingAffiliateCard}
+        />
+
+        <div className="grid sm:grid-cols-2 gap-4 items-stretch mt-4">
+          {/* Car trips have no flight leg — the flight CTA disappears
+              entirely rather than demoting further. */}
+          {!isCar && (
+            <BookingCTACard
+              icon="✈️"
+              title="Flights"
+              estimate={flightEstimate ? `from ${fmt(flightEstimate)}` : undefined}
+              estimateLabel={perPersonLabel}
+              providers={booking.flights}
+              destination={destination}
+            />
+          )}
           <BookingCTACard
             icon="🎭"
             title="Activities"
@@ -147,6 +176,7 @@ export function BookingHub({ detail }: Props) {
             providers={booking.activities}
             destination={destination}
           />
+          {isCar && <CarEssentialsSlot tips={carTips} />}
         </div>
 
         <div className="hidden lg:flex absolute right-[-220px] top-[-140px] z-10 pointer-events-none">
@@ -161,7 +191,9 @@ export function BookingHub({ detail }: Props) {
         <div className="flex-1">
           <p className="text-sm font-semibold text-[#1a1a1a] mb-0.5">Best time to book</p>
           <p className="text-sm text-[#1a1a1a]/70 leading-snug">
-            Flight prices are typically lowest 6–8 weeks before departure. Book hotels 2–3 weeks ahead for best rates.
+            {isCar
+              ? "Book hotels 2–3 weeks ahead for best rates."
+              : "Flight prices are typically lowest 6–8 weeks before departure. Book hotels 2–3 weeks ahead for best rates."}
           </p>
         </div>
       </div>
@@ -175,6 +207,166 @@ export function BookingHub({ detail }: Props) {
   );
 }
 
+// The hub's hero: a full-width primary card for the stay, dominated by the
+// Booking.com CTA (the primary hotel provider is rebuilt as the CJ affiliate
+// deep link upstream in BookingHub — this component only lays it out).
+function StayHeroCard({
+  destination,
+  estimate,
+  estimateLabel,
+  providers,
+  forceDisclosure,
+}: {
+  destination: string;
+  estimate?: string;
+  estimateLabel?: string;
+  providers: BookingLink[];
+  forceDisclosure?: boolean;
+}) {
+  if (providers.length === 0) return null;
+
+  const primary = providers.find((p) => p.primary) ?? providers[0];
+  const secondary = providers
+    .filter((p) => p.provider !== primary.provider)
+    .slice(0, 2);
+
+  return (
+    <motion.div
+      whileHover={{
+        y: -2,
+        boxShadow:
+          "0 2px 4px rgba(0,0,0,0.06), 0 28px 56px -16px rgba(13,115,119,0.24)",
+      }}
+      transition={{ duration: 0.2 }}
+      className="bg-white rounded-3xl p-6 sm:p-8"
+      style={{
+        border: "1px solid rgba(13,115,119,0.12)",
+        boxShadow:
+          "0 1px 2px rgba(0,0,0,0.04), 0 20px 44px -14px rgba(13,115,119,0.16)",
+      }}
+    >
+      <div className="flex flex-col md:flex-row md:items-center gap-6">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl leading-none">🏨</span>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#0D7377]">
+              Where you&apos;ll sleep
+            </p>
+          </div>
+          <h3 className="font-display text-2xl md:text-3xl font-bold text-[#1A1A1A]">
+            Find your stay in {destination}
+          </h3>
+          {estimate && (
+            <p className="mt-2 text-[#1A1A1A]/60 text-sm">
+              <span className="font-semibold text-lg text-[#1A1A1A]">{estimate}</span>
+              {estimateLabel && <span className="ml-1.5">{estimateLabel}</span>}
+            </p>
+          )}
+        </div>
+
+        <div className="md:shrink-0 w-full md:w-auto md:text-right">
+          <motion.a
+            href={primary.url}
+            target="_blank"
+            rel="noopener noreferrer sponsored"
+            onClick={() => trackAffiliateClick(primary.provider, destination)}
+            whileHover={{
+              y: -1,
+              boxShadow: "0 8px 24px rgba(13,115,119,0.36)",
+            }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.2 }}
+            className="group/cta w-full md:w-auto inline-flex items-center justify-center gap-2 rounded-full px-8 py-4 text-base font-semibold bg-teal hover:bg-teal-deep text-white transition-colors"
+            style={{
+              border: "1px solid transparent",
+              boxShadow: "0 4px 14px rgba(13,115,119,0.26)",
+            }}
+          >
+            <span>Search on {primary.provider}</span>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="transition-transform duration-200 group-hover/cta:translate-x-0.5"
+              aria-hidden="true"
+            >
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </motion.a>
+
+          {(isAffiliateActive() || forceDisclosure) && (
+            <p className="text-[11px] text-[#1A1A1A]/45 mt-2 text-center md:text-right leading-snug">
+              Partner link — at no extra cost to you.
+            </p>
+          )}
+
+          {secondary.length > 0 && (
+            <div className="mt-2 flex flex-wrap justify-center md:justify-end gap-x-3 gap-y-1">
+              {secondary.map((s) => (
+                <a
+                  key={s.provider}
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  onClick={() => trackAffiliateClick(s.provider, destination)}
+                  className="text-[12px] text-[#0D7377]/55 hover:text-[#0D7377]/80 transition-colors underline-offset-2 hover:underline"
+                >
+                  or try {s.provider}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// Secondary-grid slot for car trips, in the flight card's place: the
+// destination's road-logistics tips (vignette/toll/motorway/fuel, filtered by
+// CAR_TIP_RE upstream). Purely informational — no CTA, no affiliate link —
+// styled to the same quiet weight as the demoted BookingCTACards. Renders
+// nothing when the model's tips carry no road content, so the grid never
+// shows an empty card.
+function CarEssentialsSlot({ tips }: { tips: string[] }) {
+  if (tips.length === 0) return null;
+
+  return (
+    <div
+      className="bg-white rounded-3xl p-5 sm:p-6 flex flex-col h-full"
+      style={{
+        border: "1px solid rgba(13,115,119,0.06)",
+        boxShadow:
+          "0 1px 2px rgba(0,0,0,0.04), 0 10px 24px -12px rgba(13,115,119,0.08)",
+      }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <CarIcon color="#0D7377" size={20} />
+        <h3 className="font-bold text-base text-[#1A1A1A]">On the road</h3>
+      </div>
+      <ul className="space-y-2">
+        {tips.map((tip, i) => (
+          <li
+            key={i}
+            className="text-sm text-[#374151] leading-snug flex items-start gap-2"
+          >
+            <span className="text-[#0D7377] font-bold flex-shrink-0 mt-px">
+              →
+            </span>
+            {tip}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function BookingCTACard({
   icon,
   title,
@@ -182,7 +374,6 @@ function BookingCTACard({
   estimateLabel,
   providers,
   destination,
-  forceDisclosure = false,
 }: {
   icon: string;
   title: string;
@@ -190,12 +381,6 @@ function BookingCTACard({
   estimateLabel?: string;
   providers: BookingLink[];
   destination: string;
-  /**
-   * Force the per-card "Partner link" disclosure even when the env-gated AWIN
-   * path is inactive — used by the Hotels card to cover the always-live CJ
-   * Booking.com affiliate link.
-   */
-  forceDisclosure?: boolean;
 }) {
   if (providers.length === 0) return null;
 
@@ -207,28 +392,30 @@ function BookingCTACard({
       whileHover={{
         y: -2,
         boxShadow:
-          "0 2px 4px rgba(0,0,0,0.06), 0 20px 40px -16px rgba(13,115,119,0.18)",
+          "0 2px 4px rgba(0,0,0,0.06), 0 16px 32px -14px rgba(13,115,119,0.14)",
       }}
       transition={{ duration: 0.2 }}
-      className="bg-white rounded-3xl p-6 sm:p-7 flex flex-col h-full"
+      // Secondary tier: deliberately smaller and quieter than StayHeroCard —
+      // tighter padding, smaller type, outline (not filled) CTA.
+      className="bg-white rounded-3xl p-5 sm:p-6 flex flex-col h-full"
       style={{
         border: "1px solid rgba(13,115,119,0.06)",
         boxShadow:
-          "0 1px 2px rgba(0,0,0,0.04), 0 12px 32px -12px rgba(13,115,119,0.10)",
+          "0 1px 2px rgba(0,0,0,0.04), 0 10px 24px -12px rgba(13,115,119,0.08)",
       }}
     >
-      <div className="flex items-center gap-2 mb-5">
-        <span className="text-2xl leading-none">{icon}</span>
-        <h3 className="font-bold text-lg text-[#1A1A1A]">{title}</h3>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xl leading-none">{icon}</span>
+        <h3 className="font-bold text-base text-[#1A1A1A]">{title}</h3>
       </div>
 
       {estimate && (
-        <div className="mb-6">
-          <p className="font-semibold text-2xl text-[#1A1A1A] whitespace-nowrap">
+        <div className="mb-5">
+          <p className="font-semibold text-lg text-[#1A1A1A] whitespace-nowrap">
             {estimate}
           </p>
           {estimateLabel && (
-            <p className="text-sm text-[#1A1A1A]/55 mt-0.5">{estimateLabel}</p>
+            <p className="text-xs text-[#1A1A1A]/55 mt-0.5">{estimateLabel}</p>
           )}
         </div>
       )}
@@ -240,16 +427,16 @@ function BookingCTACard({
         onClick={() => trackAffiliateClick(primary.provider, destination)}
         whileHover={{
           y: -1,
-          boxShadow: "0 6px 18px rgba(13,115,119,0.32)",
+          boxShadow: "0 4px 14px rgba(13,115,119,0.20)",
         }}
         whileTap={{ scale: 0.98 }}
         transition={{ duration: 0.2 }}
-        // Teal booking-role pill (D2/D4): fill + hover via tokens instead of the
-        // old inline background:"#0D7377"/whileHover "#0A5D60" hex pair.
-        className="group/cta mt-auto w-full inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-[15px] font-semibold bg-teal hover:bg-teal-deep text-white transition-colors"
+        // Quiet teal outline pill — the booking role's secondary weight. The
+        // filled bg-teal treatment is reserved for the StayHeroCard CTA so
+        // the hub has exactly one dominant action.
+        className="group/cta mt-auto w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-teal hover:text-white bg-white hover:bg-teal transition-colors"
         style={{
-          border: "1px solid transparent",
-          boxShadow: "0 2px 8px rgba(13,115,119,0.18)",
+          border: "1px solid rgba(13,115,119,0.35)",
         }}
       >
         <span>Search on {primary.provider}</span>
@@ -270,7 +457,7 @@ function BookingCTACard({
         </svg>
       </motion.a>
 
-      {(isAffiliateActive() || forceDisclosure) && (
+      {isAffiliateActive() && (
         <p className="text-[11px] text-[#1A1A1A]/45 mt-2 text-center leading-snug">
           Partner link — at no extra cost to you.
         </p>

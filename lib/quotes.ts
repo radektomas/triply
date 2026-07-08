@@ -266,6 +266,26 @@ export const ORIGIN_QUOTES = [
   "{origin} → somewhere good.",
 ];
 
+// Car-mode variant of ORIGIN_QUOTES — same `{origin}` placeholder contract,
+// road-flavored instead of flight-flavored.
+export const ORIGIN_CAR_QUOTES = [
+  "starting point logged.",
+  "got it. rolling out of {origin}.",
+  "{origin} → open road.",
+];
+
+export const TRANSPORT_PLANE_QUOTES = [
+  "wings it is.",
+  "window seat. obviously.",
+  "somewhere a flight deal just appeared.",
+];
+
+export const TRANSPORT_CAR_QUOTES = [
+  "road trip. snacks are mandatory.",
+  "I call shotgun.",
+  "queue up the playlist.",
+];
+
 export const SUBMIT_QUOTES = [
   "give me a sec...",
   "doing the math...",
@@ -335,11 +355,21 @@ export function getVibeQuotes(vibe: string): readonly string[] {
 
 // Returns a single resolved string with `{origin}` substituted in-line.
 // Origin reactions fire once per change, so we resolve eagerly rather than
-// returning a bank for the consumer to pick from.
-export function getOriginQuote(originCity: string): string {
-  const template =
-    ORIGIN_QUOTES[Math.floor(Math.random() * ORIGIN_QUOTES.length)];
+// returning a bank for the consumer to pick from. Car mode swaps in the
+// road-flavored bank so Triply never says "flying out of" a driving origin.
+export function getOriginQuote(
+  originCity: string,
+  transportMode: "plane" | "car" = "plane",
+): string {
+  const bank = transportMode === "car" ? ORIGIN_CAR_QUOTES : ORIGIN_QUOTES;
+  const template = bank[Math.floor(Math.random() * bank.length)];
   return template.replace(/\{origin\}/g, originCity);
+}
+
+export function getTransportQuotes(
+  mode: "plane" | "car",
+): readonly string[] {
+  return mode === "car" ? TRANSPORT_CAR_QUOTES : TRANSPORT_PLANE_QUOTES;
 }
 
 const MONTH_NAMES = [

@@ -20,6 +20,13 @@ export interface APIFlightRange {
 
 export interface APIEstimates {
   flightRange: APIFlightRange;
+  /**
+   * Transport-to-destination cost for car trips (fuel + tolls/vignette),
+   * same shape as flightRange. The model zeroes flightRange in car mode and
+   * fills this instead (and vice versa for plane). Optional: plane responses
+   * and car trips cached before the field existed simply omit it.
+   */
+  drivingCost?: APIFlightRange;
   hotelPerNightRange: { min: number; max: number; typical: number };
   foodPerDay: { budget: number; midRange: number };
   activitiesPerDay: { budget: number; midRange: number };
@@ -101,6 +108,12 @@ export interface APITripResponse {
 // any in-flight / bookmarked requests still using the old value.
 export type DestinationMode = "surprise" | "region" | "exact_city";
 
+// How the traveler gets there. `plane` is the historical (implicit) behavior —
+// requests without the field are normalized to it, so old payloads and the
+// n8n workflow keep working unchanged. `car` swaps the origin airport for a
+// free-text departure city plus a max-driving-time radius.
+export type TransportMode = "plane" | "car";
+
 export interface TripInput {
   budget: number;
   checkIn: string;   // ISO date: YYYY-MM-DD
@@ -110,4 +123,9 @@ export interface TripInput {
   originCity: string;
   destinationMode?: DestinationMode;
   destinationInput?: string;
+  transportMode?: TransportMode;
+  /** Free-text departure city — only set when transportMode === "car". */
+  departureCity?: string;
+  /** Max driving time in hours (3/6/9/12) — only set when transportMode === "car". */
+  maxDriveHours?: number;
 }

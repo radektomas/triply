@@ -274,6 +274,38 @@ export function FlagIcon({ color, size = 22 }: VibeIconProps) {
   );
 }
 
+// Transport-mode icons for the "How are you traveling?" toggle — same
+// inline-SVG pattern: color prop, no icon library.
+export function PlaneIcon({ color, size = 32 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Simple airliner silhouette pointing up — fuselage, wings, tail */}
+      <path
+        d="M16 3 L 17.8 5 L 17.8 12.2 L 28 18.2 L 28 21 L 17.8 17.6 L 17.8 23.6 L 21 26 L 21 28.5 L 16 26.8 L 11 28.5 L 11 26 L 14.2 23.6 L 14.2 17.6 L 4 21 L 4 18.2 L 14.2 12.2 L 14.2 5 Z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+export function CarIcon({ color, size = 32 }: VibeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Cabin */}
+      <path
+        d="M8 19 L 10 12.5 Q 10.6 11, 12.2 11 L 19.8 11 Q 21.4 11, 22 12.5 L 24 19 Z"
+        fill={color}
+        opacity="0.7"
+      />
+      {/* Body */}
+      <rect x="4" y="18" width="24" height="6.5" rx="2.5" fill={color} />
+      {/* Wheels */}
+      <circle cx="10" cy="26" r="2.6" fill={color} />
+      <circle cx="22" cy="26" r="2.6" fill={color} />
+    </svg>
+  );
+}
+
 // Quick Picks vibe enum → icon component.
 // Free-form vibe strings from n8n should NOT use this — those go through
 // substring matching elsewhere. This is for the fixed Quick Picks enum.

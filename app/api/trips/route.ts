@@ -13,7 +13,7 @@ import {
   checkGenerationLimit,
   incrementGenerationCount,
 } from "@/lib/generationLimits";
-import type { TripInput } from "@/lib/types";
+import type { TripInput, TransportMode } from "@/lib/types";
 
 // Discriminated error stages. The client (TripForm) branches on `stage` to
 // decide whether to show an inline message (validation) or the full-screen
@@ -114,6 +114,21 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
   const destinationMode: "surprise" | "region" | "exact_city" =
     destinationInput ? requestedMode : "surprise";
 
+  // Transport is additive and defaults to plane, so payloads predating the
+  // field (and clients that never send it, e.g. GenerateMore) normalize to
+  // the historical behavior. Car mode carries a free-text departure city
+  // (sanitized like originCity) and a driving-time radius clamped to the
+  // form's 3–12h chip range.
+  const transportMode: TransportMode = raw.transportMode === "car" ? "car" : "plane";
+  const departureCityRaw = String(raw.departureCity ?? "")
+    .slice(0, 50)
+    .replace(/[^\w\s,\-.]/g, "")
+    .trim();
+  const driveHoursRaw = Math.round(Number(raw.maxDriveHours));
+  const maxDriveHours = Number.isFinite(driveHoursRaw)
+    ? Math.min(Math.max(driveHoursRaw, 3), 12)
+    : 6;
+
   return {
     budget,
     checkIn: String(raw.checkIn ?? "").trim(),
@@ -123,6 +138,10 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
     originCity,
     destinationMode,
     destinationInput,
+    transportMode,
+    ...(transportMode === "car"
+      ? { departureCity: departureCityRaw || undefined, maxDriveHours }
+      : {}),
   };
 }
 

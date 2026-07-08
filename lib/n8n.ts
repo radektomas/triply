@@ -120,7 +120,13 @@ export function buildCacheKey(input: TripInput): string {
   // Tag single-mode (exact_city) responses so they don't collide with cached
   // multi-destination responses for the same inputs (different response shape).
   const modeSuffix = input.destinationMode === "exact_city" ? "_single" : "";
-  return `${input.originCity}_${input.budget}_${weekKey}_${nights}_${input.vibe}_${input.travelers}${destSuffix}${modeSuffix}`
+  // Car trips answer a different question than plane trips from the same
+  // origin (drive-radius destinations vs flight destinations), so they must
+  // never share a cache entry. Plane adds no suffix — existing cached keys
+  // stay valid.
+  const transportSuffix =
+    input.transportMode === "car" ? `_car-${input.maxDriveHours ?? 6}h` : "";
+  return `${input.originCity}_${input.budget}_${weekKey}_${nights}_${input.vibe}_${input.travelers}${destSuffix}${modeSuffix}${transportSuffix}`
     .toLowerCase()
     .replace(/\s+/g, "_");
 }

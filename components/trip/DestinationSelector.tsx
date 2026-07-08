@@ -21,6 +21,10 @@ interface Props {
 export function DestinationSelector({ trip, limitStatus }: Props) {
   const { input, result } = trip;
   const { budget, checkIn, checkOut, vibe, originCity, travelers } = input;
+  // Per-mode getting-there field selection (drivingCost vs flightRange) —
+  // must match the detail page's buildBudget call so grid and detail totals
+  // never drift. Older trips without the field default to plane.
+  const transportMode = input.transportMode ?? "plane";
   const destinations = result?.destinations ?? [];
   const nights = computeNights(checkIn, checkOut);
   const dateRange = formatRange(checkIn, checkOut);
@@ -30,7 +34,10 @@ export function DestinationSelector({ trip, limitStatus }: Props) {
   // computeBudgetFit). If any is fit/under (or unclassifiable → not "over"),
   // the banner stays hidden and the user just sees the honestly-labeled cards.
   const verdicts = destinations.map((d) =>
-    computeBudgetFit(computeReconciledTotal(d.estimates, nights)?.total, budget),
+    computeBudgetFit(
+      computeReconciledTotal(d.estimates, nights, transportMode)?.total,
+      budget,
+    ),
   );
   const allOverBudget =
     destinations.length > 0 && verdicts.every((v) => v === "over");
@@ -44,12 +51,14 @@ export function DestinationSelector({ trip, limitStatus }: Props) {
     const cheapest = destinations
       .map((d) => ({
         est: d.estimates,
-        total: computeReconciledTotal(d.estimates, nights)?.total ?? Infinity,
+        total:
+          computeReconciledTotal(d.estimates, nights, transportMode)?.total ??
+          Infinity,
       }))
       .sort((a, b) => a.total - b.total)[0];
     const basis =
       cheapest && cheapest.total !== Infinity
-        ? computeCostBasis(cheapest.est)
+        ? computeCostBasis(cheapest.est, transportMode)
         : null;
     if (basis && basis.perNight > 0) {
       if (basis.fixed >= budget) {
@@ -85,6 +94,7 @@ export function DestinationSelector({ trip, limitStatus }: Props) {
                 budget={budget}
                 vibe={vibe}
                 originCity={originCity}
+                transportMode={transportMode}
                 tripId={trip.id}
                 href={`/trip/${trip.id}?d=${destination.id}`}
               />

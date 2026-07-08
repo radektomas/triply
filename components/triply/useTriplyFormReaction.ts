@@ -14,6 +14,7 @@ import {
   getTravelersQuotes,
   getOriginQuote,
   getMonthQuotes,
+  getTransportQuotes,
 } from "@/lib/quotes";
 
 // Form-state shape this hook reacts to. Wider than necessary on the `range`
@@ -27,6 +28,10 @@ export interface FormReactionInput {
   range: { from?: Date; to?: Date } | undefined;
   nights: number;
   loading: boolean;
+  // Optional so callers predating the plane/car toggle keep working —
+  // undefined means "never react to transport" (and origin quotes stay
+  // flight-flavored).
+  transportMode?: "plane" | "car";
 }
 
 interface FormReaction {
@@ -45,7 +50,16 @@ interface FormReaction {
 // (each field's `prevValues` matches the current value), so the reaction
 // stays sleepy until the next field change. That's intentional per the spec.
 export function useTriplyFormReaction(input: FormReactionInput): FormReaction {
-  const { budget, travelers, vibe, originCity, range, nights, loading } = input;
+  const {
+    budget,
+    travelers,
+    vibe,
+    originCity,
+    range,
+    nights,
+    loading,
+    transportMode,
+  } = input;
 
   const [reaction, setReaction] = useState<FormReaction>({
     triplyState: "sitting",
@@ -59,6 +73,7 @@ export function useTriplyFormReaction(input: FormReactionInput): FormReaction {
     originCity,
     rangeFrom: range?.from?.getTime(),
     nights,
+    transportMode,
   });
 
   // Loading is the priority signal — flip to sleepy + a SUBMIT line when
@@ -114,8 +129,22 @@ export function useTriplyFormReaction(input: FormReactionInput): FormReaction {
     }
   }, [vibe, loading]);
 
-  // Origin debounced 800ms — the AirportSearch onChange can fire many times
-  // as the user types, and we don't want a quote update per keystroke.
+  // Transport toggle — a deliberate one-tap choice, so it reacts immediately
+  // (no debounce). Car gets the smug road-trip energy; plane a plain happy.
+  useEffect(() => {
+    if (loading) return;
+    if (transportMode && transportMode !== prevValues.current.transportMode) {
+      setReaction({
+        triplyState: transportMode === "car" ? "smug" : "happy",
+        quote: getRandomQuote(getTransportQuotes(transportMode)),
+      });
+      prevValues.current.transportMode = transportMode;
+    }
+  }, [transportMode, loading]);
+
+  // Origin debounced 800ms — the AirportSearch onChange (or the car-mode
+  // departure-city input) can fire many times as the user types, and we
+  // don't want a quote update per keystroke.
   useEffect(() => {
     if (loading) return;
     if (
@@ -125,13 +154,13 @@ export function useTriplyFormReaction(input: FormReactionInput): FormReaction {
       const timer = setTimeout(() => {
         setReaction({
           triplyState: "happy",
-          quote: getOriginQuote(originCity),
+          quote: getOriginQuote(originCity, transportMode),
         });
         prevValues.current.originCity = originCity;
       }, 800);
       return () => clearTimeout(timer);
     }
-  }, [originCity, loading]);
+  }, [originCity, transportMode, loading]);
 
   // Month reacts to the from-date specifically — pick a different month and
   // Triply has something to say. Same calendar month → no fire.

@@ -45,6 +45,8 @@ import { ErrorOverlay } from "@/components/landing/ErrorOverlay";
 import {
   CheckIcon,
   CloseIcon,
+  PlaneIcon,
+  CarIcon,
 } from "@/components/landing/VibeIcons";
 import { setGenerationActive } from "@/components/triply/useGenerationActive";
 import { deriveTripFormVibe } from "@/lib/vibeDestinations";
@@ -63,7 +65,7 @@ import { AirportSearch } from "@/components/landing/AirportSearch";
 import { AIRPORTS } from "@/lib/data/airports";
 import { type CitySelection } from "@/components/shared/CityAutocomplete";
 import { DestinationFork } from "@/components/landing/DestinationFork";
-import type { DestinationMode } from "@/lib/types";
+import type { DestinationMode, TransportMode } from "@/lib/types";
 import {
   TriplyFormPresence,
   TriplyFormPresenceMobile,
@@ -135,6 +137,24 @@ const VIBE_PRESETS = [
   { value: "party",     label: "Party",     Icon: PartyIcon,     activeBg: "#FF6B47", accent: "#FF6B47" },
   { value: "culture",   label: "Culture",   Icon: CultureIcon,   activeBg: "#D4574E", accent: "#D4574E" },
   { value: "adventure", label: "Adventure", Icon: AdventureIcon, activeBg: "#2A9D8F", accent: "#2A9D8F" },
+];
+
+// "How are you traveling?" segmented toggle. Plane is the default (and the
+// only historical behavior); Car swaps the airport picker for a departure
+// city + max-driving-time radius. Teal is the selected-chip token here,
+// matching the budget preset chips.
+const TRANSPORT_OPTIONS = [
+  { value: "plane" as const, label: "Plane", Icon: PlaneIcon },
+  { value: "car" as const, label: "Car", Icon: CarIcon },
+];
+
+// Max-driving-time chips (car mode). Values are what `maxDriveHours` submits;
+// 12 renders as "12h+" — the open-ended top bucket.
+const DRIVE_HOUR_OPTIONS = [
+  { hours: 3, label: "3h" },
+  { hours: 6, label: "6h" },
+  { hours: 9, label: "9h" },
+  { hours: 12, label: "12h+" },
 ];
 
 const TRAVELER_PRESETS = [
@@ -413,6 +433,13 @@ export function TripForm() {
   const [travelers, setTravelers] = useState(2);
   const [vibe, setVibe] = useState("beach");
   const [originCity, setOriginCity] = useState("Prague");
+  // Plane keeps the historical form exactly as-is; Car swaps the airport
+  // picker for departureCity + maxDriveHours below. Plane is the default so
+  // untouched sessions submit the same payload as before (plus the additive
+  // transportMode field).
+  const [transportMode, setTransportMode] = useState<TransportMode>("plane");
+  const [departureCity, setDepartureCity] = useState("");
+  const [maxDriveHours, setMaxDriveHours] = useState(6);
   const [destinationMode, setDestinationMode] = useState<DestinationMode>("surprise");
   // Both `region` and `exact_city` modes use Photon autocomplete —
   // the parent holds a CitySelection per mode and derives the wire-level
@@ -486,6 +513,9 @@ export function TripForm() {
     travelers,
     vibe,
     originCity,
+    transportMode,
+    departureCity,
+    maxDriveHours,
     destinationMode,
     regionSelection,
     exactCity,
@@ -508,6 +538,9 @@ export function TripForm() {
       travelers,
       vibe,
       originCity,
+      transportMode,
+      departureCity,
+      maxDriveHours,
       destinationMode,
       regionSelection,
       exactCity,
@@ -841,6 +874,8 @@ export function TripForm() {
         if (s.fxWarning) return;
         if (s.destinationMode === "region" && !s.regionSelection) return;
         if (s.destinationMode === "exact_city" && !s.exactCity) return;
+        if (s.transportMode === "car" && s.departureCity.trim().length < 2)
+          return;
         handleSubmit(
           s.budget,
           s.range,
@@ -850,6 +885,9 @@ export function TripForm() {
           s.destinationMode,
           s.regionSelection,
           s.exactCity,
+          s.transportMode,
+          s.departureCity,
+          s.maxDriveHours,
         );
       }
     }
@@ -866,6 +904,9 @@ export function TripForm() {
     m: DestinationMode,
     region: CitySelection | null,
     city: CitySelection | null,
+    transport: TransportMode,
+    depCity: string,
+    driveHours: number,
   ) {
     // A generation request is already in flight — drop this call entirely so
     // double-taps / repeated Enter can never fire a second POST /api/trips.
@@ -887,6 +928,11 @@ export function TripForm() {
     // Both autocomplete modes require a picked selection.
     if (m === "region" && !region) return;
     if (m === "exact_city" && !city) return;
+    // Car mode requires a typed departure city (mirrors the submit-button
+    // disabled condition — this is the last-resort guard for stale calls).
+    const isCar = transport === "car";
+    const trimmedDeparture = depCity.trim();
+    if (isCar && trimmedDeparture.length < 2) return;
     // Clear any prior error so a retry cleanly shows the loading overlay
     // again instead of overlapping the error screen.
     setSubmitError(null);
@@ -914,15 +960,35 @@ export function TripForm() {
       // it no longer does, and the wire payload is byte-identical to before.)
       const wireMode: DestinationMode = m;
 
+      // Car mode submits the typed departure city as originCity too — the
+      // API requires a non-empty originCity, and every downstream consumer
+      // (cache key, history, display) reads it as "where the trip starts".
+      // Plane keeps the airport-derived originCity byte-identical to before;
+      // transportMode itself is additive, and departureCity/maxDriveHours
+      // are only sent for car, so plane payloads stay backwards compatible.
+      const effectiveOrigin = isCar ? trimmedDeparture : o;
       const requestBody = {
         budget: b,
         checkIn: toIso(r.from),
         checkOut: toIso(r.to),
         travelers: t,
         vibe: v,
-        originCity: o,
+        originCity: effectiveOrigin,
         destinationMode: wireMode,
         destinationInput,
+        transportMode: transport,
+        ...(isCar
+          ? {
+              departureCity: trimmedDeparture,
+              // No drive radius for an exact city — the chips are hidden
+              // there, so `driveHours` could be a stale pick from an earlier
+              // surprise/region session. Omitting it (rather than sending the
+              // hidden value) lets normalizeInput apply its uniform default
+              // of 6, which also keeps the cache key stable for exact_city
+              // car trips.
+              ...(m === "exact_city" ? {} : { maxDriveHours: driveHours }),
+            }
+          : {}),
       };
 
       const res = await fetch("/api/trips", {
@@ -1047,7 +1113,7 @@ export function TripForm() {
         budget: b,
         nights: r?.from && r?.to ? computeNights(r.from, r.to) : null,
         travelers: t,
-        origin: o,
+        origin: effectiveOrigin,
         destination: destinationInput ?? null,
         currency: stateRef.current.selectedCurrency,
       });
@@ -1288,7 +1354,11 @@ export function TripForm() {
                     budget={budget}
                     travelers={travelers}
                     vibe={vibe}
-                    originCity={originCity}
+                    // The mascot reacts to wherever the trip actually starts —
+                    // the typed departure city in car mode, the airport city
+                    // otherwise (its 800ms debounce absorbs the typing).
+                    originCity={transportMode === "car" ? departureCity : originCity}
+                    transportMode={transportMode}
                     range={range}
                     nights={nights}
                     loading={loading}
@@ -1298,7 +1368,8 @@ export function TripForm() {
                       budget={budget}
                       travelers={travelers}
                       vibe={vibe}
-                      originCity={originCity}
+                      originCity={transportMode === "car" ? departureCity : originCity}
+                      transportMode={transportMode}
                       range={range}
                       nights={nights}
                       loading={loading}
@@ -1685,17 +1756,184 @@ export function TripForm() {
                 </div>
               )}
 
+              {/* Transport toggle — Plane keeps the airport picker exactly as
+                  before; Car swaps in a departure-city input + max-drive-time
+                  chips. The active pill slides via layoutId (transform-only
+                  FLIP), and the field sets crossfade in a shared grid cell —
+                  the same [grid-area:1/1] + SWAP-constant pattern as the
+                  fork↔wizard swap above, so nothing animates a layout prop. */}
               <div>
                 <div className="flex items-baseline gap-2 mb-3">
                   <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
-                    Flying From
+                    How are you traveling?
                   </p>
                 </div>
-                <p className="text-sm text-[#1a1a1a]/70 mb-4">Search for your home airport</p>
-                <AirportSearch
-                  defaultAirport={DEFAULT_AIRPORT}
-                  onChange={(city) => setOriginCity(city)}
-                />
+                <div
+                  role="radiogroup"
+                  aria-label="How are you traveling?"
+                  className="inline-flex rounded-full bg-[#F5F5F5] p-1 mb-6"
+                >
+                  {TRANSPORT_OPTIONS.map((opt) => {
+                    const isActive = transportMode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={isActive}
+                        onClick={() => {
+                          markFormStarted();
+                          setTransportMode(opt.value);
+                        }}
+                        className={`relative px-5 py-2.5 rounded-full text-sm font-semibold transition-colors duration-200 cursor-pointer ${
+                          isActive ? "text-white" : "text-[#1a1a1a] hover:text-[#0D7377]"
+                        }`}
+                      >
+                        {isActive && (
+                          <motion.span
+                            layoutId="transport-active-pill"
+                            aria-hidden="true"
+                            className="absolute inset-0 rounded-full bg-[#0D7377] shadow-md"
+                            transition={
+                              reduceMotion
+                                ? { duration: 0 }
+                                : { type: "spring", stiffness: 500, damping: 38 }
+                            }
+                          />
+                        )}
+                        <span className="relative z-10 inline-flex items-center gap-2">
+                          <opt.Icon
+                            color={isActive ? "#ffffff" : "#0D7377"}
+                            size={18}
+                          />
+                          {opt.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="grid">
+                  <AnimatePresence mode="sync" initial={false}>
+                    {transportMode === "plane" ? (
+                      <motion.div
+                        key="plane-fields"
+                        className="[grid-area:1/1] self-start w-full"
+                        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{
+                          opacity: 0,
+                          transition: reduceMotion
+                            ? { duration: 0 }
+                            : { duration: SWAP_EXIT_S, ease: "easeOut" },
+                        }}
+                        transition={
+                          reduceMotion
+                            ? { duration: 0 }
+                            : {
+                                duration: SWAP_ENTER_S,
+                                ease: CONTENT_EASE,
+                                delay: SWAP_OVERLAP_DELAY_S,
+                              }
+                        }
+                      >
+                        <div className="flex items-baseline gap-2 mb-3">
+                          <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
+                            Flying From
+                          </p>
+                        </div>
+                        <p className="text-sm text-[#1a1a1a]/70 mb-4">Search for your home airport</p>
+                        <AirportSearch
+                          defaultAirport={DEFAULT_AIRPORT}
+                          onChange={(city) => setOriginCity(city)}
+                        />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="car-fields"
+                        className="[grid-area:1/1] self-start w-full space-y-6"
+                        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{
+                          opacity: 0,
+                          transition: reduceMotion
+                            ? { duration: 0 }
+                            : { duration: SWAP_EXIT_S, ease: "easeOut" },
+                        }}
+                        transition={
+                          reduceMotion
+                            ? { duration: 0 }
+                            : {
+                                duration: SWAP_ENTER_S,
+                                ease: CONTENT_EASE,
+                                delay: SWAP_OVERLAP_DELAY_S,
+                              }
+                        }
+                      >
+                        <div>
+                          <div className="flex items-baseline gap-2 mb-3">
+                            <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
+                              Driving From
+                            </p>
+                          </div>
+                          <p className="text-sm text-[#1a1a1a]/70 mb-4">Which city are you starting from?</p>
+                          <input
+                            type="text"
+                            value={departureCity}
+                            onChange={(e) => {
+                              markFormStarted();
+                              setDepartureCity(e.target.value);
+                            }}
+                            placeholder="e.g. Prague"
+                            autoComplete="off"
+                            maxLength={50}
+                            aria-label="Departure city"
+                            className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
+                          />
+                        </div>
+
+                        {/* Drive radius only makes sense when the destination
+                            is still open (surprise/region) — an exact city has
+                            nothing to filter. No enter/exit animation needed:
+                            destinationMode is committed on the pre-screen and
+                            can't change while Step 3 is visible, so this
+                            renders statically inside the car-fields crossfade.
+                            The submit payload omits maxDriveHours in this case
+                            (see handleSubmit). */}
+                        {!isIntent && (
+                          <div>
+                            <div className="flex items-baseline gap-2 mb-3">
+                              <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
+                                Max Driving Time
+                              </p>
+                            </div>
+                            <p className="text-sm text-[#1a1a1a]/70 mb-4">How far are you willing to drive?</p>
+                            <div className="flex flex-wrap gap-2">
+                              {DRIVE_HOUR_OPTIONS.map((opt) => {
+                                const isActive = maxDriveHours === opt.hours;
+                                return (
+                                  <button
+                                    key={opt.hours}
+                                    type="button"
+                                    onClick={() => setMaxDriveHours(opt.hours)}
+                                    aria-pressed={isActive}
+                                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                                      isActive
+                                        ? "bg-[#0D7377] text-white shadow-md scale-[1.02]"
+                                        : "bg-[#F5F5F5] text-[#1a1a1a] hover:bg-[#0D7377]/10"
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -1717,6 +1955,9 @@ export function TripForm() {
                       destinationMode,
                       regionSelection,
                       exactCity,
+                      transportMode,
+                      departureCity,
+                      maxDriveHours,
                     )
                   }
                   disabled={
@@ -1725,7 +1966,8 @@ export function TripForm() {
                     !range?.to ||
                     !!fxWarning ||
                     (destinationMode === "region" && !regionSelection) ||
-                    (destinationMode === "exact_city" && !exactCity)
+                    (destinationMode === "exact_city" && !exactCity) ||
+                    (transportMode === "car" && departureCity.trim().length < 2)
                   }
                   size="md"
                 >
@@ -1808,6 +2050,9 @@ export function TripForm() {
               destinationMode,
               regionSelection,
               exactCity,
+              transportMode,
+              departureCity,
+              maxDriveHours,
             )
           }
           onDismiss={() => setSubmitError(null)}
