@@ -248,6 +248,28 @@ export function DestinationFork({
     );
   }
 
+  // Bar → wizard commit (picking a suggestion, or Continue on a re-entry):
+  // the SAME fill-then-commit gesture as the surprise tile. The identity
+  // gradient floods the panel (normal blend, over the duotone photo) and the
+  // commit fires at COMMIT_AT_MS — mid-fill — so the wizard crossfade starts
+  // under the still-completing colour instead of cutting in cold the instant
+  // a suggestion is picked. Ref-guarded (a double-pick or Enter+click must
+  // not commit twice); reset by remount like committedRef. Reuses the shared
+  // commitTimerRef so the unmount cleanup covers this timer too (any earlier
+  // place-fill timer has necessarily fired — the bar only exists after it).
+  const [barCommitting, setBarCommitting] = useState(false);
+  const barCommittedRef = useRef(false);
+  function commitFromBar(mode: DestinationMode) {
+    if (barCommittedRef.current) return;
+    barCommittedRef.current = true;
+    setBarCommitting(true);
+    if (reduceMotion) {
+      onCommit(mode); // no fill to ride — commit immediately
+      return;
+    }
+    commitTimerRef.current = window.setTimeout(() => onCommit(mode), COMMIT_AT_MS);
+  }
+
   // Historically suppressed the surprise tile's coral icon chip while a
   // region/exact tile was pressed; the photo reskin removed that chip, so the
   // flag has no visual target today — the state and pointer handlers are kept
@@ -327,7 +349,7 @@ export function DestinationFork({
           value: exactCity,
           onChange: (sel: CitySelection | null) => {
             onExactCityChange(sel);
-            if (sel) onCommit("exact_city");
+            if (sel) commitFromBar("exact_city");
           },
           innerInputRef: exactInputRef,
           mode: "city" as const,
@@ -343,7 +365,7 @@ export function DestinationFork({
           value: regionSelection,
           onChange: (sel: CitySelection | null) => {
             onRegionSelectionChange(sel);
-            if (sel) onCommit("region");
+            if (sel) commitFromBar("region");
           },
           innerInputRef: regionInputRef,
           mode: "region" as const,
@@ -529,18 +551,23 @@ export function DestinationFork({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, transition: swapExit }}
                 transition={swapEnter}
-                className={`[grid-area:1/1] self-start relative w-full rounded-3xl p-4 sm:p-5 ${barCfg.fillShadow} ${
+                // min-h ≈ the wizard card's budget-step height (content +
+                // p-14), so Destination-selected → Budget doesn't jump — and
+                // the panel reads as a full step, not a thin strip. flex-col
+                // so the input block can center in the leftover space with
+                // the actions row pinned to the bottom edge.
+                className={`[grid-area:1/1] self-start relative w-full min-h-[24rem] md:min-h-[36rem] flex flex-col rounded-3xl p-5 sm:p-8 md:p-10 ${barCfg.fillShadow} ${
                   ringActive ? "ring-2 ring-offset-2 ring-white/80" : ""
                 }`}
               >
                 {/* Same duotone-photo backdrop as the tapped tile, with the
-                    identity tint HELD (the bar is the selected state). The
-                    clip lives on this inner layer — NOT the container — so
-                    the autocomplete dropdown can still overflow the bar's
-                    bottom edge. `isolate` scopes the multiply blend; the
-                    black wash keeps the white text and input readable over
-                    the photo's brighter areas (the title sits at the TOP,
-                    above the bottom scrim's reach). */}
+                    identity tint HELD (the bar is the selected state), plus
+                    the mode cards' bottom scrim now that the panel is tall
+                    enough to have one. The clip lives on this inner layer —
+                    NOT the container — so the autocomplete dropdown can still
+                    overflow the panel's bottom edge. `isolate` scopes the
+                    multiply blend; the black wash keeps the centered white
+                    text and input readable over the photo's brighter middle. */}
                 <span aria-hidden className="absolute inset-0 overflow-hidden rounded-3xl isolate">
                   <Image
                     src={barCfg.photo.src}
@@ -550,30 +577,62 @@ export function DestinationFork({
                     sizes="(max-width: 768px) 100vw, 720px"
                     className="object-cover"
                   />
+                  <span
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        "linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)",
+                    }}
+                  />
                   <span className={`absolute inset-0 mix-blend-multiply ${barCfg.tint}`} />
                   <span className="absolute inset-0 bg-black/15" />
+                  {/* Commit fill — a second multiply pass of the identity
+                      tint, the SAME duotone effect the surprise tile's
+                      commit uses: the photo's colour deepens rather than
+                      being covered by a solid wall. The wizard crossfade
+                      starts underneath mid-ramp (COMMIT_AT_MS ≈ 55% of
+                      FILL_MS), mirroring the surprise exit. */}
+                  {barCommitting && (
+                    <motion.span
+                      initial={reduceMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{
+                        duration: reduceMotion ? 0 : FILL_MS / 1000,
+                        ease: "easeOut",
+                      }}
+                      className={`absolute inset-0 mix-blend-multiply ${barCfg.tint}`}
+                    />
+                  )}
                 </span>
-                <div className="relative z-10 flex items-center gap-3 mb-3">
-                  <span className="font-display text-lg font-bold text-white">
+                {/* Title + input + helper, vertically centered as one block —
+                    title in the mode cards' typography, sitting on the scrim. */}
+                <div className="relative z-10 flex-1 flex flex-col justify-center w-full max-w-xl mx-auto">
+                  <span className="block font-display text-white text-2xl md:text-3xl font-bold leading-tight text-center">
                     {barCfg.title}
                   </span>
+                  <div className="mt-4 md:mt-5">
+                    <CityAutocomplete
+                      mode={barCfg.mode}
+                      value={barCfg.value}
+                      innerInputRef={barCfg.innerInputRef}
+                      onChange={barCfg.onChange}
+                      placeholder={barCfg.placeholder}
+                    />
+                  </div>
+                  <p className="mt-2.5 text-xs md:text-sm text-white/80 text-center">
+                    {barCfg.helper}
+                  </p>
                 </div>
-                <div className="relative z-10">
-                  <CityAutocomplete
-                    mode={barCfg.mode}
-                    value={barCfg.value}
-                    innerInputRef={barCfg.innerInputRef}
-                    onChange={barCfg.onChange}
-                    placeholder={barCfg.placeholder}
-                  />
-                </div>
-                <p className="relative z-10 mt-2 text-xs text-white/80">
-                  {barCfg.helper}
-                </p>
                 <div className="relative z-10 mt-4 flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => onDestinationModeChange("surprise")}
+                    // Guarded during the commit beat: flipping back to the
+                    // tile grid while the commit timer is in flight would
+                    // race the fork→wizard swap.
+                    onClick={() => {
+                      if (barCommitting) return;
+                      onDestinationModeChange("surprise");
+                    }}
                     className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-sm font-semibold text-white/75 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                   >
                     <ArrowLeftIcon color="currentColor" size={16} />
@@ -586,7 +645,7 @@ export function DestinationFork({
                   {barCfg.value && (
                     <button
                       type="button"
-                      onClick={() => onCommit(destinationMode)}
+                      onClick={() => commitFromBar(destinationMode)}
                       className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold bg-white shadow-sm transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                       style={{ color: barCfg.accent }}
                     >
