@@ -13,30 +13,17 @@ export function PlannerSection() {
       style={{ backgroundColor: "#FFE4CC" }}
     >
       {/* data-planner-frame: the nav-scroll target for TripForm's commit /
-          step / Back re-anchoring. It wraps the "Let's find your escape."
-          heading TOGETHER with the form card, so scrolling frames both — the
-          heading unhides exactly at commit (data-fork flips), and anchoring
-          the card alone would push the newly-visible heading off the top.
-          scroll-mt matches the card's own offsets (24px mobile / 80px desktop,
-          clearing the 56px fixed header). On the fork the heading is hidden
-          (display:none, zero height), so this wrapper's top equals the card's
-          top and fork framing is unchanged. */}
+          step / Back re-anchoring. scroll-mt matches the form's own offsets
+          (24px mobile / 80px desktop, clearing the 56px fixed header). The
+          old "Let's find your escape." section heading is gone: with the
+          frameless form every screen carries ONE display-scale heading of
+          its own (the fork's "Where are we headed?", then each wizard step's
+          question) — a second hero heading stacked above them read as two
+          competing titles. */}
       <div
         data-planner-frame
-        className="group max-w-3xl mx-auto px-6 scroll-mt-6 md:scroll-mt-20"
+        className="max-w-3xl mx-auto px-6 scroll-mt-6 md:scroll-mt-20"
       >
-        {/* Hidden while the frameless destination fork is active (TripForm
-            sets data-fork="true"), so its own "Where are we headed?" heading
-            is the only one on the bare peach. Returns once a mode is chosen
-            and the white form card begins. */}
-        <div className="text-center mb-10 group-has-[[data-fork=true]]:hidden">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-3">
-            Ready?
-          </p>
-          <h2 className="text-4xl md:text-5xl font-bold text-[#1A1A1A]">
-            Let&apos;s find your escape.
-          </h2>
-        </div>
         <TripForm />
       </div>
     </section>

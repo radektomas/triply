@@ -50,7 +50,10 @@ input[type="range"] {
   appearance: none;
   height: 6px;
   border-radius: 9999px;
-  background: #E5E7EB;
+  /* Translucent ink, not solid grey: the frameless form sits on the cream
+     planner section, and grey (#E5E7EB) reads muddy there — ink at low alpha
+     blends into a warm taupe on cream while staying neutral elsewhere. */
+  background: rgba(26, 26, 26, 0.16);
   cursor: pointer;
   width: 100%;
 }
@@ -285,8 +288,12 @@ input[type="range"]::-moz-range-thumb {
   from { transform: translateX(-20px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
-.animate-slide-in-right { animation: slide-in-from-right 200ms ease-out forwards; }
-.animate-slide-in-left { animation: slide-in-from-left 200ms ease-out forwards; }
+/* No `forwards` fill: the final keyframe equals the element's natural state,
+   and a held fill keeps a permanent transform on the step content — pinning
+   its text to a rasterized compositor layer, which renders soft/blurry on
+   some mobile GPUs. Letting the animation release restores crisp text. */
+.animate-slide-in-right { animation: slide-in-from-right 200ms ease-out; }
+.animate-slide-in-left { animation: slide-in-from-left 200ms ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
   .animate-slide-in-right, .animate-slide-in-left { animation: none; }

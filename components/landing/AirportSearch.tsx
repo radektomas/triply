@@ -156,7 +156,9 @@ export function AirportSearch({
         }}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
+        // border: ink/15 (not the grey border token) — the field sits on the
+        // cream planner section since the form went frameless.
+        className="w-full rounded-2xl border border-[#1a1a1a]/15 bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
       />
 
       <span aria-live="polite" className="sr-only">

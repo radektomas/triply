@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -66,10 +65,7 @@ import { AIRPORTS } from "@/lib/data/airports";
 import { type CitySelection } from "@/components/shared/CityAutocomplete";
 import { DestinationFork } from "@/components/landing/DestinationFork";
 import type { DestinationMode, TransportMode } from "@/lib/types";
-import {
-  TriplyFormPresence,
-  TriplyFormPresenceMobile,
-} from "@/components/triply/TriplyFormPresence";
+import { TriplyFormPresence } from "@/components/triply/TriplyFormPresence";
 import { CurrencySelector } from "@/components/CurrencySelector";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { track } from "@/lib/analytics";
@@ -237,17 +233,6 @@ function toIso(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-// Desktop media query for the wizard content's blur-in gate (the one viewport
-// boolean that must live in JS — it feeds a framer variant, not a class).
-// Subscribed via useSyncExternalStore below; module-level so the subscribe
-// function identity is stable across renders (no re-subscribe churn).
-const DESKTOP_MQ = "(min-width: 768px)";
-function subscribeDesktopMq(onChange: () => void): () => void {
-  const mq = window.matchMedia(DESKTOP_MQ);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-
 // ── Unified journey progress bar ─────────────────────────────────────────────
 // ONE segmented bar for the whole planner — Destination (the fork) plus the
 // three wizard steps — rendered once in the persistent parent BELOW the
@@ -288,11 +273,13 @@ function ProgressBar({
                 aria-hidden
                 className="h-1.5 rounded-full transition-colors duration-300 motion-reduce:transition-none"
                 style={{
+                  // Translucent ink instead of grey — blends warm on the
+                  // cream section now that the form is frameless.
                   backgroundColor: active
                     ? "var(--color-accent)"
                     : done
                     ? "rgba(255,107,71,0.45)"
-                    : "#E5E7EB",
+                    : "rgba(26,26,26,0.12)",
                 }}
               />
               <span
@@ -303,7 +290,7 @@ function ProgressBar({
                     ? "var(--color-accent)"
                     : done
                     ? "rgba(255,107,71,0.75)"
-                    : "#9CA3AF",
+                    : "rgba(26,26,26,0.45)",
                 }}
               >
                 {label}
@@ -359,7 +346,7 @@ export function TripForm() {
     if (selectedCurrency === "EUR") return null;
     if (ratesLoading) return "Loading exchange rates…";
     if (!rates || rates[selectedCurrency] === undefined) {
-      return "Exchange rates unavailable — switch back to EUR to plan accurately.";
+      return "Exchange rates unavailable. Switch back to EUR to plan accurately.";
     }
     return null;
   }, [selectedCurrency, ratesLoading, rates]);
@@ -603,17 +590,18 @@ export function TripForm() {
       navScrollReady.current = true;
       return;
     }
-    // Entering a new step view (commit → Budget, advance/back/jump, or back to
-    // the fork): re-anchor the viewport. The target is the section's
-    // data-planner-frame wrapper — heading + card together — NOT the card
-    // alone: the "Let's find your escape." heading unhides at the exact commit
-    // moment (data-fork flips false), and anchoring the card would shove that
-    // newly-visible heading off the top of the viewport. On the fork the
-    // heading is display:none, so the wrapper's top equals the card's top and
-    // fork/Back framing is identical to before. Falls back to the card if
-    // TripForm is ever mounted outside PlannerSection. rAF lets the swapped
-    // content lay out first so the scroll runs WITH the crossfade.
+    // The wizard is a fullscreen locked overlay: step changes scroll the
+    // OVERLAY back to its top (matters on short viewports where a tall step
+    // scrolled). Window re-anchoring only applies when returning to the
+    // inline fork — target the section's data-planner-frame wrapper, falling
+    // back to the form wrapper if TripForm is ever mounted outside
+    // PlannerSection. rAF lets the swapped content lay out first so the
+    // scroll runs WITH the crossfade.
     const id = requestAnimationFrame(() => {
+      if (!onDestinationScreen) {
+        wizardOverlayRef.current?.scrollTo({ top: 0 });
+        return;
+      }
       const frame =
         formCardRef.current?.closest<HTMLElement>("[data-planner-frame]") ??
         formCardRef.current;
@@ -621,6 +609,18 @@ export function TripForm() {
     });
     return () => cancelAnimationFrame(id);
   }, [currentStep, onDestinationScreen, scrollIntoViewSoft]);
+
+  // Body scroll lock while the locked wizard overlay is up — the overlay is
+  // its own scroll container; the page behind must not scroll under it.
+  const wizardOverlayRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (onDestinationScreen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [onDestinationScreen]);
 
   // The fork→wizard transition is a fast IN-PLACE crossfade under the
   // AnimatePresence below (the earlier coral commit curtain and the layoutId
@@ -631,26 +631,12 @@ export function TripForm() {
   // there's nothing to clip mid-flight, so the card is statically
   // overflow-visible and the inline-absolute dropdowns are never at risk.
 
-  // Desktop-only blur on the wizard content entrance. Animating `filter` is
-  // expensive, and ~90% of traffic is mobile — so mobile keeps opacity+y only
-  // and md+ adds the 3px blur-in. This is the ONLY viewport boolean in the
-  // fork/wizard tree, and it gates ONLY this framer blur variant (which can't
-  // be a Tailwind class) — all tile/fork SIZING is pure CSS md:/max-md:
-  // classes with no JS involvement. useSyncExternalStore (not useState+effect)
-  // so the value is read synchronously from matchMedia on mount and after
-  // every change event: it can never start stale, lag a resize, or stick
-  // after a mobile↔desktop round trip. Server snapshot is false (mobile-first,
-  // matching the CSS default).
-  const desktopFx = useSyncExternalStore(
-    subscribeDesktopMq,
-    () => window.matchMedia(DESKTOP_MQ).matches,
-    () => false,
-  );
-
-  // Wizard content entrance: children stagger in (opacity + y, blur on md+)
-  // starting at ~60% of the card morph. Under reduced motion the container
-  // mounts with initial={false}, so these variants never animate — the end
-  // state is identical, just instant.
+  // Wizard content entrance: children stagger in (opacity + y only —
+  // transform/opacity are the two compositor-cheap properties; the old
+  // desktop-gated blur-in was a filter animation, which re-rasters every
+  // frame and could leave content on a stale raster layer). Under reduced
+  // motion the container mounts with initial={false}, so these variants
+  // never animate — the end state is identical, just instant.
   const contentContainer: Variants = {
     hidden: {},
     show: {
@@ -661,15 +647,10 @@ export function TripForm() {
     },
   };
   const contentItem: Variants = {
-    hidden: {
-      opacity: 0,
-      y: 10,
-      ...(desktopFx ? { filter: "blur(3px)" } : {}),
-    },
+    hidden: { opacity: 0, y: 10 },
     show: {
       opacity: 1,
       y: 0,
-      ...(desktopFx ? { filter: "blur(0px)" } : {}),
       transition: { duration: 0.4, ease: CONTENT_EASE },
     },
   };
@@ -1230,24 +1211,6 @@ export function TripForm() {
             starts it ~60ms after the exit begins so there's never an empty
             beat. Per-step slides (1↔2↔3) stay a CSS animation on the inner
             keyed div. */}
-        {/* "Your trip to X" — informational context label riding the heading
-            region above the card, for the whole wizard once a region/exact
-            destination is picked. Deliberately NOT clickable (changing the
-            destination goes through the existing Back button). Teal is the
-            region identity / selected-chip token (#0D7377), understated tint
-            like PrefillBanner's. Lives OUTSIDE the crossfade + keyed step
-            content, so it persists across Budget → When → Vibe without
-            re-animating; truncation guards long place names. No entrance
-            animation (appears with the section heading at commit), so reduced
-            motion needs no special casing. */}
-        {!onDestinationScreen && tripPillName && (
-          <div className="mb-6 flex justify-center">
-            <span className="inline-flex max-w-full items-center rounded-full bg-[#0D7377]/10 ring-1 ring-inset ring-[#0D7377]/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#0D7377]">
-              <span className="truncate">Your trip to {tripPillName}</span>
-            </span>
-          </div>
-        )}
-
         {/* data-swap-epoch ties the onExitComplete re-render to the DOM (and
             keeps the state genuinely used): when an exiting branch unmounts,
             the crossfade cell can settle to the survivor's height — the bump
@@ -1307,8 +1270,11 @@ export function TripForm() {
             ) : (
               <motion.div
                 key="wizard"
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.99 }}
-                animate={{ opacity: 1, scale: 1 }}
+                // Opacity-only entrance: the old 0.99→1 scale existed to
+                // settle the visible white card box; frameless content has
+                // no box to settle, so the scale is dead weight.
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
                 exit={{
                   opacity: 0,
                   transition: reduceMotion
@@ -1320,21 +1286,55 @@ export function TripForm() {
                     ? { duration: 0 }
                     : { duration: SWAP_ENTER_S, ease: CONTENT_EASE, delay: SWAP_OVERLAP_DELAY_S }
                 }
-                // w-full to match the fork's width exactly (identical grid
-                // cell) so fork↔wizard share the same left/right edges.
-                // self-start: grid items stretch by default, so during the
-                // crossfade the card would be drawn at the (taller) fork cell
-                // height and its bottom border/shadow would snap up when the
-                // fork unmounts. Top-anchored at its own content height, the
-                // card's box is identical from its first frame to its last —
-                // the coral simply resolves into it in place.
-                className="[grid-area:1/1] self-start w-full relative bg-card rounded-3xl border border-accent/10 p-8 sm:p-10 md:p-14 overflow-visible"
-                style={{
-                  boxShadow:
-                    "0 25px 60px rgba(255, 107, 71, 0.08), 0 4px 20px rgba(0, 0, 0, 0.06)",
-                }}
+                // LOCKED SCREEN: once a destination mode is committed, the
+                // wizard takes over the whole viewport (Higgsfield-style
+                // onboarding) — fixed, cream, one question centered per
+                // step, progress pinned at the bottom, minimal chrome.
+                // z-[45] sits ABOVE the fixed header (z-40) and BELOW the
+                // LoadingOverlay/ErrorOverlay (z-50) so submitting still
+                // covers it. The overlay is its own scroll container
+                // (overflow-y-auto) for short viewports; overflow-x-hidden
+                // keeps the desktop mascot's right:-280px offset from
+                // spawning a horizontal scrollbar. Body scroll is locked by
+                // the effect above while this is mounted. It still lives in
+                // the fork↔wizard AnimatePresence, so entry/exit stay the
+                // same opacity crossfade — the fork dissolves and the locked
+                // screen fades over the page in one gesture.
+                className="fixed inset-0 z-[45] flex flex-col overflow-y-auto overflow-x-hidden bg-[#FFE4CC]"
+                ref={wizardOverlayRef}
               >
-                {/* Content staggers in nearly together with the card fade.
+                {/* Back — single chip, top-left, replacing the old per-step
+                    "← Back" text buttons in each step's footer row. Step 1
+                    returns to the destination fork; steps 2-3 go one step
+                    back. Fixed so it stays put while the overlay scrolls. */}
+                <button
+                  type="button"
+                  onClick={currentStep === 1 ? handleBackToDestination : handleBack}
+                  className="fixed top-4 left-4 md:top-8 md:left-8 z-10 inline-flex items-center gap-2 rounded-full bg-white/70 backdrop-blur-sm ring-1 ring-black/5 px-4 py-2 text-sm font-semibold text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:bg-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6B47]/50"
+                >
+                  <span aria-hidden>←</span>
+                  Back
+                </button>
+
+                {/* Centered content column. flex-1 + justify-center floats
+                    the step question to the vertical middle; the progress
+                    footer below stays pinned to the screen bottom. */}
+                <div className="flex-1 flex flex-col justify-center w-full max-w-3xl mx-auto px-6 sm:px-10 md:px-14 py-20">
+                {/* "Your trip to X" — context pill for the whole wizard once
+                    a region/exact destination is picked. Now INSIDE the
+                    locked screen, directly above the step heading, where it
+                    is actually seen (it used to ride the heading region
+                    above the form, half out of view). Outside the keyed step
+                    content so it persists across steps without re-animating;
+                    not clickable — changing destination goes through Back. */}
+                {tripPillName && (
+                  <div className="mb-6 flex justify-center">
+                    <span className="inline-flex max-w-full items-center rounded-full bg-[#0D7377]/10 ring-1 ring-inset ring-[#0D7377]/20 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#0D7377]">
+                      <span className="truncate">Your trip to {tripPillName}</span>
+                    </span>
+                  </div>
+                )}
+                {/* Content staggers in nearly together with the overlay fade.
                     Instant under reduced motion (initial={false} → children
                     mount at their "show" state). */}
                 <motion.div
@@ -1363,18 +1363,6 @@ export function TripForm() {
                     nights={nights}
                     loading={loading}
                   />
-                  <motion.div variants={contentItem}>
-                    <TriplyFormPresenceMobile
-                      budget={budget}
-                      travelers={travelers}
-                      vibe={vibe}
-                      originCity={transportMode === "car" ? departureCity : originCity}
-                      transportMode={transportMode}
-                      range={range}
-                      nights={nights}
-                      loading={loading}
-                    />
-                  </motion.div>
                   {prefilled && (
                     <motion.div variants={contentItem}>
                       <PrefillBanner
@@ -1395,17 +1383,18 @@ export function TripForm() {
           {/* Step 1 — Budget (pure) */}
           {currentStep === 1 && (
             <div className="space-y-8">
-              {/* Heading */}
+              {/* Step heading — the same voice as the fork's "Where are we
+                  headed?" (display-scale title + soft subtitle). Each step's
+                  question is the ONE title on the locked screen; the pinned
+                  progress bar below already says where you are, so there is
+                  no "Step X of 3" eyebrow. */}
               <div className="text-center">
-                <h2 className="text-3xl md:text-4xl font-bold text-[#1a1a1a]">
+                <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a]">
                   What&apos;s your budget per person?
                 </h2>
-              </div>
-
-              {/* Currency picker */}
-              <div className="flex items-center justify-center gap-2.5 text-sm text-[#1a1a1a]/60">
-                <span className="font-medium">Choose your currency</span>
-                <CurrencySelector />
+                <p className="text-sm md:text-base text-[#1a1a1a]/60 mt-3 font-medium">
+                  Flights, stay and food, the whole trip fits inside it.
+                </p>
               </div>
 
               {/* Hero: editable big number. Acts as both display and the
@@ -1414,12 +1403,25 @@ export function TripForm() {
                   exchange rate); typed values are parsed in the selected
                   currency and converted back to EUR for the canonical
                   state. Symbol sits in a sibling span so it always matches
-                  the locale `format()` is using internally. */}
-              <div className="text-center py-4">
-                <div className="inline-flex items-baseline justify-center gap-2">
+                  the locale `format()` is using internally.
+                  This number is THE control of the step, so it gets the
+                  stage to itself: the "Choose your currency" row that used
+                  to crowd it from above is gone (the selector now rides the
+                  "per person" line below), the digits are a size up in the
+                  display face, and a static soft white halo lifts them off
+                  the cream without reintroducing a card. */}
+              <div className="relative text-center py-4">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 md:w-[26rem] h-40 md:h-52 bg-white/50 blur-3xl rounded-full"
+                />
+                {/* Currency symbol: small, superscript-anchored, full-strength
+                    coral, tucked against the number's cap height like a
+                    price tag. */}
+                <div className="relative inline-flex items-start justify-center gap-1.5">
                   <span
                     aria-hidden="true"
-                    className="text-3xl md:text-5xl font-bold text-[#FF6B47]/55 tabular-nums leading-none"
+                    className="mt-2 md:mt-3 text-3xl md:text-4xl font-semibold text-[#FF6B47] tabular-nums leading-none"
                   >
                     {currencySymbol}
                   </span>
@@ -1442,12 +1444,17 @@ export function TripForm() {
                     aria-label={`Budget per person in ${selectedCurrency}`}
                     aria-invalid={budgetError ? "true" : undefined}
                     aria-describedby={budgetError ? "budget-error" : undefined}
-                    className="budget-input text-7xl md:text-8xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight bg-transparent border-0 text-center focus:outline-none"
+                    className="budget-input font-display text-8xl md:text-9xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight bg-transparent border-0 text-center focus:outline-none"
                   />
                 </div>
-                <p className="text-sm text-[#1a1a1a]/50 mt-2 font-medium">
-                  per person
-                </p>
+                {/* "per person" carries the currency selector now — one quiet
+                    line under the hero number instead of a labelled row
+                    competing above it. */}
+                <div className="relative flex items-center justify-center gap-2 mt-3 text-sm text-[#1a1a1a]/55 font-medium">
+                  <span>per person</span>
+                  <span aria-hidden className="text-[#1a1a1a]/30">·</span>
+                  <CurrencySelector />
+                </div>
                 {budgetError && (
                   <p
                     id="budget-error"
@@ -1479,7 +1486,10 @@ export function TripForm() {
                   aria-valuemax={BUDGET_MAX}
                   aria-valuenow={budget}
                   style={{
-                    background: `linear-gradient(to right, #FF6B47 0%, #FF6B47 ${((budget - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100}%, rgba(26,26,26,0.1) ${((budget - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100}%, rgba(26,26,26,0.1) 100%)`,
+                    // Unfilled remainder at 0.16 ink (was 0.1): on the cream
+                    // section — no white card behind it anymore — 0.1 was
+                    // nearly invisible; 0.16 blends to a readable warm taupe.
+                    background: `linear-gradient(to right, #FF6B47 0%, #FF6B47 ${((budget - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100}%, rgba(26,26,26,0.16) ${((budget - BUDGET_MIN) / (BUDGET_MAX - BUDGET_MIN)) * 100}%, rgba(26,26,26,0.16) 100%)`,
                   }}
                 />
                 {/* Tick marks at presets — purely visual cue. Sit just below
@@ -1522,7 +1532,7 @@ export function TripForm() {
                       className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${
                         isActive
                           ? "bg-[#0D7377] text-white shadow-md scale-[1.02]"
-                          : "bg-[#F5F5F5] text-[#1a1a1a] hover:bg-[#0D7377]/10"
+                          : "bg-white/60 text-[#1a1a1a] hover:bg-[#0D7377]/10"
                       }`}
                     >
                       {format(p, { rounded: true })}
@@ -1557,15 +1567,9 @@ export function TripForm() {
                 </p>
               )}
 
-              <div className="flex justify-between items-center">
-                {/* Back to the destination pre-screen to change the choice. */}
-                <button
-                  type="button"
-                  onClick={handleBackToDestination}
-                  className="text-muted hover:text-[#374151] font-medium transition-colors cursor-pointer"
-                >
-                  ← Back
-                </button>
+              {/* Back moved to the locked screen's top-left chip; the footer
+                  row keeps only the primary action. */}
+              <div className="flex justify-end items-center">
                 <Button
                   onClick={handleNext}
                   className="sm:min-w-[160px] text-lg py-4"
@@ -1585,11 +1589,18 @@ export function TripForm() {
           {/* Step 2 — Date range + Travelers */}
           {currentStep === 2 && (
             <div>
+              {/* Step heading — same block shape as steps 1 and 3. (This step
+                  previously had no display heading at all, only the small
+                  "Travel Dates" label, which this replaces.) */}
+              <div className="text-center mb-8">
+                <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a]">
+                  When are you going?
+                </h2>
+                <p className="text-sm md:text-base text-[#1a1a1a]/60 mt-3 font-medium">
+                  Any window works, even a long weekend.
+                </p>
+              </div>
               <div className="mb-10">
-                <label className="block text-xs font-semibold uppercase tracking-widest text-muted mb-0.5">
-                  Travel Dates
-                </label>
-
                 {/* Status hint */}
                 <div className="mb-3 min-h-[1.25rem]">
                   {range?.from && range?.to ? (
@@ -1652,14 +1663,17 @@ export function TripForm() {
                           ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
                         `}
                         style={{
-                          backgroundColor: isActive ? preset.activeBg : "#F5F5F5",
+                          // Frosted white (not grey) — the inactive fill sits
+                          // directly on the cream section since the form went
+                          // frameless.
+                          backgroundColor: isActive ? preset.activeBg : "rgba(255,255,255,0.6)",
                           color: isActive ? preset.activeText : "#1a1a1a",
                         }}
                         onMouseEnter={(e) => {
                           if (!isActive) e.currentTarget.style.backgroundColor = preset.hoverTint;
                         }}
                         onMouseLeave={(e) => {
-                          if (!isActive) e.currentTarget.style.backgroundColor = "#F5F5F5";
+                          if (!isActive) e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.6)";
                         }}
                       >
                         <div className="mb-2 h-6 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -1693,14 +1707,8 @@ export function TripForm() {
                 })()}
               </div>
 
-              <div className="flex justify-between">
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="text-muted hover:text-[#374151] font-medium transition-colors cursor-pointer"
-                >
-                  ← Back
-                </button>
+              {/* Back moved to the locked screen's top-left chip. */}
+              <div className="flex justify-end">
                 <Button
                   onClick={handleNext}
                   disabled={!range?.from || !range?.to || nights < 1}
@@ -1718,14 +1726,21 @@ export function TripForm() {
               entirely. */}
           {currentStep === 3 && (
             <div className="space-y-8 px-1 sm:px-0">
+              {/* Step heading — same block shape as steps 1 and 2. The intent
+                  path (exact city) skips the vibe grid, so its question is
+                  the transport/origin one instead. */}
+              <div className="text-center">
+                <h2 className="text-4xl md:text-5xl font-bold text-[#1a1a1a]">
+                  {isIntent ? "How are you getting there?" : "What's your vibe?"}
+                </h2>
+                <p className="text-sm md:text-base text-[#1a1a1a]/60 mt-3 font-medium">
+                  {isIntent
+                    ? "Where you start from shapes the whole plan."
+                    : "Pick one and we shape your shortlist around it."}
+                </p>
+              </div>
               {!isIntent && (
                 <div>
-                  <div className="flex items-baseline gap-2 mb-3">
-                    <p className="text-sm font-semibold uppercase tracking-widest text-[#1a1a1a]/60">
-                      Trip Vibe
-                    </p>
-                  </div>
-                  <p className="text-sm text-[#1a1a1a]/70 mb-4">What are you into?</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     {VIBE_PRESETS.map((preset) => {
                       const isActive = vibe === preset.value;
@@ -1742,7 +1757,7 @@ export function TripForm() {
                             ${isActive ? "shadow-md scale-[1.02]" : "hover:scale-[1.01]"}
                           `}
                           style={{
-                            backgroundColor: isActive ? preset.activeBg : "#F5F5F5",
+                            backgroundColor: isActive ? preset.activeBg : "rgba(255,255,255,0.6)",
                             color: isActive ? "#ffffff" : "#1a1a1a",
                             minHeight: "92px",
                           }}
@@ -1771,7 +1786,7 @@ export function TripForm() {
                 <div
                   role="radiogroup"
                   aria-label="How are you traveling?"
-                  className="inline-flex rounded-full bg-[#F5F5F5] p-1 mb-6"
+                  className="inline-flex rounded-full bg-white/60 p-1 mb-6"
                 >
                   {TRANSPORT_OPTIONS.map((opt) => {
                     const isActive = transportMode === opt.value;
@@ -1888,7 +1903,7 @@ export function TripForm() {
                             autoComplete="off"
                             maxLength={50}
                             aria-label="Departure city"
-                            className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
+                            className="w-full rounded-2xl border border-[#1a1a1a]/15 bg-white px-4 py-3 text-sm text-[#1a1a1a] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#FF6B47]/40 focus:border-[#FF6B47]"
                           />
                         </div>
 
@@ -1920,7 +1935,7 @@ export function TripForm() {
                                     className={`px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer ${
                                       isActive
                                         ? "bg-[#0D7377] text-white shadow-md scale-[1.02]"
-                                        : "bg-[#F5F5F5] text-[#1a1a1a] hover:bg-[#0D7377]/10"
+                                        : "bg-white/60 text-[#1a1a1a] hover:bg-[#0D7377]/10"
                                     }`}
                                   >
                                     {opt.label}
@@ -1936,14 +1951,8 @@ export function TripForm() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="text-muted hover:text-[#374151] font-medium transition-colors cursor-pointer"
-                >
-                  ← Back
-                </button>
+              {/* Back moved to the locked screen's top-left chip. */}
+              <div className="flex flex-col sm:flex-row justify-end items-center gap-3">
                 <TagButton
                   onClick={() =>
                     handleSubmit(
@@ -1999,32 +2008,48 @@ export function TripForm() {
                   </div>
                   </motion.div>
                 </motion.div>
+                </div>
+
+                {/* Progress — sticky at the locked screen's bottom edge so it
+                    stays visible even when a tall step scrolls (the overlay
+                    is the scroll container). The cream fade lets content
+                    scroll "under" it instead of clipping hard. The inline
+                    bar below the crossfade cell only serves the fork now. */}
+                <div className="sticky bottom-0 w-full shrink-0 bg-gradient-to-t from-[#FFE4CC] via-[#FFE4CC]/85 to-transparent">
+                  <div className="max-w-3xl mx-auto px-6 sm:px-10 md:px-14 pb-5 md:pb-6">
+                    <ProgressBar
+                      activeIndex={currentStep}
+                      steps={["Destination", ...stepLabels]}
+                    />
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Unified progress bar — rendered here in the persistent parent,
-            below the fork/wizard slot, so it stays put across the commit swap.
-            Fork → Destination active (index 0); wizard → currentStep active
-            (1 Budget / 2 When / 3 Vibe|From) with Destination shown done.
+        {/* Unified progress bar for the FORK state (the wizard is a locked
+            fullscreen overlay now and carries its own copy pinned to its
+            bottom edge). Kept mounted through the fork's exit so the bar
+            doesn't blink out a frame before the overlay's copy fades in.
             layout="position" (sanctioned FLIP, transform-only): when the
-            crossfade cell above settles to the surviving branch's height, the
-            bar glides to its new Y over a short ease instead of teleporting.
-            Instant under reduced motion. */}
-        <motion.div
-          layout="position"
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { layout: { duration: 0.25, ease: CONTENT_EASE } }
-          }
-        >
-          <ProgressBar
-            activeIndex={onDestinationScreen ? 0 : currentStep}
-            steps={["Destination", ...stepLabels]}
-          />
-        </motion.div>
+            crossfade cell above settles, the bar glides instead of
+            teleporting. Instant under reduced motion. */}
+        {onDestinationScreen && (
+          <motion.div
+            layout="position"
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : { layout: { duration: 0.25, ease: CONTENT_EASE } }
+            }
+          >
+            <ProgressBar
+              activeIndex={0}
+              steps={["Destination", ...stepLabels]}
+            />
+          </motion.div>
+        )}
       </div>
 
       {loading && (
@@ -2073,7 +2098,9 @@ function PrefillBanner({
     <div
       role="status"
       aria-live="polite"
-      className="mb-6 flex items-center gap-3 rounded-2xl border border-[#0D7377]/15 bg-[#0D7377]/[0.06] px-4 py-3"
+      // Borderless soft wash — with the white card gone the banner sits on
+      // cream, and its old teal frame read heavier than anything around it.
+      className="mb-6 flex items-center gap-3 rounded-2xl bg-[#0D7377]/[0.08] px-4 py-3"
     >
       <span
         className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#0D7377] text-white"
@@ -2082,7 +2109,7 @@ function PrefillBanner({
         <CheckIcon color="currentColor" size={15} />
       </span>
       <p className="flex-1 text-sm text-[#1A1A1A] leading-snug">
-        <span className="font-semibold">{cityName}</span> is locked in — set
+        <span className="font-semibold">{cityName}</span> is locked in. Set
         your budget and dates below, then plan.
       </p>
       <button
