@@ -1433,18 +1433,18 @@ export function TripForm() {
                     onFocus={handleNumberFocus}
                     onChange={handleNumberChange}
                     onBlur={handleNumberBlur}
-                    // `size` drives the input's intrinsic width — without it,
-                    // an <input type=text> defaults to size=20 (~20ch wide at
-                    // current font-size), which at text-8xl renders a ~960px
-                    // box. text-center then centers the digits inside that
-                    // giant box and the value escapes the card to the right.
-                    // Sizing to the value length makes the input hug its
-                    // content so it sits flush next to the € prefix.
-                    size={Math.max(budgetInput.length, 1)}
+                    // Exact content width in `ch`: with tabular-nums, 1ch IS
+                    // one digit's advance, so the input hugs the value with
+                    // no clipping. (The old `size` attribute sizes from the
+                    // font's AVERAGE character width, which undersizes the
+                    // Bricolage display digits and cut the rightmost digit
+                    // off on mobile. Without any sizing, an <input> defaults
+                    // to a ~20ch box that escapes the column at text-8xl.)
+                    style={{ width: `${Math.max(budgetInput.length, 1)}ch` }}
                     aria-label={`Budget per person in ${selectedCurrency}`}
                     aria-invalid={budgetError ? "true" : undefined}
                     aria-describedby={budgetError ? "budget-error" : undefined}
-                    className="budget-input font-display text-8xl md:text-9xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight bg-transparent border-0 text-center focus:outline-none"
+                    className="budget-input font-display text-8xl md:text-9xl font-bold text-[#FF6B47] leading-none tabular-nums tracking-tight bg-transparent border-0 p-0 text-center focus:outline-none"
                   />
                 </div>
                 {/* "per person" carries the currency selector now — one quiet
