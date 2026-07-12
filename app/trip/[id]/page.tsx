@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTripById } from "@/lib/data/getTripById";
@@ -6,6 +7,10 @@ import { computeNights } from "@/lib/dates";
 import { checkGenerationLimit } from "@/lib/generationLimits";
 import { DestinationSelector } from "@/components/trip/DestinationSelector";
 import { TripDetailView } from "@/components/trip/TripDetailView";
+import {
+  SelectorSkeleton,
+  DetailSkeleton,
+} from "@/components/trip/TripSkeletons";
 
 type Params = Promise<{ id: string }>;
 type SearchParams = Promise<{ d?: string }>;
@@ -63,29 +68,36 @@ export async function generateMetadata({
   };
 }
 
-export default async function TripPage({
-  params,
-  searchParams,
-}: {
-  params: Params;
-  searchParams: SearchParams;
-}) {
-  const { id: tripId } = await params;
-  const { d: destId } = await searchParams;
+// Data-fetching halves of the page, one per branch. The page component below
+// resolves ONLY params/searchParams (instant), so the Suspense fallback that
+// matches the branch paints immediately while these fetch — replacing the old
+// route-level loading.tsx, which knew nothing about ?d= and always flashed
+// the detail-page skeleton over the 3-card selector.
+async function SelectorContent({ tripId }: { tripId: string }) {
+  // "Generate 3 more" needs the user's daily limit, computed server-side so
+  // the logged-in state is correct at first paint (no button-then-upsell
+  // flash). Independent of the trip fetch, so run them in parallel.
+  const [trip, limitStatus] = await Promise.all([
+    getTripById(tripId),
+    checkGenerationLimit(),
+  ]);
+  if (!trip) notFound();
+  return <DestinationSelector trip={trip} limitStatus={limitStatus} />;
+}
 
+async function DetailContent({
+  tripId,
+  destId,
+}: {
+  tripId: string;
+  destId: string;
+}) {
   const trip = await getTripById(tripId);
   if (!trip) notFound();
 
-  // No destination chosen → show 3-card selector. The selector's "Generate 3
-  // more" control needs the user's daily limit, computed server-side so the
-  // logged-in state is correct at first paint (no button-then-upsell flash).
-  if (!destId) {
-    const limitStatus = await checkGenerationLimit();
-    return <DestinationSelector trip={trip} limitStatus={limitStatus} />;
-  }
-
   const dest = trip.result?.destinations?.find((d) => d.id === destId);
   if (!dest) {
+    // Stale/foreign ?d= → fall back to the selector.
     const limitStatus = await checkGenerationLimit();
     return <DestinationSelector trip={trip} limitStatus={limitStatus} />;
   }
@@ -109,5 +121,28 @@ export default async function TripPage({
       tripId={tripId}
       tripInput={trip.input}
     />
+  );
+}
+
+export default async function TripPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
+  const { id: tripId } = await params;
+  const { d: destId } = await searchParams;
+
+  // ?d= is known before any data fetch, so each branch streams behind a
+  // fallback of the CORRECT shape.
+  return destId ? (
+    <Suspense fallback={<DetailSkeleton />}>
+      <DetailContent tripId={tripId} destId={destId} />
+    </Suspense>
+  ) : (
+    <Suspense fallback={<SelectorSkeleton />}>
+      <SelectorContent tripId={tripId} />
+    </Suspense>
   );
 }

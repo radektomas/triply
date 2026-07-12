@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 interface AnimatedCardProps {
   children: React.ReactNode;
@@ -8,9 +8,11 @@ interface AnimatedCardProps {
 }
 
 export function AnimatedCard({ children, index }: AnimatedCardProps) {
+  // Reduced motion: same staggered reveal, opacity only — no vertical travel.
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 22 }}
+      initial={{ opacity: 0, y: reduceMotion ? 0 : 22 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
         duration: 0.42,

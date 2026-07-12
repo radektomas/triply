@@ -29,6 +29,47 @@ function GygTicketIcon({ size = 12 }: { size?: number }) {
   );
 }
 
+// Row icons for the price mini-table — same local inline-SVG pattern as
+// GygTicketIcon (stroke lucide paths, currentColor, no icon library import).
+function PlaneRowIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" />
+    </svg>
+  );
+}
+
+function CarRowIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+      <circle cx="7" cy="17" r="2" />
+      <path d="M9 17h6" />
+      <circle cx="17" cy="17" r="2" />
+    </svg>
+  );
+}
+
+function BedRowIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8" />
+      <path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4" />
+      <path d="M2 18h20" />
+    </svg>
+  );
+}
+
+function ForkRowIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+      <path d="M7 2v20" />
+      <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+    </svg>
+  );
+}
+
 interface Props {
   destination: APIDestination;
   checkIn: string;
@@ -130,8 +171,6 @@ export async function DestinationCard({
       transportMode === "car" ? estimates?.drivingCost : estimates?.flightRange;
     const transportLabel = transportMode === "car" ? "Driving" : "Flights";
     const flightTypical = transportRange?.typical;
-    const flightMin = transportRange?.min;
-    const flightMax = transportRange?.max;
     const hotelNightly = estimates?.hotelPerNightRange?.typical;
     const foodDaily = estimates?.foodPerDay?.midRange;
     // Big "Per-person total" — sourced from the reconciled budget (sum of rows),
@@ -294,30 +333,51 @@ export async function DestinationCard({
             </div>
           )}
 
-          {/* Estimates — each row hidden when its figure is missing */}
-          <div className="flex-1 text-xs text-muted space-y-1">
+          {/* Price breakdown — compact aligned mini-table: icon + label on
+              the left, ONE value right-aligned per row (tabular-nums keeps
+              amounts vertically aligned across rows). The old per-row
+              "~X (min–max)" double-price lines are gone deliberately — the
+              ranges stay in the data model; the card keeps a single range
+              under the total. Divider above only when the weather row (which
+              carries its own border-b) is absent, so the breakdown always
+              reads as its own quiet unit without ever double-ruling. */}
+          <div
+            className={`flex-1 space-y-2 text-xs text-muted ${
+              hasWeather ? "" : "pt-4 border-t border-border"
+            }`}
+          >
             {flightTypical != null && (
-              <p>
-                <span className="font-medium text-[#374151]">{transportLabel}</span>{" "}
-                ~<FormattedPrice eur={flightTypical} />
-                {flightMin != null && flightMax != null && (
-                  <span className="ml-1 text-muted/70">
-                    (<FormattedPrice eur={flightMin} />–<FormattedPrice eur={flightMax} />)
-                  </span>
-                )}
-              </p>
+              <div className="flex items-center gap-2">
+                {transportMode === "car" ? <CarRowIcon /> : <PlaneRowIcon />}
+                <span>{transportLabel}</span>
+                <span className="ml-auto tabular-nums font-semibold text-[#374151]">
+                  <FormattedPrice eur={flightTypical} />
+                </span>
+              </div>
             )}
             {hotelNightly != null && (
-              <p>
-                <span className="font-medium text-[#374151]">Hotel</span>{" "}
-                ~<FormattedPrice eur={hotelNightly} />/night
-              </p>
+              <div className="flex items-center gap-2">
+                <BedRowIcon />
+                <span>Hotel</span>
+                <span className="ml-auto tabular-nums">
+                  <span className="font-semibold text-[#374151]">
+                    <FormattedPrice eur={hotelNightly} />
+                  </span>
+                  <span className="text-muted/70">/night</span>
+                </span>
+              </div>
             )}
             {foodDaily != null && (
-              <p>
-                <span className="font-medium text-[#374151]">Food</span>{" "}
-                ~<FormattedPrice eur={foodDaily} />/day
-              </p>
+              <div className="flex items-center gap-2">
+                <ForkRowIcon />
+                <span>Food</span>
+                <span className="ml-auto tabular-nums">
+                  <span className="font-semibold text-[#374151]">
+                    <FormattedPrice eur={foodDaily} />
+                  </span>
+                  <span className="text-muted/70">/day</span>
+                </span>
+              </div>
             )}
             {!hasEstimateRows && (
               <p className="text-muted/70">Estimate unavailable</p>
@@ -327,8 +387,10 @@ export async function DestinationCard({
           <div className="pt-4 border-t border-slate-200 mt-4">
             {totalTypical != null && (
               <>
-                <p className="text-[10px] font-semibold tracking-widest text-slate-400 uppercase mb-1">
-                  Per-person total
+                {/* Sentence case, no uppercase/tracking — the shouty
+                    micro-label read as template output. */}
+                <p className="text-xs font-medium text-slate-500 mb-1">
+                  Total per person
                 </p>
                 <div>
                   <p className="font-display text-4xl font-bold tabular-nums text-slate-900 leading-none">
@@ -336,7 +398,8 @@ export async function DestinationCard({
                   </p>
                   {totalMin != null && totalMax != null && (
                     <p className="text-xs text-slate-400 mt-1">
-                      <FormattedPrice eur={totalMin} />–<FormattedPrice eur={totalMax} />
+                      typically <FormattedPrice eur={totalMin} />–
+                      <FormattedPrice eur={totalMax} />
                     </p>
                   )}
                 </div>

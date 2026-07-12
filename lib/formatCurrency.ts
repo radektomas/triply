@@ -58,6 +58,10 @@ export function roundForDisplay(amount: number, currency: string): number {
 // `Intl.NumberFormat` handles symbol placement and locale conventions
 // (e.g. "$540" en-US vs "540,00 $" de-DE). Falls back to `${code} ${amount}`
 // if the runtime doesn't recognize the code.
+// currencyDisplay "narrowSymbol", not "symbol": plain "symbol" disambiguates
+// with a country prefix whenever the currency doesn't match the locale
+// ("US$540", "CA$30") and the prefix reads noisy plastered across price
+// cards — we always want just the sign ("$540").
 export function formatAmount(
   amount: number,
   currency: string,
@@ -70,7 +74,7 @@ export function formatAmount(
     return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
-      currencyDisplay: "symbol",
+      currencyDisplay: "narrowSymbol",
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     }).format(value);
@@ -86,12 +90,14 @@ export function getRuntimeLocale(): string {
 
 // Extract just the currency symbol for a code in a given locale ("$", "€", "¥").
 // Used by the selector button + each row for a tiny visual cue. Falls back to
-// the raw code if Intl can't determine a symbol.
+// the raw code if Intl can't determine a symbol. narrowSymbol for the same
+// reason as formatAmount — "$", never "US$".
 export function getCurrencySymbol(code: string, locale = "en-US"): string {
   try {
     const parts = new Intl.NumberFormat(locale, {
       style: "currency",
       currency: code,
+      currencyDisplay: "narrowSymbol",
     }).formatToParts(0);
     return parts.find((p) => p.type === "currency")?.value ?? code;
   } catch {
