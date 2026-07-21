@@ -35,7 +35,7 @@ export function BudgetBar({ label, amount, total, compact = false }: BudgetBarPr
       <div className="flex justify-between items-center mb-1.5">
         <span className="text-sm text-muted">{label}</span>
         <span className="text-sm font-semibold text-[#1A1A1A]">
-          <FormattedPrice eur={amount} />
+          <FormattedPrice eur={amount} estimate={false} />
         </span>
       </div>
       <div className="h-2 rounded-full bg-[#E5E7EB] overflow-hidden">

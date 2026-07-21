@@ -51,6 +51,7 @@ export function renderGenericAction(
       ? "Confirm this action on your Triply account"
       : "A change on your Triply account",
     html: renderLayout({
+      unsubscribe: false,
       preheader: actionUrl
         ? "Confirm the request on your Triply account."
         : "A quick heads-up about your Triply account.",

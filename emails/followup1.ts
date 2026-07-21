@@ -43,6 +43,7 @@ export function renderFollowup1(data: Followup1Data): {
   return {
     subject: `Still thinking about ${data.destinationName.trim()}?`,
     html: renderLayout({
+      unsubscribe: true,
       preheader:
         "A quick timing tip: the cheap flights window is closer than you think.",
       bodyHtml,

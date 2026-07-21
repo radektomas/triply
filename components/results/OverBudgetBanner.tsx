@@ -38,7 +38,7 @@ export function OverBudgetBanner({
       <>
         Flights alone are over{" "}
         <span className="text-accent">
-          <FormattedPrice eur={budget} />
+          <FormattedPrice eur={budget} estimate={false} />
         </span>
       </>
     );
@@ -62,7 +62,7 @@ export function OverBudgetBanner({
     body = (
       <>
         Even a short stay in these spots costs more than{" "}
-        <FormattedPrice eur={budget} /> per person. Try a higher budget or
+        <FormattedPrice eur={budget} estimate={false} /> per person. Try a higher budget or
         somewhere closer to home.
       </>
     );

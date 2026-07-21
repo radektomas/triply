@@ -41,6 +41,7 @@ export function renderSavedDestination(data: SavedDestinationData): {
   return {
     subject: `${data.destinationName.trim()} is saved to your Triply`,
     html: renderLayout({
+      unsubscribe: false,
       preheader: `The full plan for ${data.destinationName.trim()} is waiting in your profile.`,
       bodyHtml,
     }),

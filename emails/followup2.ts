@@ -46,6 +46,7 @@ export function renderFollowup2(data: Followup2Data): {
   return {
     subject: `${data.destinationName.trim()} is fully planned. Only the dates are missing.`,
     html: renderLayout({
+      unsubscribe: true,
       preheader:
         "The research is done. This is our last nudge, the plan stays saved either way.",
       bodyHtml,

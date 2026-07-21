@@ -36,6 +36,7 @@ export function renderMagicLink(actionUrl: string): {
   return {
     subject: "Your Triply sign-in link",
     html: renderLayout({
+      unsubscribe: false,
       preheader: "No password needed. This link signs you straight in.",
       bodyHtml,
     }),

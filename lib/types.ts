@@ -114,6 +114,21 @@ export type DestinationMode = "surprise" | "region" | "exact_city";
 // free-text departure city plus a max-driving-time radius.
 export type TransportMode = "plane" | "car";
 
+/**
+ * Trip context embedded inside a saved destination's jsonb (as `__context`) so
+ * the profile page can deep-link back to the trip the save came from. Shared
+ * between the SaveButton and the saveDestination Server Action so the two
+ * cannot drift.
+ */
+export interface SavedTripContext {
+  tripId?: string;
+  checkIn: string;
+  checkOut: string;
+  budget: number;
+  vibe: string;
+  originCity: string;
+}
+
 export interface TripInput {
   budget: number;
   checkIn: string;   // ISO date: YYYY-MM-DD

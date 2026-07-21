@@ -1,0 +1,42 @@
+-- Close the public write path into public.analytics_events.
+--
+-- 20260626120000_analytics_events.sql created this policy:
+--
+--   create policy "analytics_events_insert_public"
+--     on public.analytics_events for insert
+--     to anon, authenticated with check (true);
+--
+-- The `with check (true)` makes it an unauthenticated, unvalidated write
+-- endpoint on a public table. Anyone who copies the anon key out of the
+-- browser bundle could insert unlimited rows with any event_name, any
+-- properties payload, any session_id, and an arbitrary user_id — letting them
+-- both flood the funnel with junk and attribute fabricated activity to a real
+-- account. The original rationale was sound (analytics must capture anonymous
+-- pre-signup events, and the anon key is the only client credential), but the
+-- fix is a validating server route, not an open policy.
+--
+-- Writes now go through POST /api/analytics/event, which:
+--   • rejects any event_name outside the allow-list in lib/analytics.events.ts
+--   • validates the properties bag (scalars only, bounded keys/length/bytes)
+--   • resolves user_id from the verified auth cookie, never from the payload
+--   • rate-limits per session id
+--   • inserts with the SERVICE-ROLE client, which bypasses RLS
+--
+-- After this migration analytics_events has RLS enabled and NO policies at
+-- all: anon and authenticated can neither read nor write it. Reads were
+-- already server-side only (/admin/funnel via the service role), and the
+-- identity backfill (/api/analytics/identify) already used the service role,
+-- so this is the last client write to move.
+--
+-- ORDER OF DEPLOYMENT MATTERS. This migration drops the browser's only write
+-- path, so it must land together with (or after) the application code that
+-- introduces /api/analytics/event. Applying it against a deployment still
+-- running the old client silently loses events — no errors, tracking is
+-- fire-and-forget by design — until the new code ships.
+
+drop policy if exists "analytics_events_insert_public" on public.analytics_events;
+
+-- Re-assert RLS. Already enabled by 20260626120000; harmless if so, and it
+-- guarantees that dropping the only policy actually closes the table rather
+-- than leaving it wide open should RLS ever have been turned off by hand.
+alter table public.analytics_events enable row level security;

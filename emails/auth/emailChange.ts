@@ -30,6 +30,7 @@ export function renderEmailChange(actionUrl: string): {
   return {
     subject: "Confirm your new Triply email",
     html: renderLayout({
+      unsubscribe: false,
       preheader: "Confirm the change and we update your boarding details.",
       bodyHtml,
     }),

@@ -398,7 +398,7 @@ export async function DestinationCard({
                   </p>
                   {totalMin != null && totalMax != null && (
                     <p className="text-xs text-slate-400 mt-1">
-                      typically <FormattedPrice eur={totalMin} />–
+                      typically <FormattedPrice eur={totalMin} estimate={false} />–
                       <FormattedPrice eur={totalMax} />
                     </p>
                   )}

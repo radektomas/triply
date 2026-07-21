@@ -6,6 +6,7 @@ import { getCityPhoto } from "@/lib/photos";
 import { StatsBar } from "@/components/profile/StatsBar";
 import { SavedDestinations } from "@/components/profile/SavedDestinations";
 import { GenerationHistory } from "@/components/profile/GenerationHistory";
+import { DeleteAccount } from "@/components/profile/DeleteAccount";
 import { GradientMesh } from "@/components/landing/GradientMesh";
 import type { APIDestination, TripInput } from "@/lib/types";
 
@@ -152,6 +153,8 @@ export default async function ProfilePage() {
         <SavedDestinations rows={savedWithPhotos} />
 
         <GenerationHistory rows={historyRows} />
+
+        <DeleteAccount />
       </div>
     </main>
   );

@@ -1,6 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { sendWelcomeOnce } from "@/lib/email/lifecycle";
 
 // A brand-new OAuth user has their account created and signed in within the
 // same code exchange, so created_at and last_sign_in_at land within a few
@@ -106,6 +107,13 @@ export async function GET(request: NextRequest) {
         "Traveler";
       const avatar =
         (user.user_metadata?.avatar_url as string | undefined) ?? null;
+      // Marketing consent from the signup checkbox, forwarded through the OAuth
+      // redirect (components/auth/AuthModal.tsx). Applied ONLY when this is a
+      // genuinely fresh signup: on a returning login the column is omitted from
+      // the upsert entirely, so a crafted ?optin=1 can never re-enable
+      // marketing for someone who has since unsubscribed. Absence of the param
+      // never writes `false` either — it just leaves the stored value alone.
+      const optedIn = searchParams.get("optin") === "1" && freshSignup;
       await supabase
         .from("profiles")
         .upsert(
@@ -114,9 +122,36 @@ export async function GET(request: NextRequest) {
             email: user.email ?? null,
             display_name: displayName,
             avatar_url: avatar,
+            ...(optedIn ? { marketing_opt_in: true } : {}),
           },
           { onConflict: "id" },
         );
+
+      // Welcome email, in-process. Replaces the profiles-INSERT database
+      // webhook, which carried a plaintext shared secret in its trigger
+      // definition (and therefore in every backup).
+      //
+      // Deferred with after() so it runs post-response: the user is redirected
+      // to the app immediately and never waits on Resend. Guarded by
+      // welcome_sent_at inside sendWelcomeOnce, so the other signup path
+      // (POST /api/auth/welcome, used when email signup returns a session
+      // without a callback round-trip) cannot produce a duplicate.
+      //
+      // Sent for any fresh signup, OAuth or email. Returning logins skip it.
+      if (freshSignup) {
+        const newUserId = user.id;
+        after(async () => {
+          try {
+            const outcome = await sendWelcomeOnce(newUserId);
+            if (outcome === "send_failed") {
+              console.error("[auth/callback] welcome email failed:", newUserId);
+            }
+          } catch (err) {
+            // Never let email trouble affect the auth redirect.
+            console.error("[auth/callback] welcome email threw:", err);
+          }
+        });
+      }
     }
     // For a genuinely new account, flag the redirect so the client can fire
     // account_created + the identity backfill on landing (the session id

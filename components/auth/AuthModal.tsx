@@ -31,6 +31,10 @@ function AuthModalBody() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  // Marketing consent. MUST default to false — an unticked box is the only
+  // thing that makes the opt-in valid consent under GDPR Art. 4(11), and it is
+  // what the welcome + followup emails are gated on (emails/classification.ts).
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -57,10 +61,15 @@ function AuthModalBody() {
     setBusy(true);
     setError(null);
     const supabase = getBrowserSupabase();
+    // Google has no separate signup step, so the consent state can only travel
+    // via the callback URL. `optin` is honoured by /auth/callback ONLY for a
+    // brand-new account, so it can never silently re-opt-in (or un-opt-out) a
+    // returning user. Only sent from the signup tab, where the box is visible.
+    const optin = mode === "signup" && marketingOptIn ? "&optin=1" : "";
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname + window.location.search)}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname + window.location.search)}${optin}`,
       },
     });
     if (err) {
@@ -96,7 +105,12 @@ function AuthModalBody() {
           setInfo("Check your inbox to confirm your email.");
           return;
         }
-        await ensureProfileRow(displayName || email.split("@")[0]);
+        await ensureProfileRow(displayName || email.split("@")[0], marketingOptIn);
+        // This signup path returned a session directly, so the browser never
+        // visits /auth/callback and the welcome email would otherwise be
+        // missed. Fire-and-forget; the server reads the user from the auth
+        // cookie and welcome_sent_at makes a duplicate impossible.
+        void fetch("/api/auth/welcome", { method: "POST" }).catch(() => {});
         // Activation funnel: account is created and logged in. Fire the event,
         // then backfill this session's anonymous pre-signup events onto the new
         // user. Both fire-and-forget — they never block closing the modal.
@@ -199,6 +213,22 @@ function AuthModalBody() {
             autoComplete={mode === "signup" ? "new-password" : "current-password"}
           />
 
+          {mode === "signup" && (
+            <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={marketingOptIn}
+                onChange={(e) => setMarketingOptIn(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-accent accent-[#FF6B47] focus:outline-none focus:ring-2 focus:ring-accent/40 cursor-pointer"
+              />
+              <span className="text-xs text-muted leading-relaxed">
+                Send me trip reminders and suggestions. Optional — you can
+                unsubscribe any time, and we&apos;ll still send the essentials
+                like sign-in and password emails.
+              </span>
+            </label>
+          )}
+
           {error && (
             <p className="text-xs text-rose-600 bg-rose-50 px-3 py-2 rounded-lg">
               {error}
@@ -242,7 +272,7 @@ function AuthModalBody() {
   return createPortal(overlay, document.body);
 }
 
-async function ensureProfileRow(displayName: string) {
+async function ensureProfileRow(displayName: string, marketingOptIn: boolean) {
   const supabase = getBrowserSupabase();
   const {
     data: { user },
@@ -251,7 +281,15 @@ async function ensureProfileRow(displayName: string) {
   await supabase
     .from("profiles")
     .upsert(
-      { id: user.id, email: user.email ?? null, display_name: displayName },
+      {
+        id: user.id,
+        email: user.email ?? null,
+        display_name: displayName,
+        // Written only on this signup path, where the checkbox was actually
+        // shown. Every other profiles write omits the column so it can never
+        // be flipped behind the user's back.
+        marketing_opt_in: marketingOptIn,
+      },
       { onConflict: "id", ignoreDuplicates: false },
     );
 }

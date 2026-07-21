@@ -160,7 +160,7 @@ export function TripHero({
             </span>
             <span className="text-white/70 text-sm ml-1.5">typical</span>
             <p className="text-white/55 text-xs mt-0.5">
-              <FormattedPrice eur={trip.budget.range.min} />–<FormattedPrice eur={trip.budget.range.max} />
+              <FormattedPrice eur={trip.budget.range.min} estimate={false} />–<FormattedPrice eur={trip.budget.range.max} />
             </p>
           </div>
 

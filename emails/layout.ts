@@ -77,12 +77,40 @@ export function ticketCard(stubLabel: string, innerHtml: string): string {
   </table>`;
 }
 
+/**
+ * Placeholder substituted per-recipient by sendTemplateEmail. It is ONLY ever
+ * emitted for marketing-class mail (see `unsubscribe` below); the send path
+ * refuses to dispatch an email that still contains it, so a missing
+ * substitution fails loudly instead of shipping a dead link.
+ */
+export const UNSUBSCRIBE_PLACEHOLDER = "{{unsubscribe_url}}";
+
 /** Wraps template body content in the shared branded shell. */
 export function renderLayout(opts: {
   preheader: string;
   bodyHtml: string;
+  /**
+   * Render the unsubscribe line in the footer. TRUE only for marketing-class
+   * templates (welcome, followup_1, followup_2) — transactional mail (auth
+   * links, saved_destination) must not offer an opt-out it cannot honour,
+   * since those sends are strictly necessary and never suppressed.
+   * See emails/classification.ts.
+   */
+  unsubscribe: boolean;
 }): string {
-  const { preheader, bodyHtml } = opts;
+  const { preheader, bodyHtml, unsubscribe } = opts;
+
+  // Marketing footer carries the working per-recipient opt-out; transactional
+  // footer explains why the mail arrived and links the site only.
+  const footerLinksHtml = unsubscribe
+    ? `<a href="${UNSUBSCRIBE_PLACEHOLDER}" style="color: ${BRAND.teal}; text-decoration: underline;">Unsubscribe</a>
+                &nbsp;&middot;&nbsp;
+                <a href="${SITE_URL}" style="color: ${BRAND.teal}; text-decoration: underline;">flytriply.eu</a>`
+    : `<a href="${SITE_URL}" style="color: ${BRAND.teal}; text-decoration: underline;">flytriply.eu</a>`;
+
+  const footerReasonHtml = unsubscribe
+    ? "You are receiving this because you opted in to trip reminders and suggestions."
+    : "You are receiving this because it relates to your Triply account. This is a service message, not marketing.";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -132,12 +160,10 @@ export function renderLayout(opts: {
           <tr>
             <td align="center" style="padding: 24px 24px 8px; font-family: ${FONT_STACK};">
               <p style="margin: 0 0 6px; font-size: 12px; line-height: 1.6; color: ${BRAND.muted};">
-                You are receiving this because you have a Triply account.
+                ${footerReasonHtml}
               </p>
               <p style="margin: 0 0 6px; font-size: 12px; line-height: 1.6; color: ${BRAND.muted};">
-                <a href="{{unsubscribe_url}}" style="color: ${BRAND.teal}; text-decoration: underline;">Unsubscribe</a>
-                &nbsp;&middot;&nbsp;
-                <a href="${SITE_URL}" style="color: ${BRAND.teal}; text-decoration: underline;">flytriply.eu</a>
+                ${footerLinksHtml}
               </p>
               <p style="margin: 0; font-size: 11px; line-height: 1.6; color: ${BRAND.muted};">
                 Triply, Prague, Czech Republic

@@ -16,6 +16,11 @@ const RATE_LIMIT_TIERS: Record<
   "/api/trips": { perMinute: 3, perDay: 40 },
   "/api/feedback": { perMinute: 5 },
   "/api/game/city-photo": { perMinute: 30 },
+  // Analytics ingest. The route enforces its own per-SESSION budget; this is
+  // the per-IP companion, so one host can't fan out across fabricated session
+  // ids. Set well above real use — a busy page fires a handful of events, and
+  // a shared NAT/office egress IP may carry many genuine visitors at once.
+  "/api/analytics/event": { perMinute: 120 },
 };
 
 const MINUTE_MS = 60 * 1000;

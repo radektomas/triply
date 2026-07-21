@@ -30,6 +30,7 @@ export function renderResetPassword(actionUrl: string): {
   return {
     subject: "Reset your Triply password",
     html: renderLayout({
+      unsubscribe: false,
       preheader: "Choose a new password and get back to your trips.",
       bodyHtml,
     }),

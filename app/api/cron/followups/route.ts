@@ -42,6 +42,8 @@ interface ProfileRow {
   id: string;
   email: string | null;
   display_name: string | null;
+  marketing_opt_in: boolean | null;
+  unsubscribed_at: string | null;
 }
 
 function str(v: unknown): string | null {
@@ -51,6 +53,8 @@ function str(v: unknown): string | null {
 interface RunState {
   sent: number;
   skipped: number;
+  /** Rows stamped without sending because the user is not mailable. */
+  suppressed: number;
   errors: string[];
   emailedUserIds: Set<string>;
 }
@@ -89,7 +93,7 @@ async function runPhase(phase: 1 | 2, state: RunState): Promise<number> {
   // no FK-embed dependency between saved_destinations and profiles.
   const { data: profiles, error: pErr } = await supabase
     .from("profiles")
-    .select("id, email, display_name")
+    .select("id, email, display_name, marketing_opt_in, unsubscribed_at")
     .in("id", [...rowsByUser.keys()]);
   if (pErr) {
     state.errors.push(
@@ -136,15 +140,36 @@ async function runPhase(phase: 1 | 2, state: RunState): Promise<number> {
         continue;
       }
 
+      // Both followups are marketing-class (emails/classification.ts), so they
+      // require an active opt-in. sendTemplateEmail re-checks this itself; the
+      // point of checking here too is to stamp the rows, otherwise every
+      // non-consenting user's saves sit in the pending partial index forever
+      // and get re-queried (and re-refused) on every daily run.
+      const mailable =
+        profile?.marketing_opt_in === true && !profile?.unsubscribed_at;
+      if (!mailable) {
+        await stampAll(rowIds);
+        state.suppressed++;
+        continue;
+      }
+
       const result = await sendTemplateEmail({
         template,
         to: email,
+        userId,
         data: {
           name: str(profile?.display_name) ?? "there",
           destinationName,
         },
       });
       if (!result.ok) {
+        // Consent changed between the read above and the send (or no profile
+        // was resolvable). Not retryable — stamp and move on.
+        if (result.error === "not_consented" || result.error === "suppressed") {
+          await stampAll(rowIds);
+          state.suppressed++;
+          continue;
+        }
         state.errors.push(
           `followup_${phase} user ${userId}: ${result.error}${result.detail ? ` (${result.detail})` : ""}`,
         );
@@ -182,6 +207,7 @@ export async function GET(req: NextRequest) {
   const state: RunState = {
     sent: 0,
     skipped: 0,
+    suppressed: 0,
     errors: [],
     emailedUserIds: new Set(),
   };
@@ -192,6 +218,7 @@ export async function GET(req: NextRequest) {
     followup1Sent,
     followup2Sent,
     skipped: state.skipped,
+    suppressed: state.suppressed,
     errors: state.errors,
   };
   console.log("[cron/followups] run complete:", summary);

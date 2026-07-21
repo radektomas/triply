@@ -41,6 +41,7 @@ export function renderWelcome(data: WelcomeData): {
   return {
     subject: "Welcome to Triply. Your next trip starts here.",
     html: renderLayout({
+      unsubscribe: false,
       preheader:
         "Budget, dates, mood. We turn them into three real trips with honest numbers.",
       bodyHtml,

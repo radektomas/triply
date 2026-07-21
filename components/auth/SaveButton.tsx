@@ -2,22 +2,14 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
+import { saveDestination } from "@/app/actions/saved";
 import { useAuth } from "@/contexts/AuthContext";
 import { HeartIcon } from "./AuthIcons";
-import type { APIDestination } from "@/lib/types";
-
-interface TripContext {
-  tripId?: string;
-  checkIn: string;
-  checkOut: string;
-  budget: number;
-  vibe: string;
-  originCity: string;
-}
+import type { APIDestination, SavedTripContext } from "@/lib/types";
 
 interface Props {
   destination: APIDestination;
-  context?: TripContext;
+  context?: SavedTripContext;
   /**
    * Visual treatment:
    * - `card` (default): absolute corner heart used on result cards.
@@ -82,19 +74,14 @@ export function SaveButton({ destination, context, variant = "card" }: Props) {
           setRowId(null);
         }
       } else {
-        // Embed trip context inside the destination jsonb so the profile
-        // page can deep-link back to the original trip detail view.
-        const payload = context
-          ? { ...destination, __context: context }
-          : destination;
-        const { data, error } = await supabase
-          .from("saved_destinations")
-          .insert({ user_id: user.id, destination: payload })
-          .select("id")
-          .single();
-        if (!error && data) {
+        // Insert goes through a Server Action so the confirmation email is
+        // sent in-process, replacing the saved_destinations database webhook.
+        // The action still writes with the cookie-bound client, so the same
+        // RLS policy applies as when this ran in the browser.
+        const result = await saveDestination({ destination, context });
+        if (result.ok) {
           setSaved(true);
-          setRowId(data.id);
+          setRowId(result.rowId);
         }
       }
     });

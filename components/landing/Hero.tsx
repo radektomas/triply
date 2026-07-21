@@ -52,7 +52,7 @@ export function Hero() {
           Flights · Hotels · Vibes
         </p>
         <p className="text-lg text-muted max-w-2xl mx-auto leading-relaxed mb-10 text-balance">
-          Real trips, real prices, in seconds. Free.
+          Real destinations, costed end to end, in seconds. Free.
         </p>
 
         {/* CTA — boarding pass centered. On md+ Triply floats absolutely to

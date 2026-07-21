@@ -35,6 +35,7 @@ export function renderConfirmSignup(actionUrl: string): {
   return {
     subject: "Confirm your email to board Triply",
     html: renderLayout({
+      unsubscribe: false,
       preheader: "One tap and your Triply account is ready.",
       bodyHtml,
     }),

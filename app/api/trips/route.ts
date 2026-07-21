@@ -225,21 +225,9 @@ export async function POST(req: NextRequest) {
     // to Cache nodes against trip_cache). We just call the webhook — it
     // returns either a cached or a freshly generated result.
     const tN8n = Date.now();
-    // TEMP DIAGNOSTIC — remove once n8n call confirmed healthy.
-    // Logs the resolved webhook URL host+path (no query/secret) and the
-    // outcome of the upstream call so failures are visible in the dev
-    // server terminal even when the browser overlay swallows the body.
-    {
-      const rawUrl = process.env.N8N_WEBHOOK_URL ?? "";
-      let safeUrl = rawUrl;
-      try {
-        const u = new URL(rawUrl);
-        safeUrl = `${u.origin}${u.pathname}`;
-      } catch {
-        safeUrl = "(unparseable URL)";
-      }
-      console.log("[trips route] calling n8n:", safeUrl);
-    }
+    // NOTE: do not log the resolved N8N_WEBHOOK_URL, not even "host + path
+    // minus query". n8n webhook URLs carry their secret in the PATH
+    // (/webhook/<id>), so origin+pathname is the whole credential.
     // Layer-2 anti-duplicate guard: concurrent requests with the same
     // normalized cache key ride along on the one in-flight n8n generation
     // instead of each starting their own (n8n OOMs under duplicate bursts).

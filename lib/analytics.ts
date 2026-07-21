@@ -1,14 +1,21 @@
 "use client";
 
-// Client-side product analytics. Fire-and-forget event logging into
-// public.analytics_events via the anon/authenticated browser Supabase client
-// (RLS allows inserts only). Every helper swallows its own errors — tracking
+// Client-side product analytics. Fire-and-forget event logging via
+// POST /api/analytics/event. Every helper swallows its own errors — tracking
 // must NEVER throw, block, or delay the user-facing flow.
+//
+// Writes used to go straight from the browser into public.analytics_events
+// using the anon key, which required an RLS policy of
+// `for insert ... with check (true)` — an open, unauthenticated write endpoint
+// on a public table. That policy is dropped; the browser now has no write path
+// to the table at all, and the server route validates the event name and
+// properties and resolves user_id from the auth cookie instead of trusting the
+// payload.
 //
 // Funnel: landing_view → trip_form_started → trip_generated → account_created
 //         → email_captured.
 
-import { getBrowserSupabase } from "@/lib/supabase/browser";
+import type { AnalyticsEvent } from "@/lib/analytics.events";
 
 const SESSION_KEY = "triply_session_id";
 
@@ -45,11 +52,15 @@ export function getSessionId(): string {
 
 /**
  * Log one analytics event. Fire-and-forget: callers should NOT await this.
- * Attaches the session id and, if signed in, the current user id. Any failure
- * (storage blocked, network down, RLS) is swallowed.
+ * Attaches the session id; the server resolves the user id from the auth
+ * cookie. Any failure (storage blocked, network down, validation) is swallowed.
+ *
+ * `eventName` is typed to the shared allow-list, so adding an event means
+ * adding it to lib/analytics.events.ts — which is also what the server
+ * validates against, keeping the two ends in step.
  */
 export function track(
-  eventName: string,
+  eventName: AnalyticsEvent,
   properties: Record<string, unknown> = {},
 ): void {
   try {
@@ -57,21 +68,15 @@ export function track(
     const sessionId = getSessionId();
     if (!sessionId) return;
 
-    const supabase = getBrowserSupabase();
-    // Detached from the caller — nothing awaits this. getSession reads from
-    // local storage (no network round-trip), so resolving the user id is cheap.
-    void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const { error } = await supabase.from("analytics_events").insert({
-        event_name: eventName,
-        session_id: sessionId,
-        user_id: session?.user?.id ?? null,
-        properties,
-      });
-      if (error) console.warn("[analytics] insert failed:", error.message);
-    })().catch(() => {
+    // keepalive so the request survives the page unload that immediately
+    // follows navigation-triggered events (affiliate_clicked in particular,
+    // where the click takes the user off-site).
+    void fetch("/api/analytics/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventName, sessionId, properties }),
+      keepalive: true,
+    }).catch(() => {
       // never throw
     });
   } catch {
