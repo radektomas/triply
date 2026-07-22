@@ -102,8 +102,8 @@ export function buildBookingAffiliateLink({
 /**
  * Whether the Booking.com CJ affiliate link is live / earning-capable. The CJ
  * deep link uses a static approved tracking URL (no API key or env var), so it
- * is always active once shipped — unlike the env-gated AWIN path in
- * `@/lib/affiliate`. Used to decide whether the commission disclosure renders.
+ * is always active once shipped. Used to decide whether the commission
+ * disclosure renders (see components/shared/AffiliateDisclosure.tsx).
  */
 export function isBookingAffiliateActive(): boolean {
   return true;

@@ -1,110 +1,206 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LegalPage, Section, Bullets, Term } from "@/components/legal/LegalLayout";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "The rules for using Triply — what we provide, what we do not, and what to expect when you book through our partner links.",
-  alternates: { canonical: "/terms" },
+    "The rules for using Triply: where the prices come from, what we do and do not promise, accounts, and how affiliate links work.",
+  alternates: {
+    canonical: "/terms",
+    languages: { en: "/terms", cs: "/cs/terms" },
+  },
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = "May 7, 2026";
+const LAST_UPDATED = "22 July 2026";
+
+// Counterparty is a natural person, not a company.
+const CONTROLLER = "Radek Tomas";
 
 export default function TermsPage() {
   return (
-    <main className="max-w-3xl mx-auto px-6 py-16 md:py-20">
-      <h1 className="text-4xl md:text-5xl font-bold text-[#1a1a1a] mb-3">
-        Terms of Service
-      </h1>
-      <p className="text-sm text-muted mb-12">Last updated: {LAST_UPDATED}</p>
-
-      <Section title="About Triply">
+    <LegalPage
+      lang="en"
+      title="Terms of Service"
+      lastUpdatedLabel="Last updated:"
+      lastUpdated={LAST_UPDATED}
+      enHref="/terms"
+      csHref="/cs/terms"
+    >
+      <Section title="Who you are agreeing with">
         <p>
-          Triply is an AI trip planner. You tell us a budget and a few preferences; we use a large language model to draft 3
-          destination ideas with a sample itinerary and budget breakdown. Recommendations are <strong className="text-[#1a1a1a]">suggestions</strong>, not
-          guarantees. Prices, availability, and travel conditions change all the time — verify the details before you book.
-        </p>
-      </Section>
-
-      <Section title="No warranty">
-        <p>
-          We do our best, but the service is provided &ldquo;as is&rdquo;. We do not warrant that:
-        </p>
-        <Bullets>
-          <li>destination prices match what booking sites show at the moment you click through;</li>
-          <li>flights, hotels, or activities will be available on the dates we suggest;</li>
-          <li>the AI&rsquo;s recommendations are exhaustive, optimal, or free of errors.</li>
-        </Bullets>
-        <p>Treat our output as a starting point, then check the real-time options on the booking sites we link to.</p>
-      </Section>
-
-      <Section title="Booking happens elsewhere">
-        <p>
-          Triply is not a travel agency, tour operator, or seller of travel services. When you book a flight, hotel, or activity,
-          you do so directly with the third-party provider (Booking.com, GetYourGuide, airlines, hotels, etc.). The contract for
-          that booking is between you and that provider, and is governed by their terms.
-        </p>
-      </Section>
-
-      <Section title="Affiliate disclosure">
-        <p>
-          Some outbound links — particularly hotel links to Booking.com — are <strong className="text-[#1a1a1a]">affiliate links</strong>.
-          If you book after clicking one, Triply may earn a small commission from the partner. <strong className="text-[#1a1a1a]">This does not change the price you pay.</strong>
-        </p>
-        <p>
-          Affiliate revenue is what keeps Triply free. It does not influence which destinations the AI recommends — the model has
-          no knowledge of which partners pay commission.
-        </p>
-      </Section>
-
-      <Section title="Acceptable use">
-        <p>You agree not to:</p>
-        <Bullets>
-          <li>scrape the site or automate requests beyond reasonable personal use;</li>
-          <li>abuse the trip-generation endpoint (we rate-limit and may block IPs that flood it);</li>
-          <li>attempt to reverse-engineer, probe, or exploit the API or AI pipeline;</li>
-          <li>use the service to generate content that violates law or third-party rights.</li>
-        </Bullets>
-      </Section>
-
-      <Section title="Limitation of liability">
-        <p>
-          To the maximum extent permitted by law, Triply is not liable for:
-        </p>
-        <Bullets>
-          <li>price changes, sold-out inventory, or availability differences between our suggestion and the booking site at click-through;</li>
-          <li>travel disruptions (delays, cancellations, weather, strikes, force majeure);</li>
-          <li>disputes, refunds, or service quality issues with third-party providers;</li>
-          <li>indirect, incidental, or consequential damages arising from use of the service.</li>
-        </Bullets>
-        <p>
-          Nothing in these terms limits liability for fraud, gross negligence, or anything else that cannot lawfully be excluded
-          under EU consumer law.
-        </p>
-      </Section>
-
-      <Section title="Changes to these terms">
-        <p>
-          We may update these terms from time to time. Material changes will be highlighted on the website; the &ldquo;Last
-          updated&rdquo; date at the top reflects the latest revision. Continued use after changes means you accept the new terms.
-        </p>
-      </Section>
-
-      <Section title="Governing law">
-        <p>
-          These terms are governed by the laws of the Czech Republic. Disputes that cannot be resolved by email will be brought
-          before the competent Czech courts, without prejudice to mandatory consumer-protection rules of your country of residence.
-        </p>
-      </Section>
-
-      <Section title="Contact">
-        <p>
-          Questions about these terms? Email{" "}
+          Triply (flytriply.eu) is operated by <Term>{CONTROLLER}</Term>, an individual based in the
+          Czech Republic. There is no company behind it. By using Triply you are agreeing these
+          terms with that person. Contact:{" "}
           <a href="mailto:hello@flytriply.eu" className="text-accent hover:underline underline-offset-2">
             hello@flytriply.eu
           </a>
           .
+        </p>
+      </Section>
+
+      <Section title="What Triply is">
+        <p>
+          You give us a budget, dates and a few preferences. A language model suggests three
+          destinations with a suggested itinerary and a cost breakdown. That is the whole product.
+        </p>
+      </Section>
+
+      <Section title="Where the numbers come from — read this part">
+        <p>
+          Every figure Triply shows you is generated by a language model reasoning about typical
+          costs. <Term>We do not query any flight, hotel or activity pricing service.</Term> Nothing
+          on this site is a quote, an offer, or a price we have checked.
+        </p>
+        <p>
+          That means a price shown here can be out of date, seasonally wrong, or simply mistaken.
+          Prices are marked with a ≈ symbol wherever they appear, for exactly this reason. Treat
+          every number as a starting point for your own research, and check the real price on the
+          booking site before you commit to anything.
+        </p>
+        <p>
+          The same applies to everything else the model writes: opening hours, travel times, what is
+          worth seeing, whether somewhere is a good idea in February. It is a well-informed
+          suggestion, not verified fact.
+        </p>
+      </Section>
+
+      <Section title="We do not sell travel">
+        <p>
+          Triply is not a travel agency, tour operator, or seller of travel services. We take no
+          bookings and handle no payments. When you book a flight, room or activity you do so
+          directly with that provider, and your contract is with them under their terms. If
+          something goes wrong with a booking — a cancellation, a refund, a room that isn&rsquo;t as
+          described — that is between you and the provider. We can&rsquo;t intervene, and we have no
+          access to your booking.
+        </p>
+      </Section>
+
+      <Section title="Accounts">
+        <p>An account is optional; the planner works without one. If you create one:</p>
+        <Bullets>
+          <li>
+            Give accurate information. If you sign in with Google we take your name and email from
+            that account.
+          </li>
+          <li>
+            You are responsible for what happens under your login. If you think someone else has
+            access, reset your password.
+          </li>
+          <li>
+            There is a daily limit on how many trips you can generate. It exists because each
+            generation costs us money.
+          </li>
+          <li>
+            You can delete your account at any time from your profile page. It is immediate and
+            permanent — see the{" "}
+            <Link href="/privacy" className="text-accent hover:underline underline-offset-2">
+              Privacy Policy
+            </Link>{" "}
+            for exactly what is removed.
+          </li>
+          <li>
+            We may suspend or remove an account that is being used to abuse the service.{" "}
+            <Term>If we do, we will tell you why at the email address on the account.</Term>
+          </li>
+        </Bullets>
+      </Section>
+
+      <Section title="Fair use">
+        <p>
+          Please do not scrape the site, drive the trip generator with scripts, probe the API for
+          weaknesses, or use Triply to produce anything unlawful.
+        </p>
+        <p>
+          We apply basic request limits to keep the generator affordable. To be straightforward
+          about it: these limits are a practical brake, not a security guarantee, and we do not
+          maintain a blocklist. If someone works around them and it costs us money, we will deal
+          with it at that point — including by withdrawing access.
+        </p>
+      </Section>
+
+      <Section title="Affiliate links">
+        <p>Some outbound links earn us a commission. Specifically:</p>
+        <Bullets>
+          <li>
+            Hotel links to <Term>Booking.com</Term> go through the affiliate network{" "}
+            <Term>CJ (Commission Junction)</Term>. If you book after clicking one, we may receive a
+            commission.
+          </li>
+          <li>
+            Links to <Term>GetYourGuide</Term> currently carry no affiliate tracking and earn us
+            nothing.
+          </li>
+        </Bullets>
+        <p>
+          Three things worth stating plainly. <Term>You never pay more</Term> because a link is an
+          affiliate link — the price is the same as going direct.{" "}
+          <Term>It does not influence the recommendations</Term>: the language model that picks your
+          destinations has no information about which partners pay us, so it cannot favour them. And{" "}
+          <Term>any link that does earn us a commission is labelled as a partner link where you
+          click it</Term>, not only here.
+        </p>
+        <p>Affiliate revenue is what keeps Triply free to use.</p>
+      </Section>
+
+      <Section title="What we don&rsquo;t promise">
+        <p>
+          The service is provided as it is. We don&rsquo;t promise that it will always be available,
+          that the recommendations will suit you, that the prices will be accurate, or that a
+          destination will be available on your dates. We build this carefully but we are one
+          person, and it is free.
+        </p>
+      </Section>
+
+      <Section title="Right of withdrawal">
+        <p>
+          Triply is free and you never enter a paid contract with us, so the 14-day right of
+          withdrawal for distance contracts does not arise. If we ever introduce a paid feature that
+          will change, and we will tell you before you pay anything.
+        </p>
+      </Section>
+
+      <Section title="Limits on liability">
+        <p>
+          To the fullest extent the law allows, we are not liable for money you lose because a price
+          here differed from the real one, for travel that goes wrong, for disputes with a provider
+          you booked through, or for indirect or consequential losses.
+        </p>
+        <p>
+          Nothing here limits liability for death or personal injury caused by negligence, for
+          fraud, or for anything else that cannot lawfully be excluded. If you are a consumer, the
+          mandatory protections of your country of residence apply regardless of what this document
+          says.
+        </p>
+      </Section>
+
+      <Section title="Changes">
+        <p>
+          We may update these terms. Material changes will be flagged on the site, and the date at
+          the top always reflects the current version. Carrying on using Triply after a change means
+          you accept it.
+        </p>
+      </Section>
+
+      <Section title="Law and disputes">
+        <p>
+          Czech law applies. If we cannot resolve something by email, the Czech courts have
+          jurisdiction — again, without affecting the mandatory consumer rights of your home
+          country.
+        </p>
+        <p>
+          As a consumer you may also use the EU&rsquo;s online dispute resolution platform, or in
+          the Czech Republic the Czech Trade Inspection Authority (Česká obchodní inspekce,{" "}
+          <a
+            href="https://www.coi.cz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent hover:underline underline-offset-2"
+          >
+            coi.cz
+          </a>
+          ), for out-of-court resolution.
         </p>
         <p className="text-sm text-muted mt-8">
           For how we handle your data, see our{" "}
@@ -114,19 +210,6 @@ export default function TermsPage() {
           .
         </p>
       </Section>
-    </main>
+    </LegalPage>
   );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mb-12">
-      <h2 className="text-2xl font-bold text-[#1a1a1a] mb-4">{title}</h2>
-      <div className="space-y-4 text-[#1a1a1a]/80 leading-relaxed">{children}</div>
-    </section>
-  );
-}
-
-function Bullets({ children }: { children: React.ReactNode }) {
-  return <ul className="list-disc pl-6 space-y-1.5">{children}</ul>;
 }

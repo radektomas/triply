@@ -1,4 +1,10 @@
-import { wrapBookingUrl } from "./affiliate";
+// Plain Booking.com / Skyscanner / GetYourGuide search URLs.
+//
+// These are NOT affiliate links. Booking.com monetisation happens in
+// components/trip/BookingHub.tsx, which rebuilds hotel provider URLs through
+// the CJ deep link in lib/affiliates/booking.ts. The old AWIN wrapper that
+// used to sit on bookingHotelUrl was env-gated, never configured, and has
+// been removed along with lib/affiliate.ts.
 
 interface BookingHotelParams {
   city: string;
@@ -25,7 +31,7 @@ export function bookingHotelUrl(params: BookingHotelParams): string {
   ) {
     qs.set("nflt", `price=EUR-min-${Math.round(params.maxNightlyPrice)}-1`);
   }
-  return wrapBookingUrl(`https://www.booking.com/searchresults.html?${qs.toString()}`);
+  return `https://www.booking.com/searchresults.html?${qs.toString()}`;
 }
 
 export function skyscannerFlightUrl(

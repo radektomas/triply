@@ -8,6 +8,7 @@ import { getCityPhoto } from "@/lib/photos";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import { SaveButton } from "@/components/auth/SaveButton";
 import { buildGygUrl } from "@/lib/gyg";
+import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import type { APIDestination } from "@/lib/types";
 
 function GygTicketIcon({ size = 12 }: { size?: number }) {
@@ -422,6 +423,9 @@ export async function DestinationCard({
                 <GygTicketIcon size={12} />
                 <span>Things to do in {destination.name} →</span>
               </a>
+            )}
+            {destination.name && (
+              <AffiliateDisclosure partner="gyg" className="mt-1.5" />
             )}
           </div>
         </div>

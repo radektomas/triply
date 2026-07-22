@@ -3,7 +3,10 @@
 import { motion } from "framer-motion";
 import type { TripDetail, BookingLink } from "@/lib/types/trip";
 import { formatRange } from "@/lib/dates";
-import { isAffiliateActive } from "@/lib/affiliate";
+import {
+  AffiliateDisclosure,
+  type AffiliatePartner,
+} from "@/components/shared/AffiliateDisclosure";
 import {
   buildBookingAffiliateLink,
   isBookingAffiliateActive,
@@ -110,14 +113,13 @@ export function BookingHub({ detail, transportMode = "plane", tips = [] }: Props
   );
 
   // Whether a live CJ Booking.com affiliate card is actually rendered. The CJ
-  // link is always earning-capable (static tracking URL), so the commission
-  // disclosure must show when such a card is present — independent of the
-  // env-gated AWIN path. ORed with isAffiliateActive() so the existing AWIN
-  // disclosure is never weakened.
+  // link is always earning-capable (a static approved tracking URL), so the
+  // commission disclosure must show whenever such a card is present — and only
+  // then, so we never claim a commission on a link that earns nothing.
   const hasBookingAffiliateCard =
     isBookingAffiliateActive() &&
     booking.hotels.some((p) => p.provider.toLowerCase().includes("booking"));
-  const showAffiliateDisclosure = isAffiliateActive() || hasBookingAffiliateCard;
+  const showAffiliateDisclosure = hasBookingAffiliateCard;
 
   const findCost = (key: string) =>
     budget.breakdown.find((c) => c.label.toLowerCase().includes(key))?.amount;
@@ -199,9 +201,7 @@ export function BookingHub({ detail, transportMode = "plane", tips = [] }: Props
       </div>
 
       {showAffiliateDisclosure && (
-        <p className="text-xs text-[#1a1a1a]/50 mt-8 text-center leading-relaxed">
-          Triply may earn a commission when you book through our partner links, at no extra cost to you.
-        </p>
+        <AffiliateDisclosure partner="booking" variant="block" className="mt-8" />
       )}
     </section>
   );
@@ -300,10 +300,11 @@ function StayHeroCard({
             </svg>
           </motion.a>
 
-          {(isAffiliateActive() || forceDisclosure) && (
-            <p className="text-[11px] text-[#1A1A1A]/45 mt-2 text-center md:text-right leading-snug">
-              Partner link — at no extra cost to you.
-            </p>
+          {forceDisclosure && (
+            <AffiliateDisclosure
+              partner="booking"
+              className="mt-2 justify-center md:justify-end"
+            />
           )}
 
           {secondary.length > 0 && (
@@ -368,6 +369,7 @@ function CarEssentialsSlot({ tips }: { tips: string[] }) {
 }
 
 function BookingCTACard({
+  partner,
   icon,
   title,
   estimate,
@@ -375,6 +377,13 @@ function BookingCTACard({
   providers,
   destination,
 }: {
+  /**
+   * Set only when this card's links actually earn a commission. Left unset for
+   * flights and activities today: those are plain provider links, and
+   * GetYourGuide is gated on a PENDING partner id, so it earns nothing. If a
+   * partner id lands, pass it here and the disclosure appears at the link.
+   */
+  partner?: AffiliatePartner;
   icon: string;
   title: string;
   estimate?: string;
@@ -457,11 +466,7 @@ function BookingCTACard({
         </svg>
       </motion.a>
 
-      {isAffiliateActive() && (
-        <p className="text-[11px] text-[#1A1A1A]/45 mt-2 text-center leading-snug">
-          Partner link — at no extra cost to you.
-        </p>
-      )}
+      {partner && <AffiliateDisclosure partner={partner} className="mt-2" />}
 
       {secondary.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">

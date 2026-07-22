@@ -70,9 +70,6 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://flytriply.eu",
   },
-  other: {
-    "impact-site-verification": "b77d0daa-6ddb-4200-b811-53ba1fcdbfd8",
-  },
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

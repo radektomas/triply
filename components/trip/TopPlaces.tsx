@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { buildGygUrl } from "@/lib/gyg";
+import { AffiliateDisclosure } from "@/components/shared/AffiliateDisclosure";
 import type { TopPlace } from "@/lib/types/trip";
 
 function GygTicketIcon({ size = 12 }: { size?: number }) {
@@ -166,6 +167,7 @@ export function TopPlaces({ topPlaces, destinationName }: Props) {
                   <GygTicketIcon size={12} />
                   <span>Book on GetYourGuide →</span>
                 </a>
+                <AffiliateDisclosure partner="gyg" className="mt-1.5" />
                 {place.tip && (
                   <div className="mt-auto pt-4 flex items-start gap-2">
                     <span
