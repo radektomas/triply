@@ -95,7 +95,7 @@ export const CONTENT: Record<
   cs: {
     nav: { cta: "Přejít na nabídku ↓" },
     hero: {
-      eyebrow: "INVESTIČNÍ NABÍDKA · ČERVENEC 2026",
+      eyebrow: "INVESTIČNÍ NABÍDKA · SRPEN 2026",
       h1: "Produkt je hotový. Monetizace běží. Chybí palivo.",
       lead: "Triply je AI plánovač cest pro lidi s omezeným rozpočtem. Zadáš, kolik můžeš utratit, a dostaneš tři konkrétní destinace i s programem na každý den a rozpočtem rozepsaným do koruny. Rezervace jde přes Booking.com a z každé nám padá provize. Všechno běží v produkci na flytriply.eu.",
       strip: [
@@ -251,7 +251,7 @@ export const CONTENT: Record<
   en: {
     nav: { cta: "Go to the offer ↓" },
     hero: {
-      eyebrow: "INVESTMENT OFFER · JULY 2026",
+      eyebrow: "INVESTMENT OFFER · AUGUST 2026",
       h1: "The product is built. Monetization is live. It needs fuel.",
       lead: "Triply is an AI trip planner for people traveling on a fixed budget. Tell it what you can spend and it returns three real destinations, each with a day-by-day plan and a budget broken down to the last euro. Booking goes through Booking.com, and every completed reservation pays Triply a commission. All of it is live in production at flytriply.eu.",
       strip: [
