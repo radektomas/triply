@@ -473,3 +473,135 @@ input[type="range"]::-moz-range-thumb {
 .triply-slider:focus::-moz-range-thumb {
   box-shadow: 0 0 0 4px rgba(255, 107, 71, 0.2), 0 2px 8px rgba(255, 107, 71, 0.3);
 }
+
+/* ── /invest flight-route steps ("Jak to funguje") ────────────────────────
+   Plain CSS on purpose: two Tailwind-utility attempts at this line failed to
+   paint reliably. The waypoint dot and its connector live INSIDE each step
+   column (connector is a ::after on the node row bridging the grid gap), so
+   dot, line and text cannot drift apart. Static decoration, no animation, so
+   no reduced-motion variant is needed. */
+.invest-route-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 40px;
+}
+
+.invest-route-step {
+  position: relative;
+}
+
+.invest-route-node {
+  position: relative;
+  height: 14px;
+  margin-bottom: 20px;
+  overflow: visible;
+}
+
+.invest-route-dot {
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--color-teal);
+  /* page-bg ring so the connector reads as passing behind the dot */
+  box-shadow: 0 0 0 4px var(--color-bg);
+}
+
+.invest-route-plane {
+  color: var(--color-teal);
+}
+
+.invest-route-plane-glyph {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+/* Desktop: 3 step columns + a 48px column that only holds the plane. The
+   connector spans from just right of the dot across the 40px grid gap into
+   the next column (right: -40px). */
+@media (min-width: 768px) {
+  .invest-route-grid {
+    grid-template-columns: repeat(3, 1fr) 48px;
+    column-gap: 40px;
+    row-gap: 0;
+  }
+
+  .invest-route-node::after {
+    content: "";
+    position: absolute;
+    left: 20px;
+    right: -40px;
+    top: 6px;
+    height: 2px;
+    background-image: repeating-linear-gradient(
+      to right,
+      var(--color-teal) 0 6px,
+      transparent 6px 14px
+    );
+    opacity: 0.45;
+  }
+
+  .invest-route-plane {
+    display: flex;
+    align-items: center;
+    height: 14px;
+    /* solid page-bg band so the connector doesn't run through the glyph */
+    background: var(--color-bg);
+    padding: 0 2px;
+  }
+
+  .invest-route-plane-glyph {
+    transform: rotate(90deg); /* PlaneIcon points up; nose right */
+  }
+}
+
+/* Mobile: single column, dot in the step's 32px left gutter, vertical
+   connector down to the next step. The last step gets no connector; the
+   plane sits below it on the same left edge, nose down. */
+@media (max-width: 767px) {
+  .invest-route-step {
+    padding-left: 32px;
+  }
+
+  /* Collapse the node row: the dot anchors to the step itself */
+  .invest-route-node {
+    position: static;
+    height: 0;
+    margin-bottom: 0;
+  }
+
+  .invest-route-dot {
+    top: 6px;
+  }
+
+  .invest-route-step::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 22px;
+    bottom: -28px;
+    width: 2px;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--color-teal) 0 6px,
+      transparent 6px 14px
+    );
+    opacity: 0.45;
+  }
+
+  .invest-route-step--last::after {
+    content: none;
+  }
+
+  .invest-route-plane {
+    /* dot center sits at x=6px; center the 22px glyph on it */
+    margin-left: -5px;
+  }
+
+  .invest-route-plane-glyph {
+    transform: rotate(180deg); /* PlaneIcon points up; nose down */
+  }
+}

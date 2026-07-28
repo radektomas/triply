@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { OAuthSignupTracker } from "@/components/analytics/OAuthSignupTracker";
 import { Header } from "@/components/auth/Header";
+import { GlobalChrome } from "@/components/shared/GlobalChrome";
 import { getServerSupabase } from "@/lib/supabase/server";
 import "./globals.css";
 
@@ -83,9 +84,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-full flex flex-col bg-cream text-[#1A1A1A]">
         <AuthProvider initialUser={user}>
           <CurrencyProvider>
-            <Header />
+            <GlobalChrome>
+              <Header />
+            </GlobalChrome>
             <div className="flex-1">{children}</div>
-            <Footer />
+            <GlobalChrome>
+              <Footer />
+            </GlobalChrome>
             <FeedbackButton />
             <AuthModal />
             <OAuthSignupTracker />
