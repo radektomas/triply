@@ -9,18 +9,11 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useReducedMotion } from "framer-motion";
-import {
-  geoArea,
-  geoCentroid,
-  geoDistance,
-  geoGraticule10,
-  geoOrthographic,
-  geoPath,
-} from "d3-geo";
+import { geoCentroid, geoGraticule10, geoOrthographic, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Feature, Geometry } from "geojson";
-import { COUNTRY_BY_NUMERIC, flagEmoji } from "@/lib/data/countryCodes";
+import { COUNTRY_BY_NUMERIC } from "@/lib/data/countryCodes";
 
 // A spinnable SVG globe (orthographic d3-geo projection over world-atlas
 // 110m country outlines). No WebGL, no three.js — ~180 <path>s that are
@@ -41,19 +34,7 @@ export interface GlobeCountry {
 
 interface CountryShape extends GlobeCountry {
   feature: Feature<Geometry>;
-  /** Spherical area in steradians — cheap proxy for on-screen size. */
-  area: number;
-  flag: string;
 }
-
-// Labels: a flag sits on each country's centroid once the country is
-// roughly this wide on screen (px in the 400-unit viewBox); its name joins
-// below once it's wider still. Size is estimated from spherical area ×
-// zoom × foreshortening, so no per-frame bounds computation is needed.
-const FLAG_MIN_PX = 26;
-const NAME_MIN_PX = 64;
-const NAME_MIN_ZOOM = 1.6;
-const RIM_COS = 0.18;
 
 interface Props {
   /** alpha-2 codes currently selected. */
@@ -136,16 +117,7 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
         const meta = COUNTRY_BY_NUMERIC[id];
         if (!meta) continue; // Antarctica-less atlas still has a few unmapped disputed areas
         const [lng, lat] = geoCentroid(f);
-        list.push({
-          id,
-          alpha2: meta[0],
-          name: meta[1],
-          lat,
-          lng,
-          feature: f,
-          area: geoArea(f),
-          flag: flagEmoji(meta[0]),
-        });
+        list.push({ id, alpha2: meta[0], name: meta[1], lat, lng, feature: f });
       }
       if (cancelled) return;
       setShapes(list);
@@ -381,41 +353,6 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
     [shapes, path],
   );
 
-  // Flag / name labels for countries that are big enough at this zoom and
-  // not squashed against the rim. Selected countries always get their flag.
-  const labels = useMemo(() => {
-    if (!shapes) return [];
-    const center: [number, number] = [-rotation[0], -rotation[1]];
-    const scale = R * zoom;
-    const out: {
-      id: string;
-      x: number;
-      y: number;
-      flag: string;
-      name: string | null;
-      size: number;
-    }[] = [];
-    for (const s of shapes) {
-      const cos = Math.cos(geoDistance([s.lng, s.lat], center));
-      if (cos <= RIM_COS) continue;
-      const px = Math.sqrt(s.area * cos) * scale;
-      const isSel = selected.has(s.alpha2);
-      if (px < FLAG_MIN_PX && !isSel) continue;
-      const pt = projection([s.lng, s.lat]);
-      if (!pt) continue;
-      const size = Math.max(11, Math.min(22, px * 0.22));
-      out.push({
-        id: s.id,
-        x: pt[0],
-        y: pt[1],
-        flag: s.flag,
-        name: zoom >= NAME_MIN_ZOOM && px >= NAME_MIN_PX ? s.name : null,
-        size,
-      });
-    }
-    return out;
-  }, [shapes, rotation, zoom, projection, selected]);
-
   const hoverName = hover ? shapes?.find((s) => s.id === hover)?.name ?? null : null;
 
   return (
@@ -512,41 +449,6 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
                 </path>
               );
             })}
-          </g>
-        )}
-
-        {/* flags + names — never intercept taps (pointer-events: none) */}
-        {labels.length > 0 && (
-          <g clipPath="url(#globe-disc)" pointerEvents="none" aria-hidden="true">
-            {labels.map((l) => (
-              <g key={l.id} transform={`translate(${l.x.toFixed(1)} ${l.y.toFixed(1)})`}>
-                <text
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={l.size}
-                  style={{ userSelect: "none" }}
-                >
-                  {l.flag}
-                </text>
-                {l.name && (
-                  <text
-                    y={l.size * 0.75 + 6}
-                    textAnchor="middle"
-                    fontSize={Math.max(8, Math.min(11, l.size * 0.55))}
-                    fontWeight={700}
-                    fill="#1a1a1a"
-                    stroke="rgba(255,255,255,0.85)"
-                    strokeWidth={2.5}
-                    strokeLinejoin="round"
-                    paintOrder="stroke"
-                    fontFamily="var(--font-inter), system-ui, sans-serif"
-                    style={{ userSelect: "none" }}
-                  >
-                    {l.name}
-                  </text>
-                )}
-              </g>
-            ))}
           </g>
         )}
 

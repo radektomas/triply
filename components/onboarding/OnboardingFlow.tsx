@@ -283,16 +283,16 @@ export function OnboardingFlow({ firstName, initial }: Props) {
   }
 
   // ── windows ──────────────────────────────────────────────────────────────
-  function addWindow(startDate: string, endDate: string) {
+  function addWindow(startDate: string, endDate: string, label?: string) {
     if (windows.some((w) => w.startDate === startDate && w.endDate === endDate)) {
       notify("You already have that window.");
       return;
     }
     const tmpId = `tmp-${Date.now()}`;
-    setWindows((prev) => [...prev, { id: tmpId, startDate, endDate, label: null }]);
+    setWindows((prev) => [...prev, { id: tmpId, startDate, endDate, label: label ?? null }]);
     setAddingWindow(true);
     void (async () => {
-      const r = await addTravelWindow({ startDate, endDate });
+      const r = await addTravelWindow({ startDate, endDate, label: label ?? null });
       setAddingWindow(false);
       if (!r.ok) {
         setWindows((prev) => prev.filter((w) => w.id !== tmpId));

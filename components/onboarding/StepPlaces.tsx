@@ -115,6 +115,83 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
       }
       sub="Spin the globe and tap them. Triply learns your taste from where you've been and won't send you back. Add your own photo to any stamp if you like — they stay private."
     >
+      {/* Search first — it has to be obvious that typing is an option for
+          anyone who can't find their country on the sphere. */}
+      <div className="max-w-xl mx-auto w-full -mt-2">
+      <div className="relative">
+        <label htmlFor="country-search" className="sr-only">
+          Find a country
+        </label>
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1a1a]/40">
+          <SearchIcon />
+        </span>
+        <input
+          id="country-search"
+          type="text"
+          role="combobox"
+          aria-expanded={results.length > 0}
+          aria-controls="country-results"
+          aria-autocomplete="list"
+          autoComplete="off"
+          spellCheck={false}
+          value={query}
+          disabled={full}
+          placeholder={full ? "That's a full passport" : "Can't find it? Type a country…"}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActiveIdx(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActiveIdx((i) => Math.min(i + 1, Math.max(0, results.length - 1)));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActiveIdx((i) => Math.max(i - 1, 0));
+            } else if (e.key === "Enter") {
+              if (results[activeIdx]) {
+                e.preventDefault();
+                pickResult(results[activeIdx]);
+              }
+            } else if (e.key === "Escape") {
+              setQuery("");
+            }
+          }}
+          className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/40 disabled:opacity-60"
+        />
+        {results.length > 0 && (
+          <ul
+            id="country-results"
+            role="listbox"
+            className="absolute z-20 mt-2 w-full rounded-2xl bg-white border border-border shadow-lg overflow-hidden"
+          >
+            {results.map((c, i) => {
+              const isSel = selected.has(c.alpha2);
+              return (
+                <li key={c.alpha2} role="option" aria-selected={i === activeIdx}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => pickResult(c)}
+                    onMouseEnter={() => setActiveIdx(i)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                      i === activeIdx ? "bg-accent-light" : "bg-white"
+                    }`}
+                  >
+                    <span className="text-lg leading-none">{flagEmoji(c.alpha2)}</span>
+                    <span className="font-medium text-[#1a1a1a] flex-1">{c.name}</span>
+                    <span className="text-[11px] font-semibold text-[#1a1a1a]/45">
+                      {isSel ? "Remove" : "Add"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-[minmax(0,440px)_minmax(0,1fr)] gap-8 md:gap-10 items-start">
         {/* Globe */}
         <div className="mx-auto w-full max-w-[440px] md:sticky md:top-20">
@@ -125,85 +202,12 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
             focusAlpha2={focus}
           />
           <p className="mt-2 text-center text-xs text-[#1a1a1a]/50 font-medium">
-            Drag to spin · pinch or scroll to zoom · tap a country to stamp it
+            Drag to spin · pinch or scroll to zoom · tap a country to stamp it · or search above
           </p>
         </div>
 
         {/* Search + stamps */}
         <div className="space-y-5">
-          <div className="relative">
-            <label htmlFor="country-search" className="sr-only">
-              Find a country
-            </label>
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1a1a]/40">
-              <SearchIcon />
-            </span>
-            <input
-              id="country-search"
-              type="text"
-              role="combobox"
-              aria-expanded={results.length > 0}
-              aria-controls="country-results"
-              aria-autocomplete="list"
-              autoComplete="off"
-              spellCheck={false}
-              value={query}
-              disabled={full}
-              placeholder={full ? "That's a full passport" : "Can't find it? Type a country…"}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setActiveIdx(0);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setActiveIdx((i) => Math.min(i + 1, Math.max(0, results.length - 1)));
-                } else if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setActiveIdx((i) => Math.max(i - 1, 0));
-                } else if (e.key === "Enter") {
-                  if (results[activeIdx]) {
-                    e.preventDefault();
-                    pickResult(results[activeIdx]);
-                  }
-                } else if (e.key === "Escape") {
-                  setQuery("");
-                }
-              }}
-              className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/40 disabled:opacity-60"
-            />
-            {results.length > 0 && (
-              <ul
-                id="country-results"
-                role="listbox"
-                className="absolute z-20 mt-2 w-full rounded-2xl bg-white border border-border shadow-lg overflow-hidden"
-              >
-                {results.map((c, i) => {
-                  const isSel = selected.has(c.alpha2);
-                  return (
-                    <li key={c.alpha2} role="option" aria-selected={i === activeIdx}>
-                      <button
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => pickResult(c)}
-                        onMouseEnter={() => setActiveIdx(i)}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
-                          i === activeIdx ? "bg-accent-light" : "bg-white"
-                        }`}
-                      >
-                        <span className="text-lg leading-none">{flagEmoji(c.alpha2)}</span>
-                        <span className="font-medium text-[#1a1a1a] flex-1">{c.name}</span>
-                        <span className="text-[11px] font-semibold text-[#1a1a1a]/45">
-                          {isSel ? "Remove" : "Add"}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1a1a1a]/55">
               Your passport
