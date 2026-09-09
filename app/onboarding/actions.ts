@@ -29,6 +29,32 @@ export type ActionResult<T = undefined> =
 
 const NOT_SIGNED_IN = "You need to be signed in.";
 
+// Migration 20260909120000_traveler_profile.sql not applied yet? PostgREST
+// answers with "Could not find the table/column … in the schema cache"
+// (PGRST204/PGRST205) or Postgres 42P01/42703. In that state the wizard still
+// has to be usable for design review, so the actions fall back to MOCK rows
+// (ids prefixed `mock-`, nothing persisted) and log loudly. Once the
+// migration is in, this path is never taken.
+function schemaMissing(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === "PGRST204" || err.code === "PGRST205") return true;
+  if (err.code === "42P01" || err.code === "42703") return true;
+  return /schema cache|does not exist/i.test(err.message ?? "");
+}
+
+function warnMock(where: string, err: { message?: string } | null | undefined) {
+  console.warn(
+    `[onboarding/${where}] schema missing — returning MOCK result (apply supabase/migrations/20260909120000_traveler_profile.sql):`,
+    err?.message,
+  );
+}
+
+function mockId(): string {
+  return `mock-${crypto.randomUUID()}`;
+}
+
+const isMockId = (id: string) => id.startsWith("mock-");
+
 async function requireUser() {
   const supabase = await getServerSupabase();
   const {
@@ -85,6 +111,10 @@ export async function saveTravelerPrefs(
   if (Object.keys(patch).length === 0) return { ok: true, data: undefined };
 
   const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+  if (error && schemaMissing(error)) {
+    warnMock("saveTravelerPrefs", error);
+    return { ok: true, data: undefined };
+  }
   if (error) {
     console.error("[onboarding/saveTravelerPrefs] failed:", error.message);
     return { ok: false, error: "Couldn't save your preferences. Please try again." };
@@ -99,6 +129,10 @@ export async function completeOnboarding(): Promise<ActionResult> {
     .from("profiles")
     .update({ onboarding_completed_at: new Date().toISOString() })
     .eq("id", user.id);
+  if (error && schemaMissing(error)) {
+    warnMock("completeOnboarding", error);
+    return { ok: true, data: undefined };
+  }
   if (error) {
     console.error("[onboarding/completeOnboarding] failed:", error.message);
     return { ok: false, error: "Couldn't finish setup. Please try again." };
@@ -153,15 +187,21 @@ export async function addVisitedPlace(
     .insert({ user_id: user.id, name, country, country_code: countryCode, lat, lng })
     .select("id")
     .single();
-  if (error || !data) {
+  let id: string;
+  if (error && schemaMissing(error)) {
+    warnMock("addVisitedPlace", error);
+    id = mockId();
+  } else if (error || !data) {
     console.error("[onboarding/addVisitedPlace] failed:", error?.message);
     return { ok: false, error: "Couldn't add that place. Please try again." };
+  } else {
+    id = data.id as string;
   }
 
   return {
     ok: true,
     data: {
-      id: data.id as string,
+      id,
       name,
       country,
       countryCode,
@@ -185,6 +225,9 @@ export async function setVisitedPlacePhoto(
 ): Promise<ActionResult<{ photoPath: string; photoUrl: string | null }>> {
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: NOT_SIGNED_IN };
+  if (isMockId(placeId)) {
+    return { ok: true, data: { photoPath: `${user.id}/${placeId}.jpg`, photoUrl: null } };
+  }
   if (!/^[0-9a-f-]{36}$/i.test(placeId)) return { ok: false, error: "Bad place id." };
 
   const photoPath = `${user.id}/${placeId}.jpg`;
@@ -208,6 +251,7 @@ export async function setVisitedPlacePhoto(
 export async function removeVisitedPlace(placeId: string): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: NOT_SIGNED_IN };
+  if (isMockId(placeId)) return { ok: true, data: undefined };
   if (!/^[0-9a-f-]{36}$/i.test(placeId)) return { ok: false, error: "Bad place id." };
 
   // Photo first (best-effort), then the row. A stray object with no row is
@@ -283,6 +327,10 @@ export async function addTravelWindow(input: {
     .insert({ user_id: user.id, start_date: startDate, end_date: endDate, label })
     .select("id")
     .single();
+  if (error && schemaMissing(error)) {
+    warnMock("addTravelWindow", error);
+    return { ok: true, data: { id: mockId(), startDate, endDate, label } };
+  }
   if (error || !data) {
     console.error("[onboarding/addTravelWindow] failed:", error?.message);
     return { ok: false, error: "Couldn't save that window. Please try again." };
@@ -293,6 +341,7 @@ export async function addTravelWindow(input: {
 export async function removeTravelWindow(windowId: string): Promise<ActionResult> {
   const { supabase, user } = await requireUser();
   if (!user) return { ok: false, error: NOT_SIGNED_IN };
+  if (isMockId(windowId)) return { ok: true, data: undefined };
   if (!/^[0-9a-f-]{36}$/i.test(windowId)) return { ok: false, error: "Bad window id." };
 
   const { error } = await supabase

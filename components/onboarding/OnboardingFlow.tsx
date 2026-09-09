@@ -248,6 +248,13 @@ export function OnboardingFlow({ firstName, initial }: Props) {
         blob = file;
         contentType = file.type || "image/jpeg";
       }
+      const localUrl = URL.createObjectURL(blob);
+      // `mock-` ids mean the DB migration isn't applied (see actions.ts):
+      // preview the photo locally and skip the bucket, which doesn't exist yet.
+      if (id.startsWith("mock-")) {
+        setPlaces((prev) => prev.map((p) => (p.id === id ? { ...p, photoUrl: localUrl } : p)));
+        return;
+      }
       const supabase = getBrowserSupabase();
       const path = `${user.id}/${id}.jpg`;
       const { error } = await supabase.storage
@@ -256,7 +263,6 @@ export function OnboardingFlow({ firstName, initial }: Props) {
       if (error) throw error;
       const r = await setVisitedPlacePhoto(id);
       if (!r.ok) throw new Error(r.error);
-      const localUrl = URL.createObjectURL(blob);
       setPlaces((prev) =>
         prev.map((p) => (p.id === id ? { ...p, photoPath: r.data.photoPath, photoUrl: localUrl } : p)),
       );

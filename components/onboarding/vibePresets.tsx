@@ -52,7 +52,6 @@ export function RelaxIcon({ color, size = 32 }: IconProps) {
 export interface VibePreset {
   value: TravelerVibe;
   label: string;
-  hint: string;
   Icon: (p: IconProps) => React.JSX.Element;
   color: string;
 }
@@ -60,16 +59,16 @@ export interface VibePreset {
 // Colors reuse the planner's per-vibe palette so a vibe looks the same
 // everywhere it appears (form chip, profile card, onboarding tile).
 export const VIBE_PRESETS: VibePreset[] = [
-  { value: "beach",     label: "Beach",     hint: "sand, sea, sun",        Icon: BeachIcon,     color: "#F4A261" },
-  { value: "city",      label: "City",      hint: "streets & rooftops",    Icon: CityIcon,      color: "#0D7377" },
-  { value: "mountains", label: "Mountains", hint: "peaks & fresh air",     Icon: MountainsIcon, color: "#8E7CC3" },
-  { value: "party",     label: "Party",     hint: "late nights",           Icon: PartyIcon,     color: "#FF6B47" },
-  { value: "culture",   label: "Culture",   hint: "museums & old towns",   Icon: CultureIcon,   color: "#D4574E" },
-  { value: "adventure", label: "Adventure", hint: "get your pulse up",     Icon: AdventureIcon, color: "#2A9D8F" },
-  { value: "romantic",  label: "Romantic",  hint: "just the two of you",   Icon: RomanticIcon,  color: "#E76F8A" },
-  { value: "nature",    label: "Nature",    hint: "forests, lakes, trails", Icon: NatureIcon,   color: "#5A9E4B" },
-  { value: "food",      label: "Food",      hint: "eat your way through",  Icon: FoodIcon,      color: "#C8742B" },
-  { value: "relax",     label: "Relax",     hint: "slow mornings",         Icon: RelaxIcon,     color: "#3E8ED0" },
+  { value: "beach",    label: "Beach",      Icon: BeachIcon,      color: "#F4A261" },
+  { value: "city",     label: "City",       Icon: CityIcon,       color: "#0D7377" },
+  { value: "mountains",label: "Mountains",  Icon: MountainsIcon,  color: "#8E7CC3" },
+  { value: "party",    label: "Party",      Icon: PartyIcon,      color: "#FF6B47" },
+  { value: "culture",  label: "Culture",    Icon: CultureIcon,    color: "#D4574E" },
+  { value: "adventure",label: "Adventure",  Icon: AdventureIcon,  color: "#2A9D8F" },
+  { value: "romantic", label: "Romantic",   Icon: RomanticIcon,   color: "#E76F8A" },
+  { value: "nature",   label: "Nature",     Icon: NatureIcon,     color: "#5A9E4B" },
+  { value: "food",     label: "Food",       Icon: FoodIcon,       color: "#C8742B" },
+  { value: "relax",    label: "Relax",      Icon: RelaxIcon,      color: "#3E8ED0" },
 ];
 
 export const VIBE_BY_VALUE: Record<string, VibePreset> = Object.fromEntries(

@@ -73,17 +73,11 @@ export function StepVibes({ firstName, value, onChange }: Props) {
               style={{
                 backgroundColor: active ? preset.color : "rgba(255,255,255,0.72)",
                 color: active ? "#ffffff" : "#1a1a1a",
-                minHeight: 112,
+                minHeight: 104,
               }}
             >
               <preset.Icon color={iconColor} size={34} />
               <span className="text-sm font-semibold leading-tight">{preset.label}</span>
-              <span
-                className="text-[11px] leading-tight"
-                style={{ color: active ? "rgba(255,255,255,0.8)" : "rgba(26,26,26,0.5)" }}
-              >
-                {preset.hint}
-              </span>
 
               <AnimatePresence>
                 {active && (
