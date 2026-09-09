@@ -14,7 +14,7 @@ import { GradientMesh } from "@/components/landing/GradientMesh";
 import { LoadingOverlay } from "@/components/landing/LoadingOverlay";
 import { ErrorOverlay } from "@/components/landing/ErrorOverlay";
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
-import type { CitySelection } from "@/components/shared/CityAutocomplete";
+import type { GlobeCountry } from "./CountryGlobe";
 import { useAuth } from "@/contexts/AuthContext";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { resizeImage } from "@/lib/imageResize";
@@ -93,7 +93,6 @@ export function OnboardingFlow({ firstName, initial }: Props) {
   const [places, setPlaces] = useState<VisitedPlace[]>(initial.places);
   const [windows, setWindows] = useState<TravelWindow[]>(initial.windows);
   const [uploading, setUploading] = useState<Set<string>>(() => new Set());
-  const [addingPlace, setAddingPlace] = useState(false);
   const [addingWindow, setAddingWindow] = useState(false);
 
   const [toast, setToast] = useState<string | null>(null);
@@ -180,33 +179,34 @@ export function OnboardingFlow({ firstName, initial }: Props) {
   }, [step, canContinue, generating, genError]);
 
   // ── places ───────────────────────────────────────────────────────────────
-  function addPlace(sel: CitySelection) {
-    if (places.some((p) => p.name === sel.cityName && p.countryCode === sel.countryCode)) {
-      notify(`${sel.cityName} is already in your passport.`);
+  function addPlace(c: GlobeCountry) {
+    if (places.some((p) => p.countryCode === c.alpha2)) {
+      notify(`${c.name} is already in your passport.`);
       return;
     }
     const tmpId = `tmp-${Date.now()}`;
     const optimistic: VisitedPlace = {
       id: tmpId,
-      name: sel.cityName,
-      country: sel.countryName,
-      countryCode: sel.countryCode,
-      lat: sel.lat,
-      lng: sel.lng,
+      kind: "country",
+      name: c.name,
+      country: c.name,
+      countryCode: c.alpha2,
+      lat: c.lat,
+      lng: c.lng,
       photoPath: null,
       photoUrl: null,
+      stockPhotoUrl: null,
     };
     setPlaces((prev) => [...prev, optimistic]);
-    setAddingPlace(true);
     void (async () => {
       const r = await addVisitedPlace({
-        name: sel.cityName,
-        country: sel.countryName,
-        countryCode: sel.countryCode,
-        lat: sel.lat,
-        lng: sel.lng,
+        kind: "country",
+        name: c.name,
+        country: c.name,
+        countryCode: c.alpha2,
+        lat: c.lat,
+        lng: c.lng,
       });
-      setAddingPlace(false);
       if (!r.ok) {
         setPlaces((prev) => prev.filter((p) => p.id !== tmpId));
         notify(r.error);
@@ -478,7 +478,6 @@ export function OnboardingFlow({ firstName, initial }: Props) {
                 <StepPlaces
                   places={places}
                   uploading={uploading}
-                  adding={addingPlace}
                   onAdd={addPlace}
                   onRemove={removePlace}
                   onPhoto={uploadPhoto}

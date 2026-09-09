@@ -6,9 +6,9 @@
 --   profiles.*            preferences captured by the onboarding wizard —
 --                         vibes, per-person trip budget, home airport, usual
 --                         travel party, and when the wizard was completed.
---   visited_places        "where I've been" — one row per place, with an
---                         optional photo stored in the private
---                         `visited-photos` storage bucket.
+--   visited_places        "where I've been" — one row per country (picked on
+--                         the globe), with an optional personal photo in the
+--                         private `visited-photos` storage bucket.
 --   travel_windows        "when I'm free to travel" — date ranges. This is
 --                         also the seam for the deal tracker: a future matcher
 --                         joins incoming deals against these rows and notifies
@@ -58,6 +58,10 @@ comment on column public.profiles.onboarding_completed_at is
 create table if not exists public.visited_places (
   id            uuid        primary key default gen_random_uuid(),
   user_id       uuid        not null references auth.users(id) on delete cascade,
+  -- 'country' rows come from the onboarding globe (name = country name,
+  -- country_code = its alpha-2); 'city' is reserved for a later pin-a-city UI.
+  kind          text        not null default 'country'
+                            check (kind in ('city', 'country')),
   name          text        not null,
   country       text        not null default '',
   country_code  text        not null default '',

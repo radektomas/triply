@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { AIRPORTS } from "@/lib/data/airports";
+import { getCityPhoto } from "@/lib/photos";
 import {
   BUDGET_MAX,
   BUDGET_MIN,
@@ -13,6 +14,7 @@ import {
   VISITED_PHOTOS_BUCKET,
   WINDOW_HORIZON_MONTHS,
   isTravelerVibe,
+  type VisitedPlaceKind,
   type TravelerPrefs,
   type TravelerVibe,
   type TravelWindow,
@@ -144,11 +146,23 @@ export async function completeOnboarding(): Promise<ActionResult> {
 // ── visited places ──────────────────────────────────────────────────────────
 
 export interface NewVisitedPlace {
+  kind?: VisitedPlaceKind;
   name: string;
   country: string;
   countryCode: string;
   lat: number | null;
   lng: number | null;
+}
+
+/** Stock photo for a stamp via the shared Pexels cache. Never throws. */
+async function stockPhotoFor(name: string, country: string): Promise<string | null> {
+  try {
+    const url = await getCityPhoto(name, country);
+    return url || null;
+  } catch (err) {
+    console.warn("[onboarding] stock photo lookup failed:", err);
+    return null;
+  }
 }
 
 function cleanText(v: unknown, max: number): string {
@@ -173,6 +187,10 @@ export async function addVisitedPlace(
     .slice(0, 2);
   const lat = Number.isFinite(input.lat) ? Number(input.lat) : null;
   const lng = Number.isFinite(input.lng) ? Number(input.lng) : null;
+  const kind: VisitedPlaceKind = input.kind === "city" ? "city" : "country";
+
+  // Kick off the photo lookup now; it overlaps with the insert below.
+  const stockPhoto = stockPhotoFor(name, country || name);
 
   const { count } = await supabase
     .from("visited_places")
@@ -184,7 +202,7 @@ export async function addVisitedPlace(
 
   const { data, error } = await supabase
     .from("visited_places")
-    .insert({ user_id: user.id, name, country, country_code: countryCode, lat, lng })
+    .insert({ user_id: user.id, kind, name, country, country_code: countryCode, lat, lng })
     .select("id")
     .single();
   let id: string;
@@ -202,6 +220,7 @@ export async function addVisitedPlace(
     ok: true,
     data: {
       id,
+      kind,
       name,
       country,
       countryCode,
@@ -209,6 +228,7 @@ export async function addVisitedPlace(
       lng,
       photoPath: null,
       photoUrl: null,
+      stockPhotoUrl: await stockPhoto,
     },
   };
 }

@@ -47,7 +47,7 @@ export function StepDone({ profile, firstName }: Props) {
         </span>
       ),
     },
-    { k: "Been to", v: places.length ? `${places.length} ${places.length === 1 ? "place" : "places"}` : "Nothing yet" },
+    { k: "Been to", v: places.length ? `${places.length} ${places.length === 1 ? "country" : "countries"}` : "Nowhere yet" },
     { k: "Budget", v: `${format(prefs.budgetEur, { rounded: true })} per person` },
     { k: "Traveling as", v: party },
     { k: "Flying from", v: airport ? `${airport.city} (${airport.iata})` : "Prague (PRG)" },

@@ -3,6 +3,7 @@ import { TriplyMascot } from "@/components/triply/TriplyMascot";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import { AIRPORTS } from "@/lib/data/airports";
 import { getGradient } from "@/lib/utils/gradient";
+import { flagEmoji } from "@/lib/data/countryCodes";
 import {
   PARTY_PRESETS,
   formatWindow,
@@ -140,42 +141,44 @@ export function TravelerProfile({ profile }: { profile: TravelerProfileData }) {
             <div className="rounded-2xl border-2 border-dashed border-border px-5 py-8 text-center">
               <p className="font-display text-lg font-bold text-[#1A1A1A]/70">No stamps yet.</p>
               <p className="text-sm text-muted mt-1">
-                Add the places you&apos;ve been and Triply won&apos;t send you back there.
+                Add the countries you&apos;ve been to and Triply won&apos;t send you back there.
               </p>
             </div>
           ) : (
             <ul className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-              {places.map((p, i) => (
-                <li
-                  key={p.id}
-                  className="relative aspect-[4/5] rounded-2xl overflow-hidden ring-2 ring-white shadow-[0_8px_24px_-12px_rgba(13,115,119,0.35)]"
-                  style={{ transform: `rotate(${i % 2 === 0 ? -1.2 : 1.2}deg)` }}
-                >
-                  {p.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={p.photoUrl}
-                      alt={`${p.name}, ${p.country}`}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center"
-                      style={{ background: getGradient(p.id) }}
-                    >
-                      <span className="font-display text-4xl font-bold text-white/25 select-none">
-                        {p.name.charAt(0).toUpperCase()}
-                      </span>
+              {places.map((p, i) => {
+                const photo = p.photoUrl ?? p.stockPhotoUrl;
+                const flag = flagEmoji(p.countryCode);
+                return (
+                  <li
+                    key={p.id}
+                    className="relative aspect-[4/5] rounded-2xl overflow-hidden ring-2 ring-white shadow-[0_8px_24px_-12px_rgba(13,115,119,0.35)]"
+                    style={{ transform: `rotate(${i % 2 === 0 ? -1.2 : 1.2}deg)` }}
+                  >
+                    {photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={photo}
+                        alt={p.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ background: getGradient(p.id) }}
+                      >
+                        <span className="text-4xl select-none">{flag || p.name.charAt(0)}</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
+                    <div className="absolute inset-x-0 bottom-0 p-2 text-white flex items-end gap-1.5">
+                      {flag && <span className="text-sm leading-none">{flag}</span>}
+                      <p className="font-display font-bold text-xs leading-tight truncate">{p.name}</p>
                     </div>
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
-                  <div className="absolute inset-x-0 bottom-0 p-2 text-white">
-                    <p className="font-display font-bold text-xs leading-tight truncate">{p.name}</p>
-                    <p className="text-[10px] text-white/80 truncate">{p.country}</p>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -49,7 +49,7 @@ export const PARTY_PRESETS = [
   { count: 5, label: "Group" },
 ] as const;
 
-export const MAX_VISITED_PLACES = 40;
+export const MAX_VISITED_PLACES = 80;
 export const MAX_TRAVEL_WINDOWS = 12;
 /** Longest window the picker accepts, in nights. */
 export const MAX_WINDOW_NIGHTS = 60;
@@ -69,16 +69,24 @@ export interface TravelerPrefs {
   travelParty: number;
 }
 
+export type VisitedPlaceKind = "city" | "country";
+
 export interface VisitedPlace {
   id: string;
+  kind: VisitedPlaceKind;
+  /** Country name for kind="country"; city name for kind="city". */
   name: string;
   country: string;
+  /** ISO alpha-2. For kind="country" this is the country itself. */
   countryCode: string;
   lat: number | null;
   lng: number | null;
   photoPath: string | null;
-  /** Short-lived signed URL, resolved server-side. Null when no photo. */
+  /** Short-lived signed URL of the user's OWN photo. Null when none. */
   photoUrl: string | null;
+  /** Stock photo from the shared Pexels city-photo cache (lib/photos.ts).
+   *  Shown when the user hasn't added their own. */
+  stockPhotoUrl: string | null;
 }
 
 export interface TravelWindow {

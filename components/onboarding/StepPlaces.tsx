@@ -1,21 +1,30 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import {
-  CityAutocomplete,
-  type CitySelection,
-} from "@/components/shared/CityAutocomplete";
 import { getGradient } from "@/lib/utils/gradient";
+import { flagEmoji } from "@/lib/data/countryCodes";
 import { MAX_VISITED_PLACES, type VisitedPlace } from "@/lib/traveler";
+import type { GlobeCountry } from "./CountryGlobe";
 import { StepShell, Pill } from "./StepShell";
+
+// d3-geo + topojson + the 110m atlas only load when this step mounts.
+const CountryGlobe = dynamic(
+  () => import("./CountryGlobe").then((m) => m.CountryGlobe),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="aspect-square w-full rounded-full bg-teal/15 animate-pulse" />
+    ),
+  },
+);
 
 interface Props {
   places: VisitedPlace[];
   /** Set of place ids with a photo upload in flight. */
   uploading: ReadonlySet<string>;
-  adding: boolean;
-  onAdd: (sel: CitySelection) => void;
+  onAdd: (country: GlobeCountry) => void;
   onRemove: (id: string) => void;
   onPhoto: (id: string, file: File) => void;
 }
@@ -37,17 +46,63 @@ function XIcon({ size = 12 }: { size?: number }) {
   );
 }
 
-export function StepPlaces({ places, uploading, adding, onAdd, onRemove, onPhoto }: Props) {
+function SearchIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function normalize(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Props) {
   const reduceMotion = useReducedMotion();
-  // Remount the autocomplete after each pick so the field clears itself —
-  // the component keeps its own query text after onChange fires.
-  const [pickerKey, setPickerKey] = useState(0);
+  const [countries, setCountries] = useState<GlobeCountry[]>([]);
+  const [query, setQuery] = useState("");
+  const [focus, setFocus] = useState<string | null>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
   const full = places.length >= MAX_VISITED_PLACES;
 
-  function handlePick(sel: CitySelection | null) {
-    if (!sel) return;
-    onAdd(sel);
-    setPickerKey((k) => k + 1);
+  const selected = useMemo(
+    () => new Set(places.map((p) => p.countryCode).filter(Boolean)),
+    [places],
+  );
+
+  const results = useMemo(() => {
+    const q = normalize(query.trim());
+    if (!q) return [];
+    return countries
+      .map((c) => {
+        const n = normalize(c.name);
+        const score = n === q ? 3 : n.startsWith(q) ? 2 : n.includes(q) ? 1 : 0;
+        return { c, score };
+      })
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || a.c.name.localeCompare(b.c.name))
+      .slice(0, 6)
+      .map((r) => r.c);
+  }, [countries, query]);
+
+  function toggle(c: GlobeCountry) {
+    if (selected.has(c.alpha2)) {
+      const p = places.find((x) => x.countryCode === c.alpha2);
+      if (p) onRemove(p.id);
+    } else if (!full) {
+      onAdd(c);
+    }
+    // Retrigger the focus animation even for the same country twice.
+    setFocus(null);
+    requestAnimationFrame(() => setFocus(c.alpha2));
+  }
+
+  function pickResult(c: GlobeCountry) {
+    toggle(c);
+    setQuery("");
+    setActiveIdx(0);
   }
 
   return (
@@ -55,65 +110,142 @@ export function StepPlaces({ places, uploading, adding, onAdd, onRemove, onPhoto
       eyebrow="Step 2 · Been there"
       title={
         <>
-          Where have you <span className="text-teal">already been?</span>
+          Which countries have you <span className="text-teal">already been to?</span>
         </>
       }
-      sub="Add the places you've visited, with a photo if you like. Triply learns your taste from them and skips what you've done. Photos stay private to you."
+      sub="Spin the globe and tap them. Triply learns your taste from where you've been and won't send you back. Add your own photo to any stamp if you like — they stay private."
     >
-      <div className="max-w-xl mx-auto w-full -mt-2">
-        <label htmlFor="visited-city" className="sr-only">
-          Add a place you&apos;ve visited
-        </label>
-        <CityAutocomplete
-          key={pickerKey}
-          inputId="visited-city"
-          value={null}
-          onChange={handlePick}
-          mode="city"
-          disabled={full || adding}
-          placeholder={full ? "That's plenty for now" : "Type a city… Lisbon, Kraków, Bangkok"}
-        />
-        <div className="mt-2 flex items-center justify-between text-xs text-[#1a1a1a]/50 font-medium px-1">
-          <span>Pick it from the list to stamp it in.</span>
-          <Pill tone={places.length ? "teal" : "neutral"}>
-            {places.length} {places.length === 1 ? "stamp" : "stamps"}
-          </Pill>
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-6 md:gap-8 items-start">
+        {/* Globe */}
+        <div className="mx-auto w-full max-w-[420px]">
+          <CountryGlobe
+            selected={selected}
+            onToggle={toggle}
+            onReady={setCountries}
+            focusAlpha2={focus}
+          />
+          <p className="mt-2 text-center text-xs text-[#1a1a1a]/50 font-medium">
+            Drag to spin · tap a country to stamp it
+          </p>
         </div>
-      </div>
 
-      <div className="min-h-[160px]">
-        {places.length === 0 ? (
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mx-auto max-w-md rounded-3xl border-2 border-dashed border-[#1a1a1a]/12 bg-white/40 px-6 py-10 text-center"
-          >
-            <p className="font-display text-xl font-bold text-[#1a1a1a]/70">Your passport is empty.</p>
-            <p className="text-sm text-[#1a1a1a]/50 mt-1">
-              Add a city above and it lands here as a stamp. Or skip this — you can fill it in any time.
+        {/* Search + stamps */}
+        <div className="space-y-5">
+          <div className="relative">
+            <label htmlFor="country-search" className="sr-only">
+              Find a country
+            </label>
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1a1a1a]/40">
+              <SearchIcon />
+            </span>
+            <input
+              id="country-search"
+              type="text"
+              role="combobox"
+              aria-expanded={results.length > 0}
+              aria-controls="country-results"
+              aria-autocomplete="list"
+              autoComplete="off"
+              spellCheck={false}
+              value={query}
+              disabled={full}
+              placeholder={full ? "That's a full passport" : "Can't find it? Type a country…"}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setActiveIdx(0);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setActiveIdx((i) => Math.min(i + 1, Math.max(0, results.length - 1)));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveIdx((i) => Math.max(i - 1, 0));
+                } else if (e.key === "Enter") {
+                  if (results[activeIdx]) {
+                    e.preventDefault();
+                    pickResult(results[activeIdx]);
+                  }
+                } else if (e.key === "Escape") {
+                  setQuery("");
+                }
+              }}
+              className="w-full pl-11 pr-4 py-3 rounded-xl border border-border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/40 disabled:opacity-60"
+            />
+            {results.length > 0 && (
+              <ul
+                id="country-results"
+                role="listbox"
+                className="absolute z-20 mt-2 w-full rounded-2xl bg-white border border-border shadow-lg overflow-hidden"
+              >
+                {results.map((c, i) => {
+                  const isSel = selected.has(c.alpha2);
+                  return (
+                    <li key={c.alpha2} role="option" aria-selected={i === activeIdx}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickResult(c)}
+                        onMouseEnter={() => setActiveIdx(i)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors cursor-pointer ${
+                          i === activeIdx ? "bg-accent-light" : "bg-white"
+                        }`}
+                      >
+                        <span className="text-lg leading-none">{flagEmoji(c.alpha2)}</span>
+                        <span className="font-medium text-[#1a1a1a] flex-1">{c.name}</span>
+                        <span className="text-[11px] font-semibold text-[#1a1a1a]/45">
+                          {isSel ? "Remove" : "Add"}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1a1a1a]/55">
+              Your passport
             </p>
-          </motion.div>
-        ) : (
-          <motion.ul
-            layout
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-            aria-label="Places you've visited"
-          >
-            <AnimatePresence initial={false}>
-              {places.map((place, i) => (
-                <PlaceStamp
-                  key={place.id}
-                  place={place}
-                  tilt={i % 2 === 0 ? -1.2 : 1.2}
-                  uploading={uploading.has(place.id)}
-                  onRemove={() => onRemove(place.id)}
-                  onPhoto={(file) => onPhoto(place.id, file)}
-                  reduceMotion={!!reduceMotion}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.ul>
-        )}
+            <Pill tone={places.length ? "teal" : "neutral"}>
+              {places.length} {places.length === 1 ? "stamp" : "stamps"}
+            </Pill>
+          </div>
+
+          {places.length === 0 ? (
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-3xl border-2 border-dashed border-[#1a1a1a]/12 bg-white/40 px-6 py-10 text-center"
+            >
+              <p className="font-display text-xl font-bold text-[#1a1a1a]/70">No stamps yet.</p>
+              <p className="text-sm text-[#1a1a1a]/50 mt-1">
+                Tap a country on the globe and it lands here. Or skip — you can fill this in any time.
+              </p>
+            </motion.div>
+          ) : (
+            <motion.ul
+              layout
+              className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+              aria-label="Countries you've visited"
+            >
+              <AnimatePresence initial={false}>
+                {places.map((place, i) => (
+                  <PlaceStamp
+                    key={place.id}
+                    place={place}
+                    tilt={i % 2 === 0 ? -1.2 : 1.2}
+                    uploading={uploading.has(place.id)}
+                    onRemove={() => onRemove(place.id)}
+                    onPhoto={(file) => onPhoto(place.id, file)}
+                    reduceMotion={!!reduceMotion}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.ul>
+          )}
+        </div>
       </div>
     </StepShell>
   );
@@ -135,8 +267,10 @@ function PlaceStamp({
   reduceMotion: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const hasPhoto = !!place.photoUrl;
   const pending = place.id.startsWith("tmp-");
+  const photo = place.photoUrl ?? place.stockPhotoUrl;
+  const ownPhoto = !!place.photoUrl;
+  const flag = flagEmoji(place.countryCode);
 
   return (
     <motion.li
@@ -149,13 +283,13 @@ function PlaceStamp({
       className="relative aspect-[4/5] rounded-2xl overflow-hidden shadow-[0_10px_30px_-12px_rgba(13,115,119,0.35)] bg-white ring-4 ring-white"
       style={{ willChange: "transform" }}
     >
-      {hasPhoto ? (
-        // Plain <img>: signed Supabase URLs and blob: previews are outside
-        // next/image's remotePatterns and change on every load anyway.
+      {photo ? (
+        // Plain <img>: signed Supabase URLs, blob: previews and Pexels CDN
+        // links are outside next/image's remotePatterns or change per load.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={place.photoUrl!}
-          alt={`${place.name}, ${place.country}`}
+          src={photo}
+          alt={place.name}
           className="absolute inset-0 w-full h-full object-cover"
           draggable={false}
         />
@@ -164,23 +298,19 @@ function PlaceStamp({
           className="absolute inset-0 flex items-center justify-center"
           style={{ background: getGradient(place.id) }}
         >
-          <span className="font-display text-6xl font-bold text-white/25 select-none">
-            {place.name.charAt(0).toUpperCase()}
-          </span>
+          <span className="text-5xl select-none drop-shadow">{flag || place.name.charAt(0)}</span>
         </div>
       )}
 
-      {/* Gradient legibility band for the name. */}
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
 
-      <div className="absolute inset-x-0 bottom-0 p-3 text-white">
+      <div className="absolute inset-x-0 bottom-0 p-3 text-white flex items-end gap-2">
+        {flag && <span className="text-xl leading-none drop-shadow">{flag}</span>}
         <p className="font-display font-bold text-base leading-tight drop-shadow-sm truncate">
           {place.name}
         </p>
-        <p className="text-[11px] font-medium text-white/80 truncate">{place.country}</p>
       </div>
 
-      {/* Remove */}
       <button
         type="button"
         onClick={onRemove}
@@ -191,16 +321,15 @@ function PlaceStamp({
         <XIcon />
       </button>
 
-      {/* Add / change photo */}
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading || pending}
-        aria-label={hasPhoto ? `Change photo for ${place.name}` : `Add a photo for ${place.name}`}
+        aria-label={ownPhoto ? `Change your photo for ${place.name}` : `Add your own photo for ${place.name}`}
         className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-white/90 text-[#1a1a1a] px-2.5 py-1 text-[11px] font-semibold shadow-sm hover:bg-white transition-colors cursor-pointer disabled:opacity-50"
       >
         <CameraIcon />
-        {hasPhoto ? "Change" : "Photo"}
+        {ownPhoto ? "Change" : "My photo"}
       </button>
       <input
         ref={fileRef}

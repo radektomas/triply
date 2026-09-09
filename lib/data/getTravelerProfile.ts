@@ -1,5 +1,6 @@
 import "server-only";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { getCityPhoto } from "@/lib/photos";
 import {
   EMPTY_PREFS,
   VISITED_PHOTOS_BUCKET,
@@ -27,6 +28,7 @@ interface ProfileRow {
 
 interface PlaceRow {
   id: string;
+  kind: "city" | "country" | null;
   name: string;
   country: string;
   country_code: string;
@@ -66,7 +68,7 @@ export async function getTravelerProfile(
       .maybeSingle(),
     supabase
       .from("visited_places")
-      .select("id, name, country, country_code, lat, lng, photo_path")
+      .select("id, kind, name, country, country_code, lat, lng, photo_path")
       .eq("user_id", user.id)
       .order("created_at", { ascending: true }),
     supabase
@@ -117,16 +119,33 @@ export async function getTravelerProfile(
     }
   }
 
-  const places: VisitedPlace[] = placeRows.map((p) => ({
-    id: p.id,
-    name: p.name,
-    country: p.country ?? "",
-    countryCode: p.country_code ?? "",
-    lat: p.lat,
-    lng: p.lng,
-    photoPath: p.photo_path,
-    photoUrl: p.photo_path ? (signedByPath.get(p.photo_path) ?? null) : null,
-  }));
+  // Stock photo for every stamp without a personal one — the same cached
+  // Pexels lookup the results grid and profile favourites use.
+  const places: VisitedPlace[] = await Promise.all(
+    placeRows.map(async (p) => {
+      const photoUrl = p.photo_path ? (signedByPath.get(p.photo_path) ?? null) : null;
+      let stockPhotoUrl: string | null = null;
+      if (!photoUrl) {
+        try {
+          stockPhotoUrl = (await getCityPhoto(p.name, p.country || p.name)) || null;
+        } catch {
+          stockPhotoUrl = null;
+        }
+      }
+      return {
+        id: p.id,
+        kind: p.kind === "city" ? "city" : "country",
+        name: p.name,
+        country: p.country ?? "",
+        countryCode: p.country_code ?? "",
+        lat: p.lat,
+        lng: p.lng,
+        photoPath: p.photo_path,
+        photoUrl,
+        stockPhotoUrl,
+      };
+    }),
+  );
 
   const windows: TravelWindow[] = ((windowsRes.data ?? []) as WindowRow[]).map((w) => ({
     id: w.id,
