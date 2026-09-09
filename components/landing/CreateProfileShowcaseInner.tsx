@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { TriplyMascot } from "@/components/triply/TriplyMascot";
 import { MascotSpeechBubble } from "./MascotSpeechBubble";
@@ -26,7 +27,7 @@ interface Props {
 // Layout: two columns on lg+ (mascot+CTA left, cards right), stacks to a
 // single column on mobile/tablet with the cards underneath the mascot.
 export function CreateProfileShowcaseInner({ rows }: Props) {
-  const { openAuthModal } = useAuth();
+  const { openAuthModal, user } = useAuth();
 
   return (
     <section className="py-20 md:py-32">
@@ -94,14 +95,26 @@ export function CreateProfileShowcaseInner({ rows }: Props) {
               Heart the destinations that catch your eye, they&apos;ll be
               here next time.
             </p>
-            <button
-              type="button"
-              onClick={openAuthModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-teal hover:bg-teal-deep text-white text-sm font-semibold transition-colors shadow-md cursor-pointer"
-            >
-              Create free profile
-              <span aria-hidden="true">→</span>
-            </button>
+            {user ? (
+              // Already signed in: the useful next step is the traveler
+              // wizard, not a sign-in modal that would open on top of a session.
+              <Link
+                href="/onboarding"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-teal hover:bg-teal-deep text-white text-sm font-semibold transition-colors shadow-md cursor-pointer"
+              >
+                Personalize my Triply
+                <span aria-hidden="true">→</span>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={openAuthModal}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-teal hover:bg-teal-deep text-white text-sm font-semibold transition-colors shadow-md cursor-pointer"
+              >
+                Create free profile
+                <span aria-hidden="true">→</span>
+              </button>
+            )}
           </div>
 
           {/* RIGHT — four SavedDestinationCard instances in showcase mode,

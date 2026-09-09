@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { track, identify } from "@/lib/analytics";
@@ -25,8 +26,18 @@ export function AuthModal() {
   return <AuthModalBody />;
 }
 
+// Where to land after auth. Pages that need a session (e.g. /onboarding)
+// bounce to `/?signin=1&next=<path>`; we honour `next` for both the OAuth
+// round-trip and the in-modal email flows. App-relative paths only.
+function readNextPath(): string | null {
+  if (typeof window === "undefined") return null;
+  const n = new URLSearchParams(window.location.search).get("next");
+  return n && n.startsWith("/") && !n.startsWith("//") ? n : null;
+}
+
 function AuthModalBody() {
   const { closeAuthModal } = useAuth();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,10 +77,12 @@ function AuthModalBody() {
     // brand-new account, so it can never silently re-opt-in (or un-opt-out) a
     // returning user. Only sent from the signup tab, where the box is visible.
     const optin = mode === "signup" && marketingOptIn ? "&optin=1" : "";
+    const nextPath =
+      readNextPath() ?? window.location.pathname + window.location.search;
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(window.location.pathname + window.location.search)}${optin}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}${optin}`,
       },
     });
     if (err) {
@@ -117,6 +130,8 @@ function AuthModalBody() {
         track("account_created", { method: "email" });
         identify();
         closeAuthModal();
+        // New account → traveler-profile wizard, same as the OAuth callback.
+        router.push("/onboarding");
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({
           email,
@@ -127,6 +142,8 @@ function AuthModalBody() {
           return;
         }
         closeAuthModal();
+        const nextPath = readNextPath();
+        if (nextPath) router.push(nextPath);
       }
     } finally {
       setBusy(false);

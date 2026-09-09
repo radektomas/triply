@@ -157,7 +157,12 @@ export async function GET(request: NextRequest) {
     // account_created + the identity backfill on landing (the session id
     // lives in client localStorage, unreachable here). Returning logins get
     // the plain redirect. Building against origin keeps it same-site.
-    const redirectUrl = new URL(next, origin);
+    // A brand-new account goes straight into the traveler-profile wizard
+    // (/onboarding) instead of back to wherever they clicked "sign up" —
+    // the wizard is what turns a login into a personalized Triply. Returning
+    // logins honour `next` as before. The wizard lives in the root layout
+    // tree, so OAuthSignupTracker still consumes the triply_new flag there.
+    const redirectUrl = new URL(freshSignup ? "/onboarding" : next, origin);
     if (freshSignup) redirectUrl.searchParams.set("triply_new", method);
     return NextResponse.redirect(redirectUrl);
   }

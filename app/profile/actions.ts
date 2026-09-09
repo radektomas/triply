@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { supabase as admin } from "@/lib/supabase";
+import { VISITED_PHOTOS_BUCKET } from "@/lib/traveler";
 
 // Account deletion (GDPR Art. 17, "right to erasure").
 //
@@ -28,6 +29,8 @@ const USER_SCOPED_TABLES = [
   "analytics_events",
   "generation_history",
   "saved_destinations",
+  "visited_places",
+  "travel_windows",
 ] as const;
 
 export type DeleteAccountResult = { error: string };
@@ -42,6 +45,23 @@ export async function deleteAccount(): Promise<DeleteAccountResult | void> {
     return { error: "You need to be signed in to delete your account." };
   }
   const userId = user.id;
+
+  // Personal photos from the traveler profile live in a private storage
+  // folder keyed by user id. Best-effort sweep before the rows go: a failure
+  // here must not block erasure of the rest, but it is logged for manual
+  // follow-up because the objects are personal data too.
+  try {
+    const { data: objects } = await admin.storage
+      .from(VISITED_PHOTOS_BUCKET)
+      .list(userId, { limit: 1000 });
+    const paths = (objects ?? []).map((o) => `${userId}/${o.name}`);
+    if (paths.length > 0) {
+      const { error: rmErr } = await admin.storage.from(VISITED_PHOTOS_BUCKET).remove(paths);
+      if (rmErr) console.error("[profile/deleteAccount] photo sweep failed:", rmErr.message);
+    }
+  } catch (err) {
+    console.error("[profile/deleteAccount] photo sweep threw:", err);
+  }
 
   for (const table of USER_SCOPED_TABLES) {
     const { error } = await admin.from(table).delete().eq("user_id", userId);

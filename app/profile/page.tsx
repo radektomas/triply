@@ -7,6 +7,8 @@ import { StatsBar } from "@/components/profile/StatsBar";
 import { SavedDestinations } from "@/components/profile/SavedDestinations";
 import { GenerationHistory } from "@/components/profile/GenerationHistory";
 import { DeleteAccount } from "@/components/profile/DeleteAccount";
+import { OnboardingNudge, TravelerProfile } from "@/components/profile/TravelerProfile";
+import { getTravelerProfile } from "@/lib/data/getTravelerProfile";
 import { GradientMesh } from "@/components/landing/GradientMesh";
 import type { APIDestination, TripInput } from "@/lib/types";
 
@@ -55,7 +57,7 @@ export default async function ProfilePage() {
     redirect("/?signin=1");
   }
 
-  const [savedRes, historyRes, profileRes] = await Promise.all([
+  const [savedRes, historyRes, profileRes, traveler] = await Promise.all([
     supabase
       .from("saved_destinations")
       .select("id, user_id, destination, created_at")
@@ -72,6 +74,7 @@ export default async function ProfilePage() {
       .select("display_name, avatar_url")
       .eq("id", user.id)
       .maybeSingle(),
+    getTravelerProfile(supabase),
   ]);
 
   const savedRows = (savedRes.data ?? []) as SavedRow[];
@@ -143,6 +146,12 @@ export default async function ProfilePage() {
             Everything you&apos;ve saved and dreamed up, all in one place.
           </p>
         </header>
+
+        {traveler?.completedAt ? (
+          <TravelerProfile profile={traveler} />
+        ) : (
+          <OnboardingNudge firstName={displayName.split(" ")[0]} />
+        )}
 
         <StatsBar
           tripsGenerated={tripsGenerated}

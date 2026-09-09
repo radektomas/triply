@@ -97,6 +97,14 @@ export function HeaderUser() {
             <UserIcon size={16} />
             <span className="font-medium">Profile</span>
           </Link>
+          <Link
+            href="/onboarding"
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-2 px-4 py-3 text-sm text-[#1a1a1a] hover:bg-[#F5F5F5] transition-colors border-t border-border"
+          >
+            <span aria-hidden="true" className="text-base leading-none">✦</span>
+            <span className="font-medium">Travel preferences</span>
+          </Link>
           <button
             type="button"
             onClick={async () => {
