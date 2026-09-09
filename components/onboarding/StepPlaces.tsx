@@ -115,9 +115,9 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
       }
       sub="Spin the globe and tap them. Triply learns your taste from where you've been and won't send you back. Add your own photo to any stamp if you like — they stay private."
     >
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-6 md:gap-8 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,440px)_minmax(0,1fr)] gap-8 md:gap-10 items-start">
         {/* Globe */}
-        <div className="mx-auto w-full max-w-[420px]">
+        <div className="mx-auto w-full max-w-[440px] md:sticky md:top-20">
           <CountryGlobe
             selected={selected}
             onToggle={toggle}
@@ -125,7 +125,7 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
             focusAlpha2={focus}
           />
           <p className="mt-2 text-center text-xs text-[#1a1a1a]/50 font-medium">
-            Drag to spin · tap a country to stamp it
+            Drag to spin · pinch or scroll to zoom · tap a country to stamp it
           </p>
         </div>
 
@@ -227,7 +227,7 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
           ) : (
             <motion.ul
               layout
-              className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+              className="grid grid-cols-2 gap-4"
               aria-label="Countries you've visited"
             >
               <AnimatePresence initial={false}>
@@ -280,7 +280,7 @@ function PlaceStamp({
       exit={reduceMotion ? undefined : { opacity: 0, scale: 0.85, transition: { duration: 0.18 } }}
       transition={{ type: "spring", stiffness: 420, damping: 30 }}
       whileHover={reduceMotion ? undefined : { rotate: 0, scale: 1.02 }}
-      className="relative aspect-[4/5] rounded-2xl overflow-hidden shadow-[0_10px_30px_-12px_rgba(13,115,119,0.35)] bg-white ring-4 ring-white"
+      className="relative aspect-square rounded-3xl overflow-hidden shadow-[0_14px_36px_-14px_rgba(13,115,119,0.4)] bg-white ring-4 ring-white"
       style={{ willChange: "transform" }}
     >
       {photo ? (
@@ -298,15 +298,15 @@ function PlaceStamp({
           className="absolute inset-0 flex items-center justify-center"
           style={{ background: getGradient(place.id) }}
         >
-          <span className="text-5xl select-none drop-shadow">{flag || place.name.charAt(0)}</span>
+          <span className="text-7xl select-none drop-shadow">{flag || place.name.charAt(0)}</span>
         </div>
       )}
 
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 via-black/25 to-transparent pointer-events-none" />
 
-      <div className="absolute inset-x-0 bottom-0 p-3 text-white flex items-end gap-2">
-        {flag && <span className="text-xl leading-none drop-shadow">{flag}</span>}
-        <p className="font-display font-bold text-base leading-tight drop-shadow-sm truncate">
+      <div className="absolute inset-x-0 bottom-0 p-4 text-white flex items-end gap-2.5">
+        {flag && <span className="text-2xl leading-none drop-shadow">{flag}</span>}
+        <p className="font-display font-bold text-xl leading-tight drop-shadow-sm truncate">
           {place.name}
         </p>
       </div>
@@ -316,7 +316,7 @@ function PlaceStamp({
         onClick={onRemove}
         disabled={pending}
         aria-label={`Remove ${place.name}`}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors cursor-pointer disabled:opacity-40"
+        className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors cursor-pointer disabled:opacity-40"
       >
         <XIcon />
       </button>
@@ -326,7 +326,7 @@ function PlaceStamp({
         onClick={() => fileRef.current?.click()}
         disabled={uploading || pending}
         aria-label={ownPhoto ? `Change your photo for ${place.name}` : `Add your own photo for ${place.name}`}
-        className="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-white/90 text-[#1a1a1a] px-2.5 py-1 text-[11px] font-semibold shadow-sm hover:bg-white transition-colors cursor-pointer disabled:opacity-50"
+        className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 text-[#1a1a1a] px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-white transition-colors cursor-pointer disabled:opacity-50"
       >
         <CameraIcon />
         {ownPhoto ? "Change" : "My photo"}

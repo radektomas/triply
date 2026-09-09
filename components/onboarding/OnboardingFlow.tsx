@@ -406,7 +406,7 @@ export function OnboardingFlow({ firstName, initial }: Props) {
     <main className="relative min-h-[100dvh] overflow-x-clip bg-cream">
       <GradientMesh variant="absolute-tall" />
 
-      <div className="relative max-w-3xl mx-auto px-5 sm:px-8 pt-24 pb-28 min-h-[100dvh] flex flex-col">
+      <div className="relative max-w-4xl mx-auto px-5 sm:px-8 pt-24 pb-28 min-h-[100dvh] flex flex-col">
         {/* Progress */}
         <div
           role="group"
@@ -512,7 +512,7 @@ export function OnboardingFlow({ firstName, initial }: Props) {
           {/* Desktop sidekick — outside the animated column so it never
               re-mounts between steps; only the bubble copy changes. */}
           <div
-            className="hidden xl:block absolute pointer-events-none"
+            className="hidden 2xl:block absolute pointer-events-none"
             style={{ top: 40, right: -250 }}
             aria-hidden="true"
           >

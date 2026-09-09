@@ -51,6 +51,9 @@ const SIZE = 400;
 const R = 192;
 const CENTER = SIZE / 2;
 const DRAG_DEG_PER_PX = 0.35;
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 1.5;
 const CLICK_MAX_PX = 6;
 const IDLE_RESUME_MS = 3500;
 const AUTO_SPIN_DEG_PER_S = 4;
@@ -72,9 +75,14 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
   const reduceMotion = useReducedMotion();
   const [shapes, setShapes] = useState<CountryShape[] | null>(null);
   const [hover, setHover] = useState<string | null>(null);
-  // Rendered rotation. Updated at most once per animation frame.
+  // Rendered rotation + zoom. Updated at most once per animation frame.
   const [rotation, setRotation] = useState<[number, number]>([-15, -35]);
   const rotRef = useRef<[number, number]>([-15, -35]);
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  // Pointers currently down (for pinch-to-zoom).
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
   const frameRef = useRef<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -124,6 +132,7 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
   const flush = useCallback(() => {
     frameRef.current = null;
     setRotation([rotRef.current[0], rotRef.current[1]]);
+    setZoom(zoomRef.current);
   }, []);
 
   const scheduleFlush = useCallback(() => {
@@ -138,6 +147,29 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
     },
     [scheduleFlush],
   );
+
+  const setZoomLevel = useCallback(
+    (z: number) => {
+      zoomRef.current = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+      lastInteractionRef.current = performance.now();
+      scheduleFlush();
+    },
+    [scheduleFlush],
+  );
+
+  // Wheel zoom needs a non-passive listener to stop the page scrolling under
+  // the globe; React's synthetic onWheel is passive, so attach natively.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      setZoomLevel(zoomRef.current * factor);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [setZoomLevel, shapes]);
 
   // Idle auto-spin. Pauses while dragging / hovering / focusing / off-screen,
   // and entirely under reduced motion. Re-projecting ~175 outlines costs
@@ -233,6 +265,15 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
   function onPointerDown(e: ReactPointerEvent<SVGSVGElement>) {
     if (e.button !== 0 && e.pointerType === "mouse") return;
     e.currentTarget.setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2) {
+      // Second finger: switch from drag to pinch. Mark the drag as moved so
+      // lifting the fingers never registers as a tap.
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: zoomRef.current };
+      dragRef.current.moved = true;
+      return;
+    }
     dragRef.current = {
       active: true,
       startX: e.clientX,
@@ -249,6 +290,16 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
   }
 
   function onPointerMove(e: ReactPointerEvent<SVGSVGElement>) {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    const pinch = pinchRef.current;
+    if (pinch && pointersRef.current.size >= 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch.dist > 0) setZoomLevel(pinch.zoom * (dist / pinch.dist));
+      return;
+    }
     const d = dragRef.current;
     if (!d.active) return;
     const dx = e.clientX - d.lastX;
@@ -256,14 +307,18 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
     d.lastX = e.clientX;
     d.lastY = e.clientY;
     if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > CLICK_MAX_PX) d.moved = true;
-    const k = DRAG_DEG_PER_PX * scaleFactor();
+    // Zoomed in, the same finger travel should cover less of the sphere.
+    const k = (DRAG_DEG_PER_PX * scaleFactor()) / zoomRef.current;
     setRot(rotRef.current[0] + dx * k, rotRef.current[1] - dy * k);
     lastInteractionRef.current = performance.now();
   }
 
   function endDrag(e: ReactPointerEvent<SVGSVGElement>) {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     const d = dragRef.current;
     if (!d.active) return;
+    if (pointersRef.current.size > 0) return; // another finger still down
     d.active = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
@@ -284,11 +339,11 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
   const projection = useMemo(
     () =>
       geoOrthographic()
-        .scale(R)
+        .scale(R * zoom)
         .translate([CENTER, CENTER])
         .clipAngle(90)
         .rotate([rotation[0], rotation[1]]),
-    [rotation],
+    [rotation, zoom],
   );
   const path = useMemo(() => geoPath(projection), [projection]);
   const graticule = useMemo(() => geoGraticule10(), []);
@@ -308,7 +363,7 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
         className="w-full h-auto block cursor-grab active:cursor-grabbing"
         style={{ touchAction: "none" }}
         role="img"
-        aria-label="World globe. Drag to spin, tap a country to mark it visited."
+        aria-label="World globe. Drag to spin, pinch or scroll to zoom, tap a country to mark it visited."
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
@@ -333,13 +388,23 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
             <stop offset="60%" stopColor="rgba(0,0,0,0)" />
             <stop offset="100%" stopColor="rgba(0,0,0,0.28)" />
           </radialGradient>
+          {/* Zoomed-in projections spill past the disc; keep them inside it. */}
+          <clipPath id="globe-disc">
+            <circle cx={CENTER} cy={CENTER} r={R} />
+          </clipPath>
         </defs>
 
         {/* atmosphere */}
         <circle cx={CENTER} cy={CENTER} r={R + 14} fill="url(#globe-glow)" />
         {/* ocean */}
         <circle cx={CENTER} cy={CENTER} r={R} fill="url(#globe-ocean)" />
-        <path d={graticuleD} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={0.5} />
+        <path
+          d={graticuleD}
+          fill="none"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth={0.5}
+          clipPath="url(#globe-disc)"
+        />
 
         {shapes === null ? (
           <text
@@ -353,7 +418,7 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
             Loading the world…
           </text>
         ) : (
-          <g>
+          <g clipPath="url(#globe-disc)">
             {paths.map(({ s, d }) => {
               const isSel = selected.has(s.alpha2);
               const isHover = hover === s.id;
@@ -399,6 +464,42 @@ export function CountryGlobe({ selected, onToggle, onReady, focusAlpha2, classNa
           pointerEvents="none"
         />
       </svg>
+
+      {/* zoom controls */}
+      <div
+        className="absolute right-1 top-1 flex flex-col rounded-full bg-white/90 backdrop-blur-sm shadow-md ring-1 ring-black/5 overflow-hidden"
+        role="group"
+        aria-label="Zoom"
+      >
+        <button
+          type="button"
+          onClick={() => setZoomLevel(zoomRef.current * ZOOM_STEP)}
+          disabled={zoom >= ZOOM_MAX - 0.01}
+          aria-label="Zoom in"
+          className="w-9 h-9 flex items-center justify-center text-[#1a1a1a] text-lg font-bold hover:bg-accent-light hover:text-accent transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoomLevel(zoomRef.current / ZOOM_STEP)}
+          disabled={zoom <= ZOOM_MIN + 0.01}
+          aria-label="Zoom out"
+          className="w-9 h-9 flex items-center justify-center text-[#1a1a1a] text-lg font-bold hover:bg-accent-light hover:text-accent transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-default border-t border-black/5"
+        >
+          −
+        </button>
+        {zoom > ZOOM_MIN + 0.01 && (
+          <button
+            type="button"
+            onClick={() => setZoomLevel(ZOOM_MIN)}
+            aria-label="Reset zoom"
+            className="w-9 h-9 flex items-center justify-center text-[#1a1a1a]/70 text-sm hover:bg-accent-light hover:text-accent transition-colors cursor-pointer border-t border-black/5"
+          >
+            ⟲
+          </button>
+        )}
+      </div>
 
       {/* hover label (mouse only) */}
       <div
