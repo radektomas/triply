@@ -38,6 +38,13 @@ async function ensureTester(): Promise<string> {
   if (listErr) throw new Error(`listUsers: ${listErr.message}`);
   const found = list.users.find((u) => u.email?.toLowerCase() === TEST_USER_EMAIL);
   if (!found) throw new Error("tester account not found after create");
+  // Keep the display name in step with TEST_USER_NAME (it's what the wizard
+  // greets with), even for an account created under an older value.
+  if (found.user_metadata?.full_name !== TEST_USER_NAME) {
+    await admin.auth.admin.updateUserById(found.id, {
+      user_metadata: { ...found.user_metadata, full_name: TEST_USER_NAME, display_name: TEST_USER_NAME },
+    });
+  }
   return found.id;
 }
 

@@ -13,7 +13,7 @@ import "server-only";
 // "production" and every one of these paths 404s.
 
 export const TEST_USER_EMAIL = "onboarding-tester@flytriply.eu";
-export const TEST_USER_NAME = "Onboarding Tester";
+export const TEST_USER_NAME = "Tester";
 
 export function isTestLoginAllowed(): boolean {
   const vercelEnv = process.env.VERCEL_ENV;
