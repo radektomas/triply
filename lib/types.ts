@@ -143,4 +143,10 @@ export interface TripInput {
   departureCity?: string;
   /** Max driving time in hours (3/6/9/12) — only set when transportMode === "car". */
   maxDriveHours?: number;
+  /**
+   * Countries the traveler has already visited (names), from the profile
+   * passport. Forwarded to n8n so the planner can steer away from them.
+   * Optional and additive: the planner form never sends it.
+   */
+  avoidCountries?: string[];
 }

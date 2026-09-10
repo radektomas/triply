@@ -334,7 +334,7 @@ export function OnboardingFlow({ firstName, initial }: Props) {
     }
 
     setGenerating(true);
-    const input = buildFirstPicksInput({ prefs, windows });
+    const input = buildFirstPicksInput({ prefs, windows, places });
     try {
       const res = await fetch("/api/trips", {
         method: "POST",
@@ -379,7 +379,9 @@ export function OnboardingFlow({ firstName, initial }: Props) {
         origin: input.originCity,
         source: "onboarding",
       });
-      setPendingRedirect(`/trip/${data.tripId}`);
+      // Land on the dashboard with the new picks highlighted, not on the
+      // bare results page — from here they can watch prices and dig in.
+      setPendingRedirect(`/profile?picks=${data.tripId}`);
     } catch {
       setGenerating(false);
       generatingRef.current = false;

@@ -58,6 +58,7 @@ async function resetTester(userId: string) {
   }
   await admin.from("visited_places").delete().eq("user_id", userId);
   await admin.from("travel_windows").delete().eq("user_id", userId);
+  await admin.from("deal_watches").delete().eq("user_id", userId);
   await admin.from("saved_destinations").delete().eq("user_id", userId);
   await admin.from("generation_history").delete().eq("user_id", userId);
   await admin

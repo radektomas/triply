@@ -146,10 +146,13 @@ const TYPICAL_TRIP_NIGHTS = 7;
  * enough to feel real.
  */
 export function buildFirstPicksInput(
-  profile: Pick<TravelerProfile, "prefs" | "windows">,
+  profile: Pick<TravelerProfile, "prefs" | "windows"> & Partial<Pick<TravelerProfile, "places">>,
   now: Date = new Date(),
 ): TripInput {
   const { prefs, windows } = profile;
+  const avoidCountries = Array.from(
+    new Set((profile.places ?? []).map((p) => (p.kind === "country" ? p.name : p.country)).filter(Boolean)),
+  );
   const today = toIsoDate(now);
 
   const upcoming = [...windows]
@@ -187,6 +190,7 @@ export function buildFirstPicksInput(
     originCity: prefs.homeCity ?? "Prague",
     destinationMode: "surprise",
     transportMode: "plane",
+    ...(avoidCountries.length > 0 ? { avoidCountries } : {}),
   };
 }
 
