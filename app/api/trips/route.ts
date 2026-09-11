@@ -144,6 +144,15 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
         )
         .filter((c) => c.length >= 2)
     : [];
+  // Same envelope for the 1–5 country ratings: name → integer 1..5.
+  const visitedRatings: Record<string, number> = {};
+  if (raw.visitedRatings && typeof raw.visitedRatings === "object") {
+    for (const [k, v] of Object.entries(raw.visitedRatings as Record<string, unknown>).slice(0, 60)) {
+      const name = String(k).slice(0, 60).replace(/[^\p{L}\p{N}\s,\-.']/gu, "").trim();
+      const n = Math.round(Number(v));
+      if (name.length >= 2 && n >= 1 && n <= 5) visitedRatings[name] = n;
+    }
+  }
 
   return {
     budget,
@@ -159,6 +168,7 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
       ? { departureCity: departureCityRaw || undefined, maxDriveHours }
       : {}),
     ...(visitedCountries.length > 0 ? { visitedCountries } : {}),
+    ...(Object.keys(visitedRatings).length > 0 ? { visitedRatings } : {}),
   };
 }
 

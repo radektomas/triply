@@ -4,6 +4,7 @@ import { FormattedPrice } from "@/components/shared/FormattedPrice";
 import { AIRPORTS } from "@/lib/data/airports";
 import { getGradient } from "@/lib/utils/gradient";
 import { flagEmoji } from "@/lib/data/countryCodes";
+import { RATING_LABELS } from "@/lib/traveler";
 import {
   PARTY_PRESETS,
   formatWindow,
@@ -172,9 +173,16 @@ export function TravelerProfile({ profile }: { profile: TravelerProfileData }) {
                       </div>
                     )}
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
-                    <div className="absolute inset-x-0 bottom-0 p-2 text-white flex items-end gap-1.5">
-                      {flag && <span className="text-sm leading-none">{flag}</span>}
-                      <p className="font-display font-bold text-xs leading-tight truncate">{p.name}</p>
+                    <div className="absolute inset-x-0 bottom-0 p-2 text-white">
+                      <div className="flex items-end gap-1.5">
+                        {flag && <span className="text-sm leading-none">{flag}</span>}
+                        <p className="font-display font-bold text-xs leading-tight truncate">{p.name}</p>
+                      </div>
+                      {p.rating && (
+                        <p className="mt-0.5 text-[10px] font-semibold text-white/80 truncate">
+                          {RATING_LABELS[p.rating]}
+                        </p>
+                      )}
                     </div>
                   </li>
                 );

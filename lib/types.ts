@@ -150,4 +150,11 @@ export interface TripInput {
    * additive: the planner form never sends it.
    */
   visitedCountries?: string[];
+  /**
+   * How much they liked those countries, 1 (meh) – 5 (take me back), keyed by
+   * country name. Only countries the traveler rated appear. Taste context
+   * for the generator; a low rating is not a ban and a high one is not a
+   * "send me back" — people revisit places.
+   */
+  visitedRatings?: Record<string, number>;
 }

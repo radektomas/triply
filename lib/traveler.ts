@@ -58,6 +58,20 @@ export const WINDOW_HORIZON_MONTHS = 18;
 
 export const VISITED_PHOTOS_BUCKET = "visited-photos";
 
+/** 1–5 "how was it?" scale asked right after a country is stamped. Stored on
+ *  visited_places.rating; replayed to the generator as taste context. */
+export type PlaceRating = 1 | 2 | 3 | 4 | 5;
+export const RATING_LABELS: Record<PlaceRating, string> = {
+  1: "Meh",
+  2: "Fine",
+  3: "Liked it",
+  4: "Loved it",
+  5: "Take me back",
+};
+export function isPlaceRating(v: unknown): v is PlaceRating {
+  return v === 1 || v === 2 || v === 3 || v === 4 || v === 5;
+}
+
 export interface TravelerPrefs {
   vibes: TravelerVibe[];
   /** Per-person, whole trip, EUR. */
@@ -87,6 +101,8 @@ export interface VisitedPlace {
   /** Stock photo from the shared Pexels city-photo cache (lib/photos.ts).
    *  Shown when the user hasn't added their own. */
   stockPhotoUrl: string | null;
+  /** 1–5 (see RATING_LABELS); null when the traveler skipped the question. */
+  rating: PlaceRating | null;
 }
 
 export interface TravelWindow {
@@ -150,9 +166,17 @@ export function buildFirstPicksInput(
   now: Date = new Date(),
 ): TripInput {
   const { prefs, windows } = profile;
-  const visitedCountries = Array.from(
-    new Set((profile.places ?? []).map((p) => (p.kind === "country" ? p.name : p.country)).filter(Boolean)),
-  );
+  const places = profile.places ?? [];
+  const countryOf = (p: VisitedPlace) => (p.kind === "country" ? p.name : p.country);
+  const visitedCountries = Array.from(new Set(places.map(countryOf).filter(Boolean)));
+  // Ratings by country name — taste context, not exclusion. A country with
+  // several rows (city pins later) keeps the highest rating given.
+  const visitedRatings: Record<string, PlaceRating> = {};
+  for (const p of places) {
+    const c = countryOf(p);
+    if (!c || !p.rating) continue;
+    if (!visitedRatings[c] || p.rating > visitedRatings[c]) visitedRatings[c] = p.rating;
+  }
   const today = toIsoDate(now);
 
   const upcoming = [...windows]
@@ -191,6 +215,7 @@ export function buildFirstPicksInput(
     destinationMode: "surprise",
     transportMode: "plane",
     ...(visitedCountries.length > 0 ? { visitedCountries } : {}),
+    ...(Object.keys(visitedRatings).length > 0 ? { visitedRatings } : {}),
   };
 }
 

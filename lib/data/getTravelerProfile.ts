@@ -4,6 +4,7 @@ import { getCityPhoto } from "@/lib/photos";
 import {
   EMPTY_PREFS,
   VISITED_PHOTOS_BUCKET,
+  isPlaceRating,
   isTravelerVibe,
   type TravelerProfile,
   type TravelerPrefs,
@@ -35,6 +36,7 @@ interface PlaceRow {
   lat: number | null;
   lng: number | null;
   photo_path: string | null;
+  rating?: number | null;
 }
 
 interface WindowRow {
@@ -68,7 +70,7 @@ export async function getTravelerProfile(
       .maybeSingle(),
     supabase
       .from("visited_places")
-      .select("id, kind, name, country, country_code, lat, lng, photo_path")
+      .select("id, kind, name, country, country_code, lat, lng, photo_path, rating")
       .eq("user_id", user.id)
       .order("created_at", { ascending: true }),
     supabase
@@ -81,8 +83,24 @@ export async function getTravelerProfile(
   if (profileRes.error) {
     console.warn("[getTravelerProfile] profiles read failed:", profileRes.error.message);
   }
+  let placesData = placesRes.data;
   if (placesRes.error) {
-    console.warn("[getTravelerProfile] visited_places read failed:", placesRes.error.message);
+    if (/rating/.test(placesRes.error.message)) {
+      // 20260912120000_visited_place_rating.sql not applied yet: keep the
+      // passport working without the column rather than blanking it.
+      console.warn("[getTravelerProfile] visited_places.rating missing — apply supabase/migrations/20260912120000_visited_place_rating.sql");
+      const retry = await supabase
+        .from("visited_places")
+        .select("id, kind, name, country, country_code, lat, lng, photo_path")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+      placesData = retry.data as typeof placesRes.data;
+      if (retry.error) {
+        console.warn("[getTravelerProfile] visited_places read failed:", retry.error.message);
+      }
+    } else {
+      console.warn("[getTravelerProfile] visited_places read failed:", placesRes.error.message);
+    }
   }
   if (windowsRes.error) {
     console.warn("[getTravelerProfile] travel_windows read failed:", windowsRes.error.message);
@@ -99,7 +117,7 @@ export async function getTravelerProfile(
       }
     : { ...EMPTY_PREFS };
 
-  const placeRows = (placesRes.data ?? []) as PlaceRow[];
+  const placeRows = (placesData ?? []) as PlaceRow[];
   const photoPaths = placeRows
     .map((p) => p.photo_path)
     .filter((p): p is string => typeof p === "string" && p.length > 0);
@@ -143,6 +161,7 @@ export async function getTravelerProfile(
         photoPath: p.photo_path,
         photoUrl,
         stockPhotoUrl,
+        rating: isPlaceRating(p.rating) ? p.rating : null,
       };
     }),
   );

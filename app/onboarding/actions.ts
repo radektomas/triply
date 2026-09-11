@@ -13,7 +13,9 @@ import {
   MAX_WINDOW_NIGHTS,
   VISITED_PHOTOS_BUCKET,
   WINDOW_HORIZON_MONTHS,
+  isPlaceRating,
   isTravelerVibe,
+  type PlaceRating,
   type VisitedPlaceKind,
   type TravelerPrefs,
   type TravelerVibe,
@@ -229,8 +231,39 @@ export async function addVisitedPlace(
       photoPath: null,
       photoUrl: null,
       stockPhotoUrl: await stockPhoto,
+      rating: null,
     },
   };
+}
+
+/** 1–5 "how was it?" for a stamp; null clears it. */
+export async function setVisitedPlaceRating(
+  placeId: string,
+  rating: PlaceRating | null,
+): Promise<ActionResult> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: NOT_SIGNED_IN };
+  if (isMockId(placeId)) return { ok: true, data: undefined };
+  if (!/^[0-9a-f-]{36}$/i.test(placeId)) return { ok: false, error: "Bad place id." };
+  if (rating !== null && !isPlaceRating(rating)) return { ok: false, error: "Bad rating." };
+
+  const { error } = await supabase
+    .from("visited_places")
+    .update({ rating })
+    .eq("id", placeId)
+    .eq("user_id", user.id);
+  if (error && schemaMissing(error)) {
+    console.warn(
+      "[onboarding/setVisitedPlaceRating] column missing — apply supabase/migrations/20260912120000_visited_place_rating.sql:",
+      error.message,
+    );
+    return { ok: true, data: undefined };
+  }
+  if (error) {
+    console.error("[onboarding/setVisitedPlaceRating] failed:", error.message);
+    return { ok: false, error: "Couldn't save that rating." };
+  }
+  return { ok: true, data: undefined };
 }
 
 /**

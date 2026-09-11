@@ -25,6 +25,7 @@ import {
   buildFirstPicksInput,
   type TravelerPrefs,
   type TravelerProfile,
+  type PlaceRating,
   type TravelerVibe,
   type TravelWindow,
   type VisitedPlace,
@@ -37,6 +38,7 @@ import {
   removeVisitedPlace,
   saveTravelerPrefs,
   setVisitedPlacePhoto,
+  setVisitedPlaceRating,
 } from "@/app/onboarding/actions";
 import { StepVibes } from "./StepVibes";
 import { StepPlaces } from "./StepPlaces";
@@ -196,6 +198,7 @@ export function OnboardingFlow({ firstName, initial }: Props) {
       photoPath: null,
       photoUrl: null,
       stockPhotoUrl: null,
+      rating: null,
     };
     setPlaces((prev) => [...prev, optimistic]);
     void (async () => {
@@ -209,10 +212,38 @@ export function OnboardingFlow({ firstName, initial }: Props) {
       });
       if (!r.ok) {
         setPlaces((prev) => prev.filter((p) => p.id !== tmpId));
+        pendingRatings.current.delete(tmpId);
         notify(r.error);
         return;
       }
-      setPlaces((prev) => prev.map((p) => (p.id === tmpId ? r.data : p)));
+      // A rating tapped while the insert was in flight is kept locally and
+      // written now that the row has a real id.
+      const early = pendingRatings.current.get(tmpId);
+      pendingRatings.current.delete(tmpId);
+      setPlaces((prev) =>
+        prev.map((p) => (p.id === tmpId ? { ...r.data, rating: early ?? p.rating } : p)),
+      );
+      if (early) void setVisitedPlaceRating(r.data.id, early);
+    })();
+  }
+
+  // Ratings given before addVisitedPlace resolved, keyed by the tmp id.
+  const pendingRatings = useRef<Map<string, PlaceRating>>(new Map());
+
+  function ratePlace(id: string, rating: PlaceRating | null) {
+    const before = places.find((p) => p.id === id)?.rating ?? null;
+    setPlaces((prev) => prev.map((p) => (p.id === id ? { ...p, rating } : p)));
+    if (id.startsWith("tmp-")) {
+      if (rating) pendingRatings.current.set(id, rating);
+      else pendingRatings.current.delete(id);
+      return;
+    }
+    void (async () => {
+      const r = await setVisitedPlaceRating(id, rating);
+      if (!r.ok) {
+        setPlaces((prev) => prev.map((p) => (p.id === id ? { ...p, rating: before } : p)));
+        notify(r.error);
+      }
     })();
   }
 
@@ -483,6 +514,7 @@ export function OnboardingFlow({ firstName, initial }: Props) {
                   onAdd={addPlace}
                   onRemove={removePlace}
                   onPhoto={uploadPhoto}
+                  onRate={ratePlace}
                 />
               )}
               {step === 2 && (

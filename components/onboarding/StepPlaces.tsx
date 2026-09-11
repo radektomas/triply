@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { getGradient } from "@/lib/utils/gradient";
 import { flagEmoji } from "@/lib/data/countryCodes";
-import { MAX_VISITED_PLACES, type VisitedPlace } from "@/lib/traveler";
+import { MAX_VISITED_PLACES, RATING_LABELS, type PlaceRating, type VisitedPlace } from "@/lib/traveler";
 import type { GlobeCountry } from "./CountryGlobe";
 import { StepShell, Pill } from "./StepShell";
+import { RateCountryModal } from "./RateCountryModal";
 
 // d3-geo + topojson + the 110m atlas only load when this step mounts.
 const CountryGlobe = dynamic(
@@ -27,6 +28,7 @@ interface Props {
   onAdd: (country: GlobeCountry) => void;
   onRemove: (id: string) => void;
   onPhoto: (id: string, file: File) => void;
+  onRate: (id: string, rating: PlaceRating | null) => void;
 }
 
 function CameraIcon({ size = 14 }: { size?: number }) {
@@ -59,12 +61,18 @@ function normalize(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
-export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Props) {
+export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto, onRate }: Props) {
   const reduceMotion = useReducedMotion();
   const [countries, setCountries] = useState<GlobeCountry[]>([]);
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  // Country (alpha-2) whose "how was it?" sheet is open. Looked up from
+  // `places` on every render so the sheet picks up the real id and stock
+  // photo as soon as the insert resolves.
+  const [rateCode, setRateCode] = useState<string | null>(null);
+  const ratingPlace = rateCode ? (places.find((p) => p.countryCode === rateCode) ?? null) : null;
+  const closeRating = useCallback(() => setRateCode(null), []);
   const full = places.length >= MAX_VISITED_PLACES;
 
   const selected = useMemo(
@@ -93,6 +101,7 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
       if (p) onRemove(p.id);
     } else if (!full) {
       onAdd(c);
+      setRateCode(c.alpha2);
     }
     // Retrigger the focus animation even for the same country twice.
     setFocus(null);
@@ -243,6 +252,7 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
                     uploading={uploading.has(place.id)}
                     onRemove={() => onRemove(place.id)}
                     onPhoto={(file) => onPhoto(place.id, file)}
+                    onRate={() => setRateCode(place.countryCode)}
                     reduceMotion={!!reduceMotion}
                   />
                 ))}
@@ -251,6 +261,8 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
           )}
         </div>
       </div>
+
+      <RateCountryModal place={ratingPlace} onRate={onRate} onClose={closeRating} />
     </StepShell>
   );
 }
@@ -261,6 +273,7 @@ function PlaceStamp({
   uploading,
   onRemove,
   onPhoto,
+  onRate,
   reduceMotion,
 }: {
   place: VisitedPlace;
@@ -268,6 +281,7 @@ function PlaceStamp({
   uploading: boolean;
   onRemove: () => void;
   onPhoto: (file: File) => void;
+  onRate: () => void;
   reduceMotion: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -310,9 +324,37 @@ function PlaceStamp({
 
       <div className="absolute inset-x-0 bottom-0 p-4 text-white flex items-end gap-2.5">
         {flag && <span className="text-2xl leading-none drop-shadow">{flag}</span>}
-        <p className="font-display font-bold text-xl leading-tight drop-shadow-sm truncate">
-          {place.name}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="font-display font-bold text-xl leading-tight drop-shadow-sm truncate">
+            {place.name}
+          </p>
+          <button
+            type="button"
+            onClick={onRate}
+            aria-label={place.rating ? `Change rating for ${place.name}: ${RATING_LABELS[place.rating]}` : `Rate ${place.name}`}
+            className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap backdrop-blur-sm transition-colors cursor-pointer ${
+              place.rating
+                ? "bg-white/90 text-[#1a1a1a] hover:bg-white"
+                : "bg-white/20 text-white hover:bg-white/35 ring-1 ring-white/40"
+            }`}
+          >
+            {place.rating ? (
+              <>
+                <span className="flex gap-0.5" aria-hidden>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <span
+                      key={n}
+                      className={`w-1.5 h-1.5 rounded-full ${n <= place.rating! ? "bg-accent" : "bg-[#1a1a1a]/15"}`}
+                    />
+                  ))}
+                </span>
+                {RATING_LABELS[place.rating]}
+              </>
+            ) : (
+              "How was it?"
+            )}
+          </button>
+        </div>
       </div>
 
       <button
