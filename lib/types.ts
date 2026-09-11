@@ -145,8 +145,9 @@ export interface TripInput {
   maxDriveHours?: number;
   /**
    * Countries the traveler has already visited (names), from the profile
-   * passport. Forwarded to n8n so the planner can steer away from them.
-   * Optional and additive: the planner form never sends it.
+   * passport. Forwarded to n8n as TASTE CONTEXT — what they've liked so far —
+   * not as an exclusion list; plenty of people want to go back. Optional and
+   * additive: the planner form never sends it.
    */
-  avoidCountries?: string[];
+  visitedCountries?: string[];
 }

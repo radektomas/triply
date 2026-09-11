@@ -23,9 +23,8 @@ export function PickedForYou({ picks, highlight, input, remaining, firstName }: 
             {picks.length ? `Places that fit you, ${firstName}.` : `Let's find your first places, ${firstName}.`}
           </h2>
           <p className="text-sm text-muted mt-1 max-w-xl">
-            Built from your vibes, budget, home airport and free windows, skipping the countries
-            you&apos;ve already done. Tap the bell on any of them to get emailed when a good price
-            shows up.
+            Picked from your vibes, budget, home airport and free windows. Tap the bell on any
+            of them and we&apos;ll email you when a good price shows up.
           </p>
         </div>
         {picks.length > 0 && <GeneratePicks input={input} remaining={remaining} />}

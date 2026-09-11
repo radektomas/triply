@@ -141,7 +141,7 @@ export function TravelerProfile({ profile }: { profile: TravelerProfileData }) {
             <div className="rounded-2xl border-2 border-dashed border-border px-5 py-8 text-center">
               <p className="font-display text-lg font-bold text-[#1A1A1A]/70">No stamps yet.</p>
               <p className="text-sm text-muted mt-1">
-                Add the countries you&apos;ve been to and Triply won&apos;t send you back there.
+                Add the countries you&apos;ve been to so Triply gets a feel for your taste.
               </p>
             </div>
           ) : (

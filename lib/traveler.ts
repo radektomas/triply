@@ -150,7 +150,7 @@ export function buildFirstPicksInput(
   now: Date = new Date(),
 ): TripInput {
   const { prefs, windows } = profile;
-  const avoidCountries = Array.from(
+  const visitedCountries = Array.from(
     new Set((profile.places ?? []).map((p) => (p.kind === "country" ? p.name : p.country)).filter(Boolean)),
   );
   const today = toIsoDate(now);
@@ -190,7 +190,7 @@ export function buildFirstPicksInput(
     originCity: prefs.homeCity ?? "Prague",
     destinationMode: "surprise",
     transportMode: "plane",
-    ...(avoidCountries.length > 0 ? { avoidCountries } : {}),
+    ...(visitedCountries.length > 0 ? { visitedCountries } : {}),
   };
 }
 

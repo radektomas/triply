@@ -113,7 +113,7 @@ export function StepPlaces({ places, uploading, onAdd, onRemove, onPhoto }: Prop
           Which countries have you <span className="text-teal">already been to?</span>
         </>
       }
-      sub="Spin the globe and tap them. Triply learns your taste from where you've been and won't send you back. Add your own photo to any stamp if you like — they stay private."
+      sub="Spin the globe and tap them. It helps Triply get to know your taste. Photos are optional and stay private."
     >
       {/* Search first — it has to be obvious that typing is an option for
           anyone who can't find their country on the sphere. */}

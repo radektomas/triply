@@ -130,10 +130,11 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
     : 6;
 
   // Visited countries from the traveler profile (dashboard / onboarding
-  // generations). Bounded and sanitized like the other free-text fields;
-  // omitted entirely when empty so planner-form payloads are unchanged.
-  const avoidCountries = Array.isArray(raw.avoidCountries)
-    ? raw.avoidCountries
+  // generations) — taste context for the planner, not an exclusion list.
+  // Bounded and sanitized like the other free-text fields; omitted entirely
+  // when empty so planner-form payloads are unchanged.
+  const visitedCountries = Array.isArray(raw.visitedCountries)
+    ? raw.visitedCountries
         .slice(0, 60)
         .map((c) =>
           String(c ?? "")
@@ -157,7 +158,7 @@ function normalizeInput(raw: Record<string, unknown>): TripInput {
     ...(transportMode === "car"
       ? { departureCity: departureCityRaw || undefined, maxDriveHours }
       : {}),
-    ...(avoidCountries.length > 0 ? { avoidCountries } : {}),
+    ...(visitedCountries.length > 0 ? { visitedCountries } : {}),
   };
 }
 
