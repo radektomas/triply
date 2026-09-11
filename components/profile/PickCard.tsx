@@ -47,7 +47,7 @@ export function PickCard({ pick, index, highlight }: { pick: Pick; index: number
   const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
-  const href = tripId ? `/trip/${tripId}?d=${d.id}` : null;
+  const href = tripId ? `/trip/${tripId}?d=${d.id}&from=dashboard` : null;
   const saved = savedId !== null;
 
   function toggleSave() {

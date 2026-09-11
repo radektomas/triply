@@ -13,7 +13,7 @@ import {
 } from "@/components/trip/TripSkeletons";
 
 type Params = Promise<{ id: string }>;
-type SearchParams = Promise<{ d?: string }>;
+type SearchParams = Promise<{ d?: string; from?: string }>;
 
 export async function generateMetadata({
   params,
@@ -88,9 +88,13 @@ async function SelectorContent({ tripId }: { tripId: string }) {
 async function DetailContent({
   tripId,
   destId,
+  fromDashboard,
 }: {
   tripId: string;
   destId: string;
+  /** Opened from /profile (?from=dashboard) — Back returns there, not to
+   *  the 3-card selector the traveler never saw. */
+  fromDashboard: boolean;
 }) {
   const trip = await getTripById(tripId);
   if (!trip) notFound();
@@ -109,14 +113,19 @@ async function DetailContent({
   // selector, so we key purely off the array length.
   const isSingleDestinationTrip =
     (trip.result?.destinations?.length ?? 0) <= 1;
+  const [returnUrl, returnLabel] = fromDashboard
+    ? ["/profile", "Back to your dashboard"]
+    : isSingleDestinationTrip
+      ? ["/", "Back to Triply"]
+      : [`/trip/${tripId}`, undefined];
   return (
     <TripDetailView
       detail={detail}
       tips={dest.tips ?? []}
       confidence={dest.confidence}
       disclaimer={dest.disclaimer}
-      returnUrl={isSingleDestinationTrip ? "/" : `/trip/${tripId}`}
-      returnLabel={isSingleDestinationTrip ? "Back to Triply" : undefined}
+      returnUrl={returnUrl}
+      returnLabel={returnLabel}
       destination={dest}
       tripId={tripId}
       tripInput={trip.input}
@@ -132,13 +141,13 @@ export default async function TripPage({
   searchParams: SearchParams;
 }) {
   const { id: tripId } = await params;
-  const { d: destId } = await searchParams;
+  const { d: destId, from } = await searchParams;
 
   // ?d= is known before any data fetch, so each branch streams behind a
   // fallback of the CORRECT shape.
   return destId ? (
     <Suspense fallback={<DetailSkeleton />}>
-      <DetailContent tripId={tripId} destId={destId} />
+      <DetailContent tripId={tripId} destId={destId} fromDashboard={from === "dashboard"} />
     </Suspense>
   ) : (
     <Suspense fallback={<SelectorSkeleton />}>

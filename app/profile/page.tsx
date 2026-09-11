@@ -148,7 +148,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
           id: row.id,
           destination: d,
           photoUrl: (await getCityPhoto(d.name, d.country)) || null,
-          href: tripId ? `/trip/${tripId}?d=${d.id}` : null,
+          href: tripId ? `/trip/${tripId}?d=${d.id}&from=dashboard` : null,
           dealAlerts: row.deal_alerts ?? true,
           createdAt: row.created_at,
         };

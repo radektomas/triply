@@ -100,7 +100,7 @@ export function GenerationHistory({ rows }: { rows: HistoryRow[] }) {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {destinations.slice(0, 3).map((d) => {
-                  const dHref = tripId ? `/trip/${tripId}?d=${d.id}` : null;
+                  const dHref = tripId ? `/trip/${tripId}?d=${d.id}&from=dashboard` : null;
                   const card = (
                     <div className="rounded-xl bg-[#F8F7F5] border border-border px-3 py-3 h-full hover:bg-white hover:border-accent/30 transition">
                       <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
