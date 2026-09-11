@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { VibeTag } from "@/components/ui/VibeTag";
 import { FormattedPrice } from "@/components/shared/FormattedPrice";
@@ -44,11 +44,15 @@ export function PickCard({ pick, index, highlight }: { pick: Pick; index: number
   const reduceMotion = useReducedMotion();
   const { destination: d, tripId, photoUrl } = pick;
   const [watchId, setWatchId] = useState<string | null>(pick.watchId);
-  // Re-sync when the server re-renders (e.g. the watch was removed from the
-  // watchlist below) so the bell never disagrees with the list.
-  useEffect(() => {
+  // Re-sync when the server re-renders with a different value (e.g. the
+  // watch was removed from the watchlist below) so the bell never disagrees
+  // with the list. Done during render, per React's "adjusting state when a
+  // prop changes" pattern, not in an effect.
+  const [seenWatchId, setSeenWatchId] = useState(pick.watchId);
+  if (pick.watchId !== seenWatchId) {
+    setSeenWatchId(pick.watchId);
     setWatchId(pick.watchId);
-  }, [pick.watchId]);
+  }
   const [error, setError] = useState<string | null>(null);
   const [busy, startTransition] = useTransition();
   const href = tripId ? `/trip/${tripId}?d=${d.id}` : null;
