@@ -23,7 +23,15 @@ export function SaveButton({ destination, context, variant = "card" }: Props) {
   const { user, openAuthModal } = useAuth();
   const [saved, setSaved] = useState(false);
   const [rowId, setRowId] = useState<string | null>(null);
+  // Brief confirmation that a save is also a watch (deal alerts). Cleared on
+  // unmount so a late timer never touches a gone component.
+  const [justSaved, setJustSaved] = useState(false);
   const [busy, startTransition] = useTransition();
+  useEffect(() => {
+    if (!justSaved) return;
+    const t = setTimeout(() => setJustSaved(false), 3200);
+    return () => clearTimeout(t);
+  }, [justSaved]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +80,7 @@ export function SaveButton({ destination, context, variant = "card" }: Props) {
         if (!error) {
           setSaved(false);
           setRowId(null);
+          setJustSaved(false);
         }
       } else {
         // Insert goes through a Server Action so the confirmation email is
@@ -82,6 +91,7 @@ export function SaveButton({ destination, context, variant = "card" }: Props) {
         if (result.ok) {
           setSaved(true);
           setRowId(result.rowId);
+          setJustSaved(true);
         }
       }
     });
@@ -106,12 +116,21 @@ export function SaveButton({ destination, context, variant = "card" }: Props) {
         >
           <HeartIcon filled={saved} size={18} color="currentColor" />
         </span>
-        <span>{saved ? "Saved" : "Save"}</span>
+        <span>{justSaved ? "On your watchlist" : saved ? "Saved" : "Save"}</span>
       </button>
     );
   }
 
   return (
+    <>
+      {justSaved && (
+        <span
+          role="status"
+          className="absolute top-14 left-3 z-10 rounded-full bg-[#1a1a1a]/85 text-white text-[11px] font-semibold px-3 py-1.5 shadow pointer-events-none"
+        >
+          Added to your watchlist
+        </span>
+      )}
     <button
       type="button"
       onClick={toggle}
@@ -124,5 +143,6 @@ export function SaveButton({ destination, context, variant = "card" }: Props) {
     >
       <HeartIcon filled={saved} size={18} />
     </button>
+    </>
   );
 }

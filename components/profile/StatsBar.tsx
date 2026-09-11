@@ -14,7 +14,7 @@ export function StatsBar({
 }) {
   const stats: Stat[] = [
     { label: "trips generated", value: tripsGenerated },
-    { label: "destinations saved", value: destinationsSaved },
+    { label: "on watchlist", value: destinationsSaved },
     { label: "countries explored", value: countriesExplored },
   ];
   return (

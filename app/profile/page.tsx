@@ -7,7 +7,6 @@ import { computeReconciledTotal, computeBudgetFit } from "@/lib/budget";
 import { computeNights } from "@/lib/dates";
 import { checkGenerationLimit } from "@/lib/generationLimits";
 import { StatsBar } from "@/components/profile/StatsBar";
-import { SavedDestinations } from "@/components/profile/SavedDestinations";
 import { GenerationHistory } from "@/components/profile/GenerationHistory";
 import { DeleteAccount } from "@/components/profile/DeleteAccount";
 import { OnboardingNudge, TravelerProfile } from "@/components/profile/TravelerProfile";
@@ -17,26 +16,18 @@ import type { Pick } from "@/components/profile/PickCard";
 import { getTravelerProfile } from "@/lib/data/getTravelerProfile";
 import { buildFirstPicksInput } from "@/lib/traveler";
 import { GradientMesh } from "@/components/landing/GradientMesh";
-import type { APIDestination, TripInput } from "@/lib/types";
+import type { APIDestination, SavedTripContext, TripInput } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Your dashboard",
-  description: "Places picked for you, price alerts, and everything you've saved on Triply.",
+  description: "Places picked for you, your watchlist with price alerts, and your trip history on Triply.",
 };
 
 interface SavedRow {
   id: string;
   user_id: string;
-  destination: APIDestination & {
-    __context?: {
-      tripId?: string;
-      checkIn: string;
-      checkOut: string;
-      budget: number;
-      vibe: string;
-      originCity: string;
-    };
-  };
+  destination: APIDestination & { __context?: SavedTripContext };
+  deal_alerts: boolean | null;
   created_at: string;
 }
 
@@ -52,18 +43,8 @@ interface HistoryRow {
   };
 }
 
-interface WatchDbRow {
-  id: string;
-  name: string;
-  country: string;
-  country_code: string;
-  trip_id: string | null;
-  destination_id: string | null;
-  created_at: string;
-}
-
-/** How many picks the dashboard shows (newest generations first, deduped). */
-const MAX_PICKS = 6;
+/** The dashboard shows only the latest generation: three fresh picks. */
+const MAX_PICKS = 3;
 
 type SearchParams = Promise<{ picks?: string }>;
 
@@ -80,10 +61,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
     redirect("/?signin=1&next=%2Fprofile");
   }
 
-  const [savedRes, historyRes, profileRes, watchesRes, traveler, limit] = await Promise.all([
+  const [savedRes, historyRes, profileRes, traveler, limit] = await Promise.all([
     supabase
       .from("saved_destinations")
-      .select("id, user_id, destination, created_at")
+      .select("id, user_id, destination, deal_alerts, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
     supabase
@@ -97,33 +78,15 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
       .select("display_name, avatar_url")
       .eq("id", user.id)
       .maybeSingle(),
-    supabase
-      .from("deal_watches")
-      .select("id, name, country, country_code, trip_id, destination_id, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
     getTravelerProfile(supabase),
     checkGenerationLimit(supabase),
   ]);
 
+  if (savedRes.error) {
+    console.warn("[profile] saved_destinations read failed:", savedRes.error.message);
+  }
   const savedRows = (savedRes.data ?? []) as SavedRow[];
   const historyRows = (historyRes.data ?? []) as HistoryRow[];
-  if (watchesRes.error) {
-    console.warn("[profile] deal_watches read failed:", watchesRes.error.message);
-  }
-  const watchRows = ((watchesRes.data ?? []) as WatchDbRow[]).map<WatchRow>((w) => ({
-    id: w.id,
-    name: w.name,
-    country: w.country,
-    countryCode: w.country_code,
-    tripId: w.trip_id,
-    destinationId: w.destination_id,
-    createdAt: w.created_at,
-  }));
-  const watchIdByPlace = new Map<string, string>();
-  for (const w of watchRows) {
-    watchIdByPlace.set(`${w.name.toLowerCase()}|${w.country.toLowerCase()}`, w.id);
-  }
 
   // Backfill index: for older saves that lack __context.tripId, look up the
   // most recent history row that contains a matching destination.id. This
@@ -136,57 +99,58 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
       if (d?.id && !destIdToTripId.has(d.id)) destIdToTripId.set(d.id, tid);
     }
   }
-
-  // ── Picks: newest generations first, one card per place ────────────────
-  // The newest generation is "fresh" (highlighted when the dashboard was
-  // reached from it). Older ones fill up to MAX_PICKS so the shelf never
-  // looks empty after a single run.
-  const freshTripId = highlightTripId ?? historyRows[0]?.trip?.tripId ?? null;
-  const seenPlaces = new Set<string>();
-  const pickSeeds: { d: APIDestination; tripId: string | null; input: TripInput; fresh: boolean }[] = [];
-  for (const h of historyRows) {
-    const tripId = h.trip?.tripId ?? null;
-    for (const d of h.trip?.destinations ?? []) {
-      if (!d?.name) continue;
-      const key = `${d.name.toLowerCase()}|${(d.country ?? "").toLowerCase()}`;
-      if (seenPlaces.has(key)) continue;
-      seenPlaces.add(key);
-      pickSeeds.push({ d, tripId, input: h.trip.input, fresh: tripId !== null && tripId === freshTripId });
-      if (pickSeeds.length >= MAX_PICKS) break;
-    }
-    if (pickSeeds.length >= MAX_PICKS) break;
+  const savedIdByDest = new Map<string, string>();
+  for (const row of savedRows) {
+    if (row.destination?.id) savedIdByDest.set(row.destination.id, row.id);
   }
 
-  const [picks, savedWithPhotos] = await Promise.all([
+  // ── Picks: the latest generation only ───────────────────────────────────
+  // Landing from onboarding / "find me more" passes ?picks=<tripId>; otherwise
+  // the newest history row is the current set.
+  const freshRow =
+    (highlightTripId && historyRows.find((h) => h.trip?.tripId === highlightTripId)) ||
+    historyRows[0] ||
+    null;
+  const pickSeeds = (freshRow?.trip?.destinations ?? []).filter((d) => d?.name).slice(0, MAX_PICKS);
+  const freshInput = freshRow?.trip?.input;
+
+  const [picks, watchRows] = await Promise.all([
     Promise.all(
-      pickSeeds.map(async ({ d, tripId, input, fresh }): Promise<Pick> => {
-        const nights = computeNights(input?.checkIn ?? "", input?.checkOut ?? "");
-        const reconciled = computeReconciledTotal(d.estimates, nights, input?.transportMode ?? "plane");
+      pickSeeds.map(async (d): Promise<Pick> => {
+        const nights = computeNights(freshInput?.checkIn ?? "", freshInput?.checkOut ?? "");
+        const reconciled = computeReconciledTotal(d.estimates, nights, freshInput?.transportMode ?? "plane");
         const totalEur = reconciled?.total ?? null;
         return {
           destination: d,
-          tripId,
+          tripId: freshRow?.trip?.tripId ?? null,
           photoUrl: (await getCityPhoto(d.name, d.country)) || null,
           totalEur,
           nights,
-          budgetFit: computeBudgetFit(totalEur ?? undefined, input?.budget ?? 0),
-          fresh,
-          watchId:
-            watchIdByPlace.get(`${d.name.toLowerCase()}|${(d.country ?? "").toLowerCase()}`) ?? null,
+          budgetFit: computeBudgetFit(totalEur ?? undefined, freshInput?.budget ?? 0),
+          context: {
+            tripId: freshRow?.trip?.tripId,
+            checkIn: freshInput?.checkIn ?? "",
+            checkOut: freshInput?.checkOut ?? "",
+            budget: freshInput?.budget ?? 0,
+            vibe: freshInput?.vibe ?? "",
+            originCity: freshInput?.originCity ?? "",
+          },
+          savedId: savedIdByDest.get(d.id) ?? null,
         };
       }),
     ),
-    // Resolve cached city photos + tripId for the saved cards in parallel.
+    // Watchlist = every saved place, with a cached city photo and a deep link.
     Promise.all(
-      savedRows.map(async (row) => {
-        const ctxTripId = row.destination?.__context?.tripId ?? null;
-        const fallbackTripId = destIdToTripId.get(row.destination.id) ?? null;
+      savedRows.map(async (row): Promise<WatchRow> => {
+        const d = row.destination;
+        const tripId = d?.__context?.tripId ?? destIdToTripId.get(d.id) ?? null;
         return {
           id: row.id,
-          destination: row.destination,
-          created_at: row.created_at,
-          photoUrl: await getCityPhoto(row.destination.name, row.destination.country),
-          resolvedTripId: ctxTripId ?? fallbackTripId,
+          destination: d,
+          photoUrl: (await getCityPhoto(d.name, d.country)) || null,
+          href: tripId ? `/trip/${tripId}?d=${d.id}` : null,
+          dealAlerts: row.deal_alerts ?? true,
+          createdAt: row.created_at,
         };
       }),
     ),
@@ -232,34 +196,32 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
           </h1>
           <p className="text-sm text-muted mt-1">
             {onboarded
-              ? "Places picked for you, the prices you're watching, and everything you've saved."
+              ? "Places picked for you, the ones you're watching, and everything you've planned."
               : "Everything you've saved and dreamed up, all in one place."}
           </p>
         </header>
 
         {onboarded && picksInput ? (
-          <>
-            <PickedForYou
-              picks={picks}
-              highlight={!!highlightTripId}
-              input={picksInput}
-              remaining={limit.remaining}
-              firstName={firstName}
-            />
-            <Watchlist rows={watchRows} email={user.email ?? null} />
-            {traveler && <TravelerProfile profile={traveler} />}
-          </>
+          <PickedForYou
+            picks={picks}
+            highlight={!!highlightTripId}
+            input={picksInput}
+            remaining={limit.remaining}
+            firstName={firstName}
+          />
         ) : (
           <OnboardingNudge firstName={firstName} />
         )}
+
+        <Watchlist rows={watchRows} email={user.email ?? null} />
+
+        {onboarded && traveler && <TravelerProfile profile={traveler} />}
 
         <StatsBar
           tripsGenerated={tripsGenerated}
           destinationsSaved={destinationsSaved}
           countriesExplored={countriesExplored}
         />
-
-        <SavedDestinations rows={savedWithPhotos} />
 
         <GenerationHistory rows={historyRows} />
 

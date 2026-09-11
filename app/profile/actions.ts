@@ -31,7 +31,6 @@ const USER_SCOPED_TABLES = [
   "saved_destinations",
   "visited_places",
   "travel_windows",
-  "deal_watches",
 ] as const;
 
 export type DeleteAccountResult = { error: string };

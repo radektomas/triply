@@ -1,10 +1,15 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { sendSavedDestinationEmail } from "@/lib/email/lifecycle";
 import type { APIDestination, SavedTripContext } from "@/lib/types";
 
-// Server path for saving a destination.
+// Server path for the watchlist (= saved destinations).
+//
+// Saving a place is the same wish as "tell me when it gets cheap", so every
+// save lands on the user's watchlist with deal alerts on; `setDealAlerts`
+// mutes/unmutes per place and `unsaveDestination` removes it.
 //
 // The insert used to happen straight from the browser, and the confirmation
 // email was driven by a Supabase Database Webhook on saved_destinations INSERT
@@ -12,14 +17,11 @@ import type { APIDestination, SavedTripContext } from "@/lib/types";
 // Doing the insert here lets the email be sent in-process, so the webhook and
 // its secret can go.
 //
-// The write still runs through the COOKIE-BOUND client, not the service role:
-// the "Users manage own saved destinations - insert" RLS policy
-// (with check auth.uid() = user_id) stays in force, so this action cannot be
-// used to write a row for anyone but the caller — even though user_id is taken
-// from the session rather than the argument list, which already prevents it.
-//
-// Deleting a save stays on the browser client: it is equally RLS-protected and
-// sends no email, so moving it would add a round trip for nothing.
+// Every write runs through the COOKIE-BOUND client, not the service role: the
+// "Users manage own saved destinations - *" RLS policies stay in force, so
+// none of these can touch a row that isn't the caller's — even though user_id
+// is taken from the session rather than the argument list, which already
+// prevents it.
 
 export type SaveResult =
   | { ok: true; rowId: string }
@@ -61,5 +63,53 @@ export async function saveDestination(input: {
     destinationName: String(input.destination.name ?? "").trim(),
   });
 
+  revalidatePath("/profile");
   return { ok: true, rowId: data.id as string };
+}
+
+export type PlainResult = { ok: true } | { ok: false; error: string };
+
+const UUID = /^[0-9a-f-]{36}$/i;
+
+export async function unsaveDestination(rowId: string): Promise<PlainResult> {
+  const supabase = await getServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You need to be signed in." };
+  if (!UUID.test(rowId)) return { ok: false, error: "Bad id." };
+
+  const { error } = await supabase
+    .from("saved_destinations")
+    .delete()
+    .eq("id", rowId)
+    .eq("user_id", user.id);
+  if (error) {
+    console.error("[actions/saved] delete failed:", error.message);
+    return { ok: false, error: "Couldn't remove that place." };
+  }
+  revalidatePath("/profile");
+  return { ok: true };
+}
+
+/** Mute / unmute deal alerts for one saved place. */
+export async function setDealAlerts(rowId: string, on: boolean): Promise<PlainResult> {
+  const supabase = await getServerSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "You need to be signed in." };
+  if (!UUID.test(rowId)) return { ok: false, error: "Bad id." };
+
+  const { error } = await supabase
+    .from("saved_destinations")
+    .update({ deal_alerts: on })
+    .eq("id", rowId)
+    .eq("user_id", user.id);
+  if (error) {
+    console.error("[actions/saved] alerts update failed:", error.message);
+    return { ok: false, error: "Couldn't change alerts for that place." };
+  }
+  revalidatePath("/profile");
+  return { ok: true };
 }
