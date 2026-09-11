@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { unwatchDestination } from "@/app/profile/watch-actions";
 import { flagEmoji } from "@/lib/data/countryCodes";
@@ -26,15 +26,24 @@ function XIcon({ size = 12 }: { size?: number }) {
 
 export function Watchlist({ rows, email }: { rows: WatchRow[]; email: string | null }) {
   const reduceMotion = useReducedMotion();
-  const [items, setItems] = useState(rows);
+  // `rows` comes fresh from the server every time a watch action calls
+  // revalidatePath, so the list is derived from props and only the ids
+  // removed optimistically (before the refresh lands) live in local state.
+  const [removed, setRemoved] = useState<Set<string>>(() => new Set());
   const [, start] = useTransition();
+  const items = useMemo(() => rows.filter((w) => !removed.has(w.id)), [rows, removed]);
 
   function remove(id: string) {
-    const snapshot = items;
-    setItems((prev) => prev.filter((w) => w.id !== id));
+    setRemoved((prev) => new Set(prev).add(id));
     start(async () => {
       const r = await unwatchDestination(id);
-      if (!r.ok) setItems(snapshot);
+      if (!r.ok) {
+        setRemoved((prev) => {
+          const n = new Set(prev);
+          n.delete(id);
+          return n;
+        });
+      }
     });
   }
 
